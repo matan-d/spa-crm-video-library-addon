@@ -60,6 +60,25 @@ One provider interface, three implementations:
 8. **Cache on `(input_hash, prompt_hash, model_id)`** over canonical JSON with sorted keys, so the demo works with no key and no network, and a real key still calls live.
 9. **Prompt injection is in scope.** A creator bio, a filename, or text visible inside a frame can try to influence a score or a tag. Review every prompt for whether untrusted content is clearly fenced and never treated as instruction.
 
+## Authoring the mock fixtures, which is now your job
+
+The decision is settled: **this build never calls a model at runtime, and there is no capture run.** No API spend, at all. It is a proof of concept that may become production later, so the code path must be production shaped while the responses are simulated.
+
+The user's instruction is that the mock should read as though a real model answered.
+So the fixtures are **authored by a model offline, by you, during the build**, not produced by template code.
+That is close to replay in feel and identical to mock in provenance.
+
+How to author them:
+
+1. **Look at the actual artifact wherever one exists.** For vision tagging, open the generated contact sheet or poster and write tags, a shot type, a room, subjects and a one line description for *that image*. Do not invent content for an image you have not opened. This is the same rule the runtime enforces, applied to yourself.
+2. **Write in the register the model would.** Real Claude output for these schemas is specific, hedged where the evidence is thin, and occasionally notes something the prompt did not ask for. Template output is uniform, confident and bland, and a reviewer can feel the difference immediately.
+3. **Be deliberately imperfect, because the alternative is a product that demonstrates a version of itself that cannot exist.** The caveats review ranks mock drift as a real risk: fixtures written to show the happy path mean the interface never grows the states real ambiguity needs. So author, on purpose, a spread of confidences including the middle band, at least one clip matching two brief items, at least one where the AI match and the human confirmation disagree, at least one low confidence tag a human later rejects, at least one refusal, and at least one malformed response for the error path. If every fixture is clean and correct, you have failed at this task even if every schema validates.
+4. **Never author output for a clip with no stills.** The HEVC case must produce no `ai_run` row at all.
+
+Provenance is unchanged by any of this: `provider='mock'`, `model_id` null, `simulated_model_id` set to the model being imitated, and `provider_detail='authored-fixture-v1'` to distinguish a model authored fixture from code generated synthesis.
+The UI badge still reads simulated, driven by `asset.ai_provenance`.
+The thinking doc says plainly that no model was called at runtime, that the responses were authored offline against the same schemas, and why.
+
 ## Method
 
 1. Read `docs/01-architecture-review.md` sections A.10 (`ai_run`), C2 (demo and mock), F.3 (gap scan), and `docs/02-caveats-review.md` on the AI parts, before reviewing anything.

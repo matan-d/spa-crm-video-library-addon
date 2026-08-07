@@ -79,3 +79,21 @@ Three roles: collab manager, video editor, creator.
 - Model calls go through a Netlify function so the key never ships in the bundle. netlify.toml already exists with the `/api/*` to functions redirect above the SPA catch-all.
 - House stack confirmed from sibling projects: Vue 3 + Vite + Pinia + vue-router + Capacitor + Vitest, Netlify hosting, Node 20.
 - DEMO / MOCK MODE: a layer over the real app. The AI engines will NOT be exercised for this submission, they will be simulated, but the production code path must be exactly as it would ship. So every AI capability sits behind one provider interface with interchangeable implementations (live Claude, replay of captured real responses, deterministic mock), the mock output is validated against the same JSON schema as the live path, and demo only UI (load demo delivery, scenario picker, role switch, reset) is behind a build flag so it is absent from a production build. Media fixtures (videos plus thumbnails) get generated once with ffmpeg-static and committed, so the repo clones and runs with zero setup and the same fixtures drive both the demo and the e2e tests.
+
+## Settled after the reviews (2026-08-07)
+
+- THIS IS A POC, not production, and it may become a real product later. So the code path is production shaped and the responses are simulated.
+- NO API SPEND AT ALL. There is no capture run and no live call at runtime. `mock` is the only mode exercised. `replay` and `live` remain implemented and unexercised, because the seam is the point.
+- The mock fixtures are AUTHORED OFFLINE BY A MODEL during the build (the `ai-contract` agent), looking at the real generated contact sheets, rather than produced by template code, so the output reads as a real model answering. Provenance is unaffected: `provider='mock'`, `model_id` null, `simulated_model_id` set, `provider_detail='authored-fixture-v1'`, and the UI badge still reads simulated.
+- The authored fixtures must be deliberately imperfect: a spread of confidences including the middle band, a clip matching two brief items, an AI versus human disagreement, a rejected low confidence tag, a refusal, and a malformed response. Uniformly clean fixtures would produce a UI that cannot express real ambiguity.
+- Pipeline stage 6 is named `delivered`, replacing the earlier "Footage In".
+- Download is evidence of intent, not evidence of use. The usage signal that feeds the scorecard and the gap scan needs an explicit confirmation, and the two are never treated as the same fact.
+- Pre-flight rules are four valued: pass, fail, unknown, skipped. Absent evidence is `unknown` and never rendered as a pass or a failure.
+- Never disable thinking on `claude-opus-5`. Adaptive thinking stays on, `effort: low` for classification shaped calls, `high` for judgement, nothing uses `xhigh`.
+
+## Settled 2026-08-07, second round
+
+- SEED MEDIA: real free-licensed stock footage and stills (Pexels or equivalent, license permits commercial use with no attribution required), re-encoded small and committed. The library grid looks like an actual footage bank, and the authored AI fixtures are written against real imagery. Synthetic ffmpeg patterns are used ONLY for the 8 engineered pre-flight fixtures, where the content is irrelevant and the container is the point. Binary fetch from the sandbox is confirmed working, so no manual media drop is needed.
+- VISUAL IDENTITY: the palette from the visual maps is the product palette, transcribed in `05-design-system.md`. Colour encodes responsibility: amber means a model produced it, deep green means a human decided it, neutral means a measured fact. Mis-coloured provenance is a defect, not a style choice.
+- LANGUAGE: English only. No i18n layer, no RTL pass.
+- The two large review documents stay in the public repo, and the two page thinking doc links to them rather than trying to compress them.

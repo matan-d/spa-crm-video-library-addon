@@ -1,1 +1,19 @@
 המשימה המעשית · אסטוליה · Willow Glow.pdf
+
+node_modules/
+dist/
+.netlify/
+
+# Downloaded source stills and intermediate renders. The committed artefacts in
+# public/seed and public/fixtures are the deliverables, so the working copies do
+# not belong in history.
+.cache/
+
+# No API key is committed to this repository, ever.
+.env
+.env.*
+!.env.example
+
+*.log
+.DS_Store
+Thumbs.db

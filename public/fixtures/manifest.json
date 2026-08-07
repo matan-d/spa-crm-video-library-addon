@@ -1,0 +1,4502 @@
+{
+  "manifest_version": 1,
+  "generator_version": 1,
+  "generator": "scripts/build-fixtures.mjs",
+  "spec": "scripts/fixtures.config.mjs",
+  "built_at": "2026-08-07T03:25:25.374Z",
+  "ffmpeg": {
+    "binary": "ffmpeg-static",
+    "version": "6.1.1-essentials_build-www.gyan.dev",
+    "ffprobe": "ffprobe-static",
+    "note": "Fixtures are generated locally and committed, never generated in CI: two ffmpeg builds do not produce byte identical output, which would break the reproducibility the hashes exist to guarantee."
+  },
+  "facts_verified": true,
+  "reference_runtime": {
+    "id": "chromium_desktop_windows_without_hevc_extension",
+    "decodes": [
+      "avc1"
+    ],
+    "refuses": [
+      "hvc1",
+      "hev1",
+      "apcn",
+      "apco"
+    ],
+    "note": "Chromium ships no software HEVC decoder, so HEVC is hardware only and absent on a machine with no HEVC Video Extension. No browser decodes ProRes at all. Where a status moves with the runtime the rule carries runtime_dependent: true and platform-matrix owns the matrix."
+  },
+  "context": {
+    "visit_date": "2026-08-04",
+    "branch": {
+      "branch_id": "san-jose",
+      "lat": 37.3382,
+      "lng": -121.8863
+    },
+    "rule_thresholds": {
+      "required_orientation": "vertical",
+      "min_duration_s": 3,
+      "min_short_edge_px": 1080,
+      "min_long_edge_px": 1920,
+      "visit_window_hours": 24,
+      "near_branch_radius_m": 500
+    },
+    "reason_codes": [
+      "below_min_duration",
+      "below_min_resolution",
+      "capture_date_outside_visit_window",
+      "codec_unsupported_in_every_browser",
+      "display_orientation_not_vertical",
+      "gps_outside_branch_radius",
+      "mvhd_creation_time_zero",
+      "no_decoder_in_shell",
+      "no_exif_parser_for_still_images",
+      "no_frames_no_decoder",
+      "no_gps_atom_camera_has_no_receiver",
+      "no_gps_atom_metadata_stripped",
+      "no_gps_atom_not_written_by_encoder",
+      "no_udta_day_atom",
+      "perceptual_hash_matches_earlier_asset",
+      "rule_not_applicable_to_kind"
+    ],
+    "blocking_rules": [
+      "orientation",
+      "min_duration",
+      "min_resolution"
+    ],
+    "preflight_version": 2
+  },
+  "duplicate_assumption": {
+    "comparison_set": "all fixtures with group == \"engineered\", ingested as one delivery in manifest order",
+    "expected_pairs": [
+      {
+        "later": "duplicate_of_vertical_ok",
+        "earlier": "vertical_ok"
+      }
+    ],
+    "note": "Ingested alone, `duplicate_of_vertical_ok` has nothing to match and its status is `pass`. That is not a contradiction, it is the rule being set dependent, and any test asserting it must state the set."
+  },
+  "notes": [
+    "`declared` is what ffmpeg was instructed to produce and is ground truth by construction, then read back with ffprobe. A test asserting `declared` tests ffmpeg.",
+    "`expected_preflight` is what our own client code must independently derive from the bytes. That is the only interesting assertion.",
+    "`expected_phash_prefix` is null on every entry because no perceptual hasher exists yet. A value invented now would be asserted against forever.",
+    "Statuses assume the runtime in `reference_runtime`. Rules whose answer moves with the runtime carry `runtime_dependent: true`, and platform-matrix owns that matrix.",
+    "Every status is one of pass, fail, unknown, skipped. `unknown` never blocks and is never rendered as a pass."
+  ],
+  "fixtures": [
+    {
+      "fixture_id": "vertical_ok",
+      "path": "/fixtures/vertical_ok.mp4",
+      "group": "engineered",
+      "kind": "video",
+      "proves": "The happy path. Every rule passes, so any fixture that fails a rule fails it for exactly one reason.",
+      "added_beyond_c2d": false,
+      "bytes": 205204,
+      "sha256": "1cc4d9586409e8e210b80d590011306b63722f685a26b8f1b4331fd1aa0b3b02",
+      "generator_version": 1,
+      "ffmpeg_args": [
+        "-y",
+        "-f",
+        "lavfi",
+        "-i",
+        "smptebars=size=270x480:rate=24:duration=6",
+        "-f",
+        "lavfi",
+        "-i",
+        "sine=frequency=220:beep_factor=4:sample_rate=48000:duration=6",
+        "-vf",
+        "scale=1080:1920:flags=bilinear,drawbox=x='(w-216)*mod(t/6\\,1)':y=h*0.55:w=216:h=216:color=white@0.92:t=fill,drawtext=fontfile=C\\:/Windows/Fonts/arial.ttf:box=1:boxcolor=black@0.55:boxborderw=15:fontcolor=white:fontsize=77:text='vertical_ok':x=(w-text_w)/2:y=h*0.06,drawtext=fontfile=C\\:/Windows/Fonts/arial.ttf:box=1:boxcolor=black@0.55:boxborderw=15:fontcolor=white:fontsize=36:text='1080x1920 avc1 +mp4a 6s rot0':x=(w-text_w)/2:y=h*0.06+131,drawtext=fontfile=C\\:/Windows/Fonts/arial.ttf:box=1:boxcolor=black@0.55:boxborderw=15:fontcolor=white:fontsize=47:text='%{pts\\:hms}':x=(w-text_w)/2:y=h-text_h-h*0.06,setsar=1,format=yuv420p",
+        "-t",
+        "6",
+        "-c:v",
+        "libx264",
+        "-preset",
+        "slow",
+        "-crf",
+        "30",
+        "-g",
+        "12",
+        "-keyint_min",
+        "12",
+        "-sc_threshold",
+        "0",
+        "-pix_fmt",
+        "yuv420p",
+        "-threads",
+        "1",
+        "-c:a",
+        "aac",
+        "-b:a",
+        "32k",
+        "-ac",
+        "1",
+        "-fflags",
+        "+bitexact",
+        "-flags",
+        "+bitexact",
+        "-map_metadata",
+        "-1",
+        "-metadata",
+        "creation_time=2026-08-04T10:12:00Z",
+        "-metadata",
+        "location=+37.33928-121.88630+017.000/",
+        "-f",
+        "mp4",
+        "-movflags",
+        "+faststart"
+      ],
+      "build_steps": [
+        {
+          "step": "encode",
+          "argv": [
+            "-y",
+            "-f",
+            "lavfi",
+            "-i",
+            "smptebars=size=270x480:rate=24:duration=6",
+            "-f",
+            "lavfi",
+            "-i",
+            "sine=frequency=220:beep_factor=4:sample_rate=48000:duration=6",
+            "-vf",
+            "scale=1080:1920:flags=bilinear,drawbox=x='(w-216)*mod(t/6\\,1)':y=h*0.55:w=216:h=216:color=white@0.92:t=fill,drawtext=fontfile=C\\:/Windows/Fonts/arial.ttf:box=1:boxcolor=black@0.55:boxborderw=15:fontcolor=white:fontsize=77:text='vertical_ok':x=(w-text_w)/2:y=h*0.06,drawtext=fontfile=C\\:/Windows/Fonts/arial.ttf:box=1:boxcolor=black@0.55:boxborderw=15:fontcolor=white:fontsize=36:text='1080x1920 avc1 +mp4a 6s rot0':x=(w-text_w)/2:y=h*0.06+131,drawtext=fontfile=C\\:/Windows/Fonts/arial.ttf:box=1:boxcolor=black@0.55:boxborderw=15:fontcolor=white:fontsize=47:text='%{pts\\:hms}':x=(w-text_w)/2:y=h-text_h-h*0.06,setsar=1,format=yuv420p",
+            "-t",
+            "6",
+            "-c:v",
+            "libx264",
+            "-preset",
+            "slow",
+            "-crf",
+            "30",
+            "-g",
+            "12",
+            "-keyint_min",
+            "12",
+            "-sc_threshold",
+            "0",
+            "-pix_fmt",
+            "yuv420p",
+            "-threads",
+            "1",
+            "-c:a",
+            "aac",
+            "-b:a",
+            "32k",
+            "-ac",
+            "1",
+            "-fflags",
+            "+bitexact",
+            "-flags",
+            "+bitexact",
+            "-map_metadata",
+            "-1",
+            "-metadata",
+            "creation_time=2026-08-04T10:12:00Z",
+            "-metadata",
+            "location=+37.33928-121.88630+017.000/",
+            "-f",
+            "mp4",
+            "-movflags",
+            "+faststart"
+          ]
+        }
+      ],
+      "declared": {
+        "kind": "video",
+        "container": "mp4",
+        "ftyp_brand": "isom",
+        "codec_video": "avc1",
+        "codec_audio": "mp4a",
+        "has_audio": true,
+        "coded_width": 1080,
+        "coded_height": 1920,
+        "sar": "1:1",
+        "tkhd_width": 1080,
+        "tkhd_height": 1920,
+        "rotation_deg": 0,
+        "display_matrix_rotation_ccw_deg": 0,
+        "tkhd_matrix": [
+          65536,
+          0,
+          0,
+          0,
+          65536,
+          0,
+          0,
+          0,
+          1073741824
+        ],
+        "duration_s": 6,
+        "fps": 24,
+        "gop_frames": 12,
+        "captured_at": "2026-08-04T10:12:00Z",
+        "captured_at_atom": "mvhd",
+        "mvhd_creation_time_raw": 3868683120,
+        "udta_day": null,
+        "gps": {
+          "lat": 37.33928,
+          "lng": -121.8863,
+          "alt_m": 17
+        },
+        "gps_atom": "udta_loci_3gpp",
+        "gps_iso6709": "+37.33928-121.88630+017.000/",
+        "moov_position": "start",
+        "mdat_size_field": "32bit",
+        "bytes": 205204,
+        "facts_verified": true
+      },
+      "expected_preflight": {
+        "version": 2,
+        "policy_tier": null,
+        "policy_tier_note": "Every rule verdict here holds at every ingest policy tier. Only expected_frames varies by tier.",
+        "producer": "browser",
+        "reference_runtime": "chromium_desktop_windows_without_hevc_extension",
+        "rules": {
+          "orientation": {
+            "status": "pass",
+            "evidence": "coded_dims+tkhd_matrix",
+            "blocking": false,
+            "value": "vertical",
+            "required": "vertical",
+            "coded": "1080x1920",
+            "display": "1080x1920",
+            "rotation_deg": 0
+          },
+          "min_duration": {
+            "status": "pass",
+            "evidence": "mvhd",
+            "blocking": false,
+            "value": 6,
+            "required": 3
+          },
+          "min_resolution": {
+            "status": "pass",
+            "evidence": "tkhd+stsd",
+            "blocking": false,
+            "value": "1080x1920",
+            "required": "short edge >= 1080, long edge >= 1920"
+          },
+          "capture_date": {
+            "status": "pass",
+            "evidence": "mvhd",
+            "captured_at_source": "mvhd",
+            "blocking": false,
+            "value": "2026-08-04T10:12:00Z",
+            "visit_date": "2026-08-04",
+            "window_hours": 24,
+            "mvhd_creation_time_raw": 3868683120
+          },
+          "near_branch": {
+            "status": "pass",
+            "evidence": "udta_loci",
+            "blocking": false,
+            "value": {
+              "lat": 37.33928,
+              "lng": -121.8863,
+              "alt_m": 17
+            },
+            "distance_m": 120,
+            "radius_m": 500,
+            "gps_atom": "udta_loci_3gpp",
+            "never_blocking": true
+          },
+          "duplicate": {
+            "status": "pass",
+            "evidence": "phash_over_delivery",
+            "blocking": false,
+            "comparison_set": "all fixtures with group == \"engineered\", ingested as one delivery in manifest order"
+          },
+          "codec_playable": {
+            "status": "pass",
+            "evidence": "stsd+isConfigSupported",
+            "blocking": false,
+            "value": "avc1"
+          }
+        },
+        "rollup": {
+          "pass": 7,
+          "fail": 0,
+          "unknown": 0,
+          "skipped": 0,
+          "blocking_fail": 0
+        }
+      },
+      "expected_frames": {
+        "by_tier": {
+          "constrained": {
+            "count": 3,
+            "t_seconds": [
+              1.5,
+              3,
+              4.5
+            ]
+          },
+          "standard": {
+            "count": 3,
+            "t_seconds": [
+              1.5,
+              3,
+              4.5
+            ]
+          },
+          "ample": {
+            "count": 3,
+            "t_seconds": [
+              1.5,
+              3,
+              4.5
+            ]
+          }
+        },
+        "formula": "clamp(round(duration_s / 4), 3, tier_max), tier_max 3 constrained and 5 otherwise (E.4a)",
+        "approximate": true,
+        "reason": "The `<video>` plus canvas path snaps to the preceding keyframe, so t_seconds is a target rather than a guarantee. GOP is half a second, which is what bounds tolerance.frame_t_seconds."
+      },
+      "expected_derivatives": {
+        "contact_sheet": true,
+        "poster": true,
+        "derivative_state": "client_derived",
+        "derivative_producer": "browser",
+        "reason": null,
+        "guarantee": "A real sheet extracted from real frames, or none. Never a fabricated tile presented as a frame."
+      },
+      "expected_phash_prefix": null,
+      "expected_phash_note": "null until the perceptual hasher exists. An invented prefix would be asserted against forever.",
+      "tolerance": {
+        "duration_s": 0.05,
+        "distance_m": 30,
+        "dhash_hamming": 4,
+        "frame_t_seconds": 0.5
+      }
+    },
+    {
+      "fixture_id": "horizontal_fail",
+      "path": "/fixtures/horizontal_fail.mp4",
+      "group": "engineered",
+      "kind": "video",
+      "proves": "`orientation` fails on display dimensions, and only `orientation`. min_resolution still passes because it is evaluated on the short and long edges rather than on width and height, which is the design that keeps one defect from tripping two rules.",
+      "added_beyond_c2d": false,
+      "bytes": 196251,
+      "sha256": "0782eeaa0eb5bcbb01ad0c635b6ccf517893e5e6850afa67752620fa0cfa2f19",
+      "generator_version": 1,
+      "ffmpeg_args": [
+        "-y",
+        "-f",
+        "lavfi",
+        "-i",
+        "smptebars=size=480x270:rate=24:duration=6",
+        "-f",
+        "lavfi",
+        "-i",
+        "sine=frequency=220:beep_factor=4:sample_rate=48000:duration=6",
+        "-vf",
+        "scale=1920:1080:flags=bilinear,drawbox=x='(w-216)*mod(t/6\\,1)':y=h*0.55:w=216:h=216:color=white@0.92:t=fill,drawtext=fontfile=C\\:/Windows/Fonts/arial.ttf:box=1:boxcolor=black@0.55:boxborderw=15:fontcolor=white:fontsize=77:text='horizontal_fail':x=(w-text_w)/2:y=h*0.06,drawtext=fontfile=C\\:/Windows/Fonts/arial.ttf:box=1:boxcolor=black@0.55:boxborderw=15:fontcolor=white:fontsize=36:text='1920x1080 avc1 +mp4a 6s rot0':x=(w-text_w)/2:y=h*0.06+131,drawtext=fontfile=C\\:/Windows/Fonts/arial.ttf:box=1:boxcolor=black@0.55:boxborderw=15:fontcolor=white:fontsize=47:text='%{pts\\:hms}':x=(w-text_w)/2:y=h-text_h-h*0.06,setsar=1,format=yuv420p",
+        "-t",
+        "6",
+        "-c:v",
+        "libx264",
+        "-preset",
+        "slow",
+        "-crf",
+        "30",
+        "-g",
+        "12",
+        "-keyint_min",
+        "12",
+        "-sc_threshold",
+        "0",
+        "-pix_fmt",
+        "yuv420p",
+        "-threads",
+        "1",
+        "-c:a",
+        "aac",
+        "-b:a",
+        "32k",
+        "-ac",
+        "1",
+        "-fflags",
+        "+bitexact",
+        "-flags",
+        "+bitexact",
+        "-map_metadata",
+        "-1",
+        "-metadata",
+        "creation_time=2026-08-04T10:12:00Z",
+        "-metadata",
+        "location=+37.33928-121.88630+017.000/",
+        "-f",
+        "mp4",
+        "-movflags",
+        "+faststart"
+      ],
+      "build_steps": [
+        {
+          "step": "encode",
+          "argv": [
+            "-y",
+            "-f",
+            "lavfi",
+            "-i",
+            "smptebars=size=480x270:rate=24:duration=6",
+            "-f",
+            "lavfi",
+            "-i",
+            "sine=frequency=220:beep_factor=4:sample_rate=48000:duration=6",
+            "-vf",
+            "scale=1920:1080:flags=bilinear,drawbox=x='(w-216)*mod(t/6\\,1)':y=h*0.55:w=216:h=216:color=white@0.92:t=fill,drawtext=fontfile=C\\:/Windows/Fonts/arial.ttf:box=1:boxcolor=black@0.55:boxborderw=15:fontcolor=white:fontsize=77:text='horizontal_fail':x=(w-text_w)/2:y=h*0.06,drawtext=fontfile=C\\:/Windows/Fonts/arial.ttf:box=1:boxcolor=black@0.55:boxborderw=15:fontcolor=white:fontsize=36:text='1920x1080 avc1 +mp4a 6s rot0':x=(w-text_w)/2:y=h*0.06+131,drawtext=fontfile=C\\:/Windows/Fonts/arial.ttf:box=1:boxcolor=black@0.55:boxborderw=15:fontcolor=white:fontsize=47:text='%{pts\\:hms}':x=(w-text_w)/2:y=h-text_h-h*0.06,setsar=1,format=yuv420p",
+            "-t",
+            "6",
+            "-c:v",
+            "libx264",
+            "-preset",
+            "slow",
+            "-crf",
+            "30",
+            "-g",
+            "12",
+            "-keyint_min",
+            "12",
+            "-sc_threshold",
+            "0",
+            "-pix_fmt",
+            "yuv420p",
+            "-threads",
+            "1",
+            "-c:a",
+            "aac",
+            "-b:a",
+            "32k",
+            "-ac",
+            "1",
+            "-fflags",
+            "+bitexact",
+            "-flags",
+            "+bitexact",
+            "-map_metadata",
+            "-1",
+            "-metadata",
+            "creation_time=2026-08-04T10:12:00Z",
+            "-metadata",
+            "location=+37.33928-121.88630+017.000/",
+            "-f",
+            "mp4",
+            "-movflags",
+            "+faststart"
+          ]
+        }
+      ],
+      "declared": {
+        "kind": "video",
+        "container": "mp4",
+        "ftyp_brand": "isom",
+        "codec_video": "avc1",
+        "codec_audio": "mp4a",
+        "has_audio": true,
+        "coded_width": 1920,
+        "coded_height": 1080,
+        "sar": "1:1",
+        "tkhd_width": 1920,
+        "tkhd_height": 1080,
+        "rotation_deg": 0,
+        "display_matrix_rotation_ccw_deg": 0,
+        "tkhd_matrix": [
+          65536,
+          0,
+          0,
+          0,
+          65536,
+          0,
+          0,
+          0,
+          1073741824
+        ],
+        "duration_s": 6,
+        "fps": 24,
+        "gop_frames": 12,
+        "captured_at": "2026-08-04T10:12:00Z",
+        "captured_at_atom": "mvhd",
+        "mvhd_creation_time_raw": 3868683120,
+        "udta_day": null,
+        "gps": {
+          "lat": 37.33928,
+          "lng": -121.8863,
+          "alt_m": 17
+        },
+        "gps_atom": "udta_loci_3gpp",
+        "gps_iso6709": "+37.33928-121.88630+017.000/",
+        "moov_position": "start",
+        "mdat_size_field": "32bit",
+        "bytes": 196251,
+        "facts_verified": true
+      },
+      "expected_preflight": {
+        "version": 2,
+        "policy_tier": null,
+        "policy_tier_note": "Every rule verdict here holds at every ingest policy tier. Only expected_frames varies by tier.",
+        "producer": "browser",
+        "reference_runtime": "chromium_desktop_windows_without_hevc_extension",
+        "rules": {
+          "orientation": {
+            "status": "fail",
+            "evidence": "coded_dims+tkhd_matrix",
+            "reason": "display_orientation_not_vertical",
+            "blocking": true,
+            "value": "horizontal",
+            "required": "vertical",
+            "coded": "1920x1080",
+            "display": "1920x1080",
+            "rotation_deg": 0
+          },
+          "min_duration": {
+            "status": "pass",
+            "evidence": "mvhd",
+            "blocking": false,
+            "value": 6,
+            "required": 3
+          },
+          "min_resolution": {
+            "status": "pass",
+            "evidence": "tkhd+stsd",
+            "blocking": false,
+            "value": "1920x1080",
+            "required": "short edge >= 1080, long edge >= 1920"
+          },
+          "capture_date": {
+            "status": "pass",
+            "evidence": "mvhd",
+            "captured_at_source": "mvhd",
+            "blocking": false,
+            "value": "2026-08-04T10:12:00Z",
+            "visit_date": "2026-08-04",
+            "window_hours": 24,
+            "mvhd_creation_time_raw": 3868683120
+          },
+          "near_branch": {
+            "status": "pass",
+            "evidence": "udta_loci",
+            "blocking": false,
+            "value": {
+              "lat": 37.33928,
+              "lng": -121.8863,
+              "alt_m": 17
+            },
+            "distance_m": 120,
+            "radius_m": 500,
+            "gps_atom": "udta_loci_3gpp",
+            "never_blocking": true
+          },
+          "duplicate": {
+            "status": "pass",
+            "evidence": "phash_over_delivery",
+            "blocking": false,
+            "comparison_set": "all fixtures with group == \"engineered\", ingested as one delivery in manifest order"
+          },
+          "codec_playable": {
+            "status": "pass",
+            "evidence": "stsd+isConfigSupported",
+            "blocking": false,
+            "value": "avc1"
+          }
+        },
+        "rollup": {
+          "pass": 6,
+          "fail": 1,
+          "unknown": 0,
+          "skipped": 0,
+          "blocking_fail": 1
+        }
+      },
+      "expected_frames": {
+        "by_tier": {
+          "constrained": {
+            "count": 3,
+            "t_seconds": [
+              1.5,
+              3,
+              4.5
+            ]
+          },
+          "standard": {
+            "count": 3,
+            "t_seconds": [
+              1.5,
+              3,
+              4.5
+            ]
+          },
+          "ample": {
+            "count": 3,
+            "t_seconds": [
+              1.5,
+              3,
+              4.5
+            ]
+          }
+        },
+        "formula": "clamp(round(duration_s / 4), 3, tier_max), tier_max 3 constrained and 5 otherwise (E.4a)",
+        "approximate": true,
+        "reason": "The `<video>` plus canvas path snaps to the preceding keyframe, so t_seconds is a target rather than a guarantee. GOP is half a second, which is what bounds tolerance.frame_t_seconds."
+      },
+      "expected_derivatives": {
+        "contact_sheet": true,
+        "poster": true,
+        "derivative_state": "client_derived",
+        "derivative_producer": "browser",
+        "reason": null,
+        "guarantee": "A real sheet extracted from real frames, or none. Never a fabricated tile presented as a frame."
+      },
+      "expected_phash_prefix": null,
+      "expected_phash_note": "null until the perceptual hasher exists. An invented prefix would be asserted against forever.",
+      "tolerance": {
+        "duration_s": 0.05,
+        "distance_m": 30,
+        "dhash_hamming": 4,
+        "frame_t_seconds": 0.5
+      }
+    },
+    {
+      "fixture_id": "short_fail",
+      "path": "/fixtures/short_fail.mp4",
+      "group": "engineered",
+      "kind": "video",
+      "proves": "`min_duration` fails at 1.5s against a 3s minimum, and nothing else fails.",
+      "added_beyond_c2d": false,
+      "bytes": 50593,
+      "sha256": "d2cca44b202cefcac5433550b1e5bdeed03f80c9048e4bb0533d1cd7f6ce0659",
+      "generator_version": 1,
+      "ffmpeg_args": [
+        "-y",
+        "-f",
+        "lavfi",
+        "-i",
+        "smptebars=size=270x480:rate=24:duration=1.5",
+        "-f",
+        "lavfi",
+        "-i",
+        "sine=frequency=220:beep_factor=4:sample_rate=48000:duration=1.5",
+        "-vf",
+        "scale=1080:1920:flags=bilinear,drawbox=x='(w-216)*mod(t/1.5\\,1)':y=h*0.55:w=216:h=216:color=white@0.92:t=fill,drawtext=fontfile=C\\:/Windows/Fonts/arial.ttf:box=1:boxcolor=black@0.55:boxborderw=15:fontcolor=white:fontsize=77:text='short_fail':x=(w-text_w)/2:y=h*0.06,drawtext=fontfile=C\\:/Windows/Fonts/arial.ttf:box=1:boxcolor=black@0.55:boxborderw=15:fontcolor=white:fontsize=36:text='1080x1920 avc1 +mp4a 1.5s rot0':x=(w-text_w)/2:y=h*0.06+131,drawtext=fontfile=C\\:/Windows/Fonts/arial.ttf:box=1:boxcolor=black@0.55:boxborderw=15:fontcolor=white:fontsize=47:text='%{pts\\:hms}':x=(w-text_w)/2:y=h-text_h-h*0.06,setsar=1,format=yuv420p",
+        "-t",
+        "1.5",
+        "-c:v",
+        "libx264",
+        "-preset",
+        "slow",
+        "-crf",
+        "30",
+        "-g",
+        "12",
+        "-keyint_min",
+        "12",
+        "-sc_threshold",
+        "0",
+        "-pix_fmt",
+        "yuv420p",
+        "-threads",
+        "1",
+        "-c:a",
+        "aac",
+        "-b:a",
+        "32k",
+        "-ac",
+        "1",
+        "-fflags",
+        "+bitexact",
+        "-flags",
+        "+bitexact",
+        "-map_metadata",
+        "-1",
+        "-metadata",
+        "creation_time=2026-08-04T10:12:00Z",
+        "-metadata",
+        "location=+37.33928-121.88630+017.000/",
+        "-f",
+        "mp4",
+        "-movflags",
+        "+faststart"
+      ],
+      "build_steps": [
+        {
+          "step": "encode",
+          "argv": [
+            "-y",
+            "-f",
+            "lavfi",
+            "-i",
+            "smptebars=size=270x480:rate=24:duration=1.5",
+            "-f",
+            "lavfi",
+            "-i",
+            "sine=frequency=220:beep_factor=4:sample_rate=48000:duration=1.5",
+            "-vf",
+            "scale=1080:1920:flags=bilinear,drawbox=x='(w-216)*mod(t/1.5\\,1)':y=h*0.55:w=216:h=216:color=white@0.92:t=fill,drawtext=fontfile=C\\:/Windows/Fonts/arial.ttf:box=1:boxcolor=black@0.55:boxborderw=15:fontcolor=white:fontsize=77:text='short_fail':x=(w-text_w)/2:y=h*0.06,drawtext=fontfile=C\\:/Windows/Fonts/arial.ttf:box=1:boxcolor=black@0.55:boxborderw=15:fontcolor=white:fontsize=36:text='1080x1920 avc1 +mp4a 1.5s rot0':x=(w-text_w)/2:y=h*0.06+131,drawtext=fontfile=C\\:/Windows/Fonts/arial.ttf:box=1:boxcolor=black@0.55:boxborderw=15:fontcolor=white:fontsize=47:text='%{pts\\:hms}':x=(w-text_w)/2:y=h-text_h-h*0.06,setsar=1,format=yuv420p",
+            "-t",
+            "1.5",
+            "-c:v",
+            "libx264",
+            "-preset",
+            "slow",
+            "-crf",
+            "30",
+            "-g",
+            "12",
+            "-keyint_min",
+            "12",
+            "-sc_threshold",
+            "0",
+            "-pix_fmt",
+            "yuv420p",
+            "-threads",
+            "1",
+            "-c:a",
+            "aac",
+            "-b:a",
+            "32k",
+            "-ac",
+            "1",
+            "-fflags",
+            "+bitexact",
+            "-flags",
+            "+bitexact",
+            "-map_metadata",
+            "-1",
+            "-metadata",
+            "creation_time=2026-08-04T10:12:00Z",
+            "-metadata",
+            "location=+37.33928-121.88630+017.000/",
+            "-f",
+            "mp4",
+            "-movflags",
+            "+faststart"
+          ]
+        }
+      ],
+      "declared": {
+        "kind": "video",
+        "container": "mp4",
+        "ftyp_brand": "isom",
+        "codec_video": "avc1",
+        "codec_audio": "mp4a",
+        "has_audio": true,
+        "coded_width": 1080,
+        "coded_height": 1920,
+        "sar": "1:1",
+        "tkhd_width": 1080,
+        "tkhd_height": 1920,
+        "rotation_deg": 0,
+        "display_matrix_rotation_ccw_deg": 0,
+        "tkhd_matrix": [
+          65536,
+          0,
+          0,
+          0,
+          65536,
+          0,
+          0,
+          0,
+          1073741824
+        ],
+        "duration_s": 1.5,
+        "fps": 24,
+        "gop_frames": 12,
+        "captured_at": "2026-08-04T10:12:00Z",
+        "captured_at_atom": "mvhd",
+        "mvhd_creation_time_raw": 3868683120,
+        "udta_day": null,
+        "gps": {
+          "lat": 37.33928,
+          "lng": -121.8863,
+          "alt_m": 17
+        },
+        "gps_atom": "udta_loci_3gpp",
+        "gps_iso6709": "+37.33928-121.88630+017.000/",
+        "moov_position": "start",
+        "mdat_size_field": "32bit",
+        "bytes": 50593,
+        "facts_verified": true
+      },
+      "expected_preflight": {
+        "version": 2,
+        "policy_tier": null,
+        "policy_tier_note": "Every rule verdict here holds at every ingest policy tier. Only expected_frames varies by tier.",
+        "producer": "browser",
+        "reference_runtime": "chromium_desktop_windows_without_hevc_extension",
+        "rules": {
+          "orientation": {
+            "status": "pass",
+            "evidence": "coded_dims+tkhd_matrix",
+            "blocking": false,
+            "value": "vertical",
+            "required": "vertical",
+            "coded": "1080x1920",
+            "display": "1080x1920",
+            "rotation_deg": 0
+          },
+          "min_duration": {
+            "status": "fail",
+            "evidence": "mvhd",
+            "reason": "below_min_duration",
+            "blocking": true,
+            "value": 1.5,
+            "required": 3
+          },
+          "min_resolution": {
+            "status": "pass",
+            "evidence": "tkhd+stsd",
+            "blocking": false,
+            "value": "1080x1920",
+            "required": "short edge >= 1080, long edge >= 1920"
+          },
+          "capture_date": {
+            "status": "pass",
+            "evidence": "mvhd",
+            "captured_at_source": "mvhd",
+            "blocking": false,
+            "value": "2026-08-04T10:12:00Z",
+            "visit_date": "2026-08-04",
+            "window_hours": 24,
+            "mvhd_creation_time_raw": 3868683120
+          },
+          "near_branch": {
+            "status": "pass",
+            "evidence": "udta_loci",
+            "blocking": false,
+            "value": {
+              "lat": 37.33928,
+              "lng": -121.8863,
+              "alt_m": 17
+            },
+            "distance_m": 120,
+            "radius_m": 500,
+            "gps_atom": "udta_loci_3gpp",
+            "never_blocking": true
+          },
+          "duplicate": {
+            "status": "pass",
+            "evidence": "phash_over_delivery",
+            "blocking": false,
+            "comparison_set": "all fixtures with group == \"engineered\", ingested as one delivery in manifest order"
+          },
+          "codec_playable": {
+            "status": "pass",
+            "evidence": "stsd+isConfigSupported",
+            "blocking": false,
+            "value": "avc1"
+          }
+        },
+        "rollup": {
+          "pass": 6,
+          "fail": 1,
+          "unknown": 0,
+          "skipped": 0,
+          "blocking_fail": 1
+        }
+      },
+      "expected_frames": {
+        "by_tier": {
+          "constrained": {
+            "count": 3,
+            "t_seconds": [
+              0.375,
+              0.75,
+              1.125
+            ]
+          },
+          "standard": {
+            "count": 3,
+            "t_seconds": [
+              0.375,
+              0.75,
+              1.125
+            ]
+          },
+          "ample": {
+            "count": 3,
+            "t_seconds": [
+              0.375,
+              0.75,
+              1.125
+            ]
+          }
+        },
+        "formula": "clamp(round(duration_s / 4), 3, tier_max), tier_max 3 constrained and 5 otherwise (E.4a)",
+        "approximate": true,
+        "reason": "The `<video>` plus canvas path snaps to the preceding keyframe, so t_seconds is a target rather than a guarantee. GOP is half a second, which is what bounds tolerance.frame_t_seconds."
+      },
+      "expected_derivatives": {
+        "contact_sheet": true,
+        "poster": true,
+        "derivative_state": "client_derived",
+        "derivative_producer": "browser",
+        "reason": null,
+        "guarantee": "A real sheet extracted from real frames, or none. Never a fabricated tile presented as a frame."
+      },
+      "expected_phash_prefix": null,
+      "expected_phash_note": "null until the perceptual hasher exists. An invented prefix would be asserted against forever.",
+      "tolerance": {
+        "duration_s": 0.05,
+        "distance_m": 30,
+        "dhash_hamming": 4,
+        "frame_t_seconds": 0.5
+      }
+    },
+    {
+      "fixture_id": "lowres_fail",
+      "path": "/fixtures/lowres_fail.mp4",
+      "group": "engineered",
+      "kind": "video",
+      "proves": "`min_resolution` fails at 480x854 while `orientation` still passes, because the clip is genuinely vertical and merely too small. A fixture that failed both would not distinguish the two rules.",
+      "added_beyond_c2d": false,
+      "bytes": 107249,
+      "sha256": "de7d02103a0ee7f592e456e6496b42d239b015d0e65e6bcb6d65105bb53f1893",
+      "generator_version": 1,
+      "ffmpeg_args": [
+        "-y",
+        "-f",
+        "lavfi",
+        "-i",
+        "smptebars=size=120x214:rate=24:duration=6",
+        "-f",
+        "lavfi",
+        "-i",
+        "sine=frequency=220:beep_factor=4:sample_rate=48000:duration=6",
+        "-vf",
+        "scale=480:854:flags=bilinear,drawbox=x='(w-96)*mod(t/6\\,1)':y=h*0.55:w=96:h=96:color=white@0.92:t=fill,drawtext=fontfile=C\\:/Windows/Fonts/arial.ttf:box=1:boxcolor=black@0.55:boxborderw=7:fontcolor=white:fontsize=34:text='lowres_fail':x=(w-text_w)/2:y=h*0.06,drawtext=fontfile=C\\:/Windows/Fonts/arial.ttf:box=1:boxcolor=black@0.55:boxborderw=7:fontcolor=white:fontsize=16:text='480x854 avc1 +mp4a 6s rot0':x=(w-text_w)/2:y=h*0.06+58,drawtext=fontfile=C\\:/Windows/Fonts/arial.ttf:box=1:boxcolor=black@0.55:boxborderw=7:fontcolor=white:fontsize=21:text='%{pts\\:hms}':x=(w-text_w)/2:y=h-text_h-h*0.06,setsar=1,format=yuv420p",
+        "-t",
+        "6",
+        "-c:v",
+        "libx264",
+        "-preset",
+        "slow",
+        "-crf",
+        "30",
+        "-g",
+        "12",
+        "-keyint_min",
+        "12",
+        "-sc_threshold",
+        "0",
+        "-pix_fmt",
+        "yuv420p",
+        "-threads",
+        "1",
+        "-c:a",
+        "aac",
+        "-b:a",
+        "32k",
+        "-ac",
+        "1",
+        "-fflags",
+        "+bitexact",
+        "-flags",
+        "+bitexact",
+        "-map_metadata",
+        "-1",
+        "-metadata",
+        "creation_time=2026-08-04T10:12:00Z",
+        "-metadata",
+        "location=+37.33928-121.88630+017.000/",
+        "-f",
+        "mp4",
+        "-movflags",
+        "+faststart"
+      ],
+      "build_steps": [
+        {
+          "step": "encode",
+          "argv": [
+            "-y",
+            "-f",
+            "lavfi",
+            "-i",
+            "smptebars=size=120x214:rate=24:duration=6",
+            "-f",
+            "lavfi",
+            "-i",
+            "sine=frequency=220:beep_factor=4:sample_rate=48000:duration=6",
+            "-vf",
+            "scale=480:854:flags=bilinear,drawbox=x='(w-96)*mod(t/6\\,1)':y=h*0.55:w=96:h=96:color=white@0.92:t=fill,drawtext=fontfile=C\\:/Windows/Fonts/arial.ttf:box=1:boxcolor=black@0.55:boxborderw=7:fontcolor=white:fontsize=34:text='lowres_fail':x=(w-text_w)/2:y=h*0.06,drawtext=fontfile=C\\:/Windows/Fonts/arial.ttf:box=1:boxcolor=black@0.55:boxborderw=7:fontcolor=white:fontsize=16:text='480x854 avc1 +mp4a 6s rot0':x=(w-text_w)/2:y=h*0.06+58,drawtext=fontfile=C\\:/Windows/Fonts/arial.ttf:box=1:boxcolor=black@0.55:boxborderw=7:fontcolor=white:fontsize=21:text='%{pts\\:hms}':x=(w-text_w)/2:y=h-text_h-h*0.06,setsar=1,format=yuv420p",
+            "-t",
+            "6",
+            "-c:v",
+            "libx264",
+            "-preset",
+            "slow",
+            "-crf",
+            "30",
+            "-g",
+            "12",
+            "-keyint_min",
+            "12",
+            "-sc_threshold",
+            "0",
+            "-pix_fmt",
+            "yuv420p",
+            "-threads",
+            "1",
+            "-c:a",
+            "aac",
+            "-b:a",
+            "32k",
+            "-ac",
+            "1",
+            "-fflags",
+            "+bitexact",
+            "-flags",
+            "+bitexact",
+            "-map_metadata",
+            "-1",
+            "-metadata",
+            "creation_time=2026-08-04T10:12:00Z",
+            "-metadata",
+            "location=+37.33928-121.88630+017.000/",
+            "-f",
+            "mp4",
+            "-movflags",
+            "+faststart"
+          ]
+        }
+      ],
+      "declared": {
+        "kind": "video",
+        "container": "mp4",
+        "ftyp_brand": "isom",
+        "codec_video": "avc1",
+        "codec_audio": "mp4a",
+        "has_audio": true,
+        "coded_width": 480,
+        "coded_height": 854,
+        "sar": "1:1",
+        "tkhd_width": 480,
+        "tkhd_height": 854,
+        "rotation_deg": 0,
+        "display_matrix_rotation_ccw_deg": 0,
+        "tkhd_matrix": [
+          65536,
+          0,
+          0,
+          0,
+          65536,
+          0,
+          0,
+          0,
+          1073741824
+        ],
+        "duration_s": 6,
+        "fps": 24,
+        "gop_frames": 12,
+        "captured_at": "2026-08-04T10:12:00Z",
+        "captured_at_atom": "mvhd",
+        "mvhd_creation_time_raw": 3868683120,
+        "udta_day": null,
+        "gps": {
+          "lat": 37.33928,
+          "lng": -121.8863,
+          "alt_m": 17
+        },
+        "gps_atom": "udta_loci_3gpp",
+        "gps_iso6709": "+37.33928-121.88630+017.000/",
+        "moov_position": "start",
+        "mdat_size_field": "32bit",
+        "bytes": 107249,
+        "facts_verified": true
+      },
+      "expected_preflight": {
+        "version": 2,
+        "policy_tier": null,
+        "policy_tier_note": "Every rule verdict here holds at every ingest policy tier. Only expected_frames varies by tier.",
+        "producer": "browser",
+        "reference_runtime": "chromium_desktop_windows_without_hevc_extension",
+        "rules": {
+          "orientation": {
+            "status": "pass",
+            "evidence": "coded_dims+tkhd_matrix",
+            "blocking": false,
+            "value": "vertical",
+            "required": "vertical",
+            "coded": "480x854",
+            "display": "480x854",
+            "rotation_deg": 0
+          },
+          "min_duration": {
+            "status": "pass",
+            "evidence": "mvhd",
+            "blocking": false,
+            "value": 6,
+            "required": 3
+          },
+          "min_resolution": {
+            "status": "fail",
+            "evidence": "tkhd+stsd",
+            "reason": "below_min_resolution",
+            "blocking": true,
+            "value": "480x854",
+            "required": "short edge >= 1080, long edge >= 1920"
+          },
+          "capture_date": {
+            "status": "pass",
+            "evidence": "mvhd",
+            "captured_at_source": "mvhd",
+            "blocking": false,
+            "value": "2026-08-04T10:12:00Z",
+            "visit_date": "2026-08-04",
+            "window_hours": 24,
+            "mvhd_creation_time_raw": 3868683120
+          },
+          "near_branch": {
+            "status": "pass",
+            "evidence": "udta_loci",
+            "blocking": false,
+            "value": {
+              "lat": 37.33928,
+              "lng": -121.8863,
+              "alt_m": 17
+            },
+            "distance_m": 120,
+            "radius_m": 500,
+            "gps_atom": "udta_loci_3gpp",
+            "never_blocking": true
+          },
+          "duplicate": {
+            "status": "pass",
+            "evidence": "phash_over_delivery",
+            "blocking": false,
+            "comparison_set": "all fixtures with group == \"engineered\", ingested as one delivery in manifest order"
+          },
+          "codec_playable": {
+            "status": "pass",
+            "evidence": "stsd+isConfigSupported",
+            "blocking": false,
+            "value": "avc1"
+          }
+        },
+        "rollup": {
+          "pass": 6,
+          "fail": 1,
+          "unknown": 0,
+          "skipped": 0,
+          "blocking_fail": 1
+        }
+      },
+      "expected_frames": {
+        "by_tier": {
+          "constrained": {
+            "count": 3,
+            "t_seconds": [
+              1.5,
+              3,
+              4.5
+            ]
+          },
+          "standard": {
+            "count": 3,
+            "t_seconds": [
+              1.5,
+              3,
+              4.5
+            ]
+          },
+          "ample": {
+            "count": 3,
+            "t_seconds": [
+              1.5,
+              3,
+              4.5
+            ]
+          }
+        },
+        "formula": "clamp(round(duration_s / 4), 3, tier_max), tier_max 3 constrained and 5 otherwise (E.4a)",
+        "approximate": true,
+        "reason": "The `<video>` plus canvas path snaps to the preceding keyframe, so t_seconds is a target rather than a guarantee. GOP is half a second, which is what bounds tolerance.frame_t_seconds."
+      },
+      "expected_derivatives": {
+        "contact_sheet": true,
+        "poster": true,
+        "derivative_state": "client_derived",
+        "derivative_producer": "browser",
+        "reason": null,
+        "guarantee": "A real sheet extracted from real frames, or none. Never a fabricated tile presented as a frame."
+      },
+      "expected_phash_prefix": null,
+      "expected_phash_note": "null until the perceptual hasher exists. An invented prefix would be asserted against forever.",
+      "tolerance": {
+        "duration_s": 0.05,
+        "distance_m": 30,
+        "dhash_hamming": 4,
+        "frame_t_seconds": 0.5
+      }
+    },
+    {
+      "fixture_id": "offdate_fail",
+      "path": "/fixtures/offdate_fail.mp4",
+      "group": "engineered",
+      "kind": "video",
+      "proves": "The only `capture_date: fail` in the set: shot two days before the visit, so the plus or minus 24 hour window from C5.2.3 has a negative case. Without it the window is only ever tested from the passing side, and a window that is accidentally infinite passes every test.",
+      "added_beyond_c2d": true,
+      "bytes": 209179,
+      "sha256": "52f98a6705b979f96313a18e15f3ab3c9ea42ce6f0a48ccdfc93870eb676b230",
+      "generator_version": 1,
+      "ffmpeg_args": [
+        "-y",
+        "-f",
+        "lavfi",
+        "-i",
+        "smptebars=size=270x480:rate=24:duration=6",
+        "-f",
+        "lavfi",
+        "-i",
+        "sine=frequency=220:beep_factor=4:sample_rate=48000:duration=6",
+        "-vf",
+        "scale=1080:1920:flags=bilinear,drawbox=x='(w-216)*mod(t/6\\,1)':y=h*0.55:w=216:h=216:color=white@0.92:t=fill,drawtext=fontfile=C\\:/Windows/Fonts/arial.ttf:box=1:boxcolor=black@0.55:boxborderw=15:fontcolor=white:fontsize=77:text='offdate_fail':x=(w-text_w)/2:y=h*0.06,drawtext=fontfile=C\\:/Windows/Fonts/arial.ttf:box=1:boxcolor=black@0.55:boxborderw=15:fontcolor=white:fontsize=36:text='1080x1920 avc1 +mp4a 6s rot0':x=(w-text_w)/2:y=h*0.06+131,drawtext=fontfile=C\\:/Windows/Fonts/arial.ttf:box=1:boxcolor=black@0.55:boxborderw=15:fontcolor=white:fontsize=47:text='%{pts\\:hms}':x=(w-text_w)/2:y=h-text_h-h*0.06,setsar=1,format=yuv420p",
+        "-t",
+        "6",
+        "-c:v",
+        "libx264",
+        "-preset",
+        "slow",
+        "-crf",
+        "30",
+        "-g",
+        "12",
+        "-keyint_min",
+        "12",
+        "-sc_threshold",
+        "0",
+        "-pix_fmt",
+        "yuv420p",
+        "-threads",
+        "1",
+        "-c:a",
+        "aac",
+        "-b:a",
+        "32k",
+        "-ac",
+        "1",
+        "-fflags",
+        "+bitexact",
+        "-flags",
+        "+bitexact",
+        "-map_metadata",
+        "-1",
+        "-metadata",
+        "creation_time=2026-08-02T09:40:00Z",
+        "-metadata",
+        "location=+37.33928-121.88630+017.000/",
+        "-f",
+        "mp4",
+        "-movflags",
+        "+faststart"
+      ],
+      "build_steps": [
+        {
+          "step": "encode",
+          "argv": [
+            "-y",
+            "-f",
+            "lavfi",
+            "-i",
+            "smptebars=size=270x480:rate=24:duration=6",
+            "-f",
+            "lavfi",
+            "-i",
+            "sine=frequency=220:beep_factor=4:sample_rate=48000:duration=6",
+            "-vf",
+            "scale=1080:1920:flags=bilinear,drawbox=x='(w-216)*mod(t/6\\,1)':y=h*0.55:w=216:h=216:color=white@0.92:t=fill,drawtext=fontfile=C\\:/Windows/Fonts/arial.ttf:box=1:boxcolor=black@0.55:boxborderw=15:fontcolor=white:fontsize=77:text='offdate_fail':x=(w-text_w)/2:y=h*0.06,drawtext=fontfile=C\\:/Windows/Fonts/arial.ttf:box=1:boxcolor=black@0.55:boxborderw=15:fontcolor=white:fontsize=36:text='1080x1920 avc1 +mp4a 6s rot0':x=(w-text_w)/2:y=h*0.06+131,drawtext=fontfile=C\\:/Windows/Fonts/arial.ttf:box=1:boxcolor=black@0.55:boxborderw=15:fontcolor=white:fontsize=47:text='%{pts\\:hms}':x=(w-text_w)/2:y=h-text_h-h*0.06,setsar=1,format=yuv420p",
+            "-t",
+            "6",
+            "-c:v",
+            "libx264",
+            "-preset",
+            "slow",
+            "-crf",
+            "30",
+            "-g",
+            "12",
+            "-keyint_min",
+            "12",
+            "-sc_threshold",
+            "0",
+            "-pix_fmt",
+            "yuv420p",
+            "-threads",
+            "1",
+            "-c:a",
+            "aac",
+            "-b:a",
+            "32k",
+            "-ac",
+            "1",
+            "-fflags",
+            "+bitexact",
+            "-flags",
+            "+bitexact",
+            "-map_metadata",
+            "-1",
+            "-metadata",
+            "creation_time=2026-08-02T09:40:00Z",
+            "-metadata",
+            "location=+37.33928-121.88630+017.000/",
+            "-f",
+            "mp4",
+            "-movflags",
+            "+faststart"
+          ]
+        }
+      ],
+      "declared": {
+        "kind": "video",
+        "container": "mp4",
+        "ftyp_brand": "isom",
+        "codec_video": "avc1",
+        "codec_audio": "mp4a",
+        "has_audio": true,
+        "coded_width": 1080,
+        "coded_height": 1920,
+        "sar": "1:1",
+        "tkhd_width": 1080,
+        "tkhd_height": 1920,
+        "rotation_deg": 0,
+        "display_matrix_rotation_ccw_deg": 0,
+        "tkhd_matrix": [
+          65536,
+          0,
+          0,
+          0,
+          65536,
+          0,
+          0,
+          0,
+          1073741824
+        ],
+        "duration_s": 6,
+        "fps": 24,
+        "gop_frames": 12,
+        "captured_at": "2026-08-02T09:40:00Z",
+        "captured_at_atom": "mvhd",
+        "mvhd_creation_time_raw": 3868508400,
+        "udta_day": null,
+        "gps": {
+          "lat": 37.33928,
+          "lng": -121.8863,
+          "alt_m": 17
+        },
+        "gps_atom": "udta_loci_3gpp",
+        "gps_iso6709": "+37.33928-121.88630+017.000/",
+        "moov_position": "start",
+        "mdat_size_field": "32bit",
+        "bytes": 209179,
+        "facts_verified": true
+      },
+      "expected_preflight": {
+        "version": 2,
+        "policy_tier": null,
+        "policy_tier_note": "Every rule verdict here holds at every ingest policy tier. Only expected_frames varies by tier.",
+        "producer": "browser",
+        "reference_runtime": "chromium_desktop_windows_without_hevc_extension",
+        "rules": {
+          "orientation": {
+            "status": "pass",
+            "evidence": "coded_dims+tkhd_matrix",
+            "blocking": false,
+            "value": "vertical",
+            "required": "vertical",
+            "coded": "1080x1920",
+            "display": "1080x1920",
+            "rotation_deg": 0
+          },
+          "min_duration": {
+            "status": "pass",
+            "evidence": "mvhd",
+            "blocking": false,
+            "value": 6,
+            "required": 3
+          },
+          "min_resolution": {
+            "status": "pass",
+            "evidence": "tkhd+stsd",
+            "blocking": false,
+            "value": "1080x1920",
+            "required": "short edge >= 1080, long edge >= 1920"
+          },
+          "capture_date": {
+            "status": "fail",
+            "evidence": "mvhd",
+            "reason": "capture_date_outside_visit_window",
+            "captured_at_source": "mvhd",
+            "blocking": false,
+            "advisory_note": "Never hard blocks. C5.2.3: a container date is a triage hint, not verification.",
+            "value": "2026-08-02T09:40:00Z",
+            "visit_date": "2026-08-04",
+            "window_hours": 24,
+            "mvhd_creation_time_raw": 3868508400
+          },
+          "near_branch": {
+            "status": "pass",
+            "evidence": "udta_loci",
+            "blocking": false,
+            "value": {
+              "lat": 37.33928,
+              "lng": -121.8863,
+              "alt_m": 17
+            },
+            "distance_m": 120,
+            "radius_m": 500,
+            "gps_atom": "udta_loci_3gpp",
+            "never_blocking": true
+          },
+          "duplicate": {
+            "status": "pass",
+            "evidence": "phash_over_delivery",
+            "blocking": false,
+            "comparison_set": "all fixtures with group == \"engineered\", ingested as one delivery in manifest order"
+          },
+          "codec_playable": {
+            "status": "pass",
+            "evidence": "stsd+isConfigSupported",
+            "blocking": false,
+            "value": "avc1"
+          }
+        },
+        "rollup": {
+          "pass": 6,
+          "fail": 1,
+          "unknown": 0,
+          "skipped": 0,
+          "blocking_fail": 0
+        }
+      },
+      "expected_frames": {
+        "by_tier": {
+          "constrained": {
+            "count": 3,
+            "t_seconds": [
+              1.5,
+              3,
+              4.5
+            ]
+          },
+          "standard": {
+            "count": 3,
+            "t_seconds": [
+              1.5,
+              3,
+              4.5
+            ]
+          },
+          "ample": {
+            "count": 3,
+            "t_seconds": [
+              1.5,
+              3,
+              4.5
+            ]
+          }
+        },
+        "formula": "clamp(round(duration_s / 4), 3, tier_max), tier_max 3 constrained and 5 otherwise (E.4a)",
+        "approximate": true,
+        "reason": "The `<video>` plus canvas path snaps to the preceding keyframe, so t_seconds is a target rather than a guarantee. GOP is half a second, which is what bounds tolerance.frame_t_seconds."
+      },
+      "expected_derivatives": {
+        "contact_sheet": true,
+        "poster": true,
+        "derivative_state": "client_derived",
+        "derivative_producer": "browser",
+        "reason": null,
+        "guarantee": "A real sheet extracted from real frames, or none. Never a fabricated tile presented as a frame."
+      },
+      "expected_phash_prefix": null,
+      "expected_phash_note": "null until the perceptual hasher exists. An invented prefix would be asserted against forever.",
+      "tolerance": {
+        "duration_s": 0.05,
+        "distance_m": 30,
+        "dhash_hamming": 4,
+        "frame_t_seconds": 0.5
+      }
+    },
+    {
+      "fixture_id": "rotated_90",
+      "path": "/fixtures/rotated_90.mp4",
+      "group": "engineered",
+      "kind": "video",
+      "proves": "THE MOST VALUABLE FIXTURE IN THE SET. Coded 1920x1080 with a tkhd display matrix of (0,1,-1,0), which is byte for byte the matrix a portrait iPhone clip carries, so display orientation is 1080x1920 vertical. A parser that reads coded dimensions and stops tells a creator their correct vertical footage is horizontal. Every rule must pass.",
+      "added_beyond_c2d": false,
+      "bytes": 204686,
+      "sha256": "a69ad4701d366244e4b05509a09df67ba8c70c59a69c236ec417c7cb2a60b65a",
+      "generator_version": 1,
+      "ffmpeg_args": [
+        "-y",
+        "-noautorotate",
+        "-display_rotation",
+        "-90",
+        "-i",
+        "STEP_INPUT",
+        "-map",
+        "0",
+        "-c",
+        "copy",
+        "-fflags",
+        "+bitexact",
+        "-map_metadata",
+        "-1",
+        "-metadata",
+        "creation_time=2026-08-04T10:12:00Z",
+        "-metadata",
+        "location=+37.33928-121.88630+017.000/",
+        "-f",
+        "mp4",
+        "-movflags",
+        "+faststart"
+      ],
+      "build_steps": [
+        {
+          "step": "encode",
+          "argv": [
+            "-y",
+            "-f",
+            "lavfi",
+            "-i",
+            "smptebars=size=270x480:rate=24:duration=6",
+            "-f",
+            "lavfi",
+            "-i",
+            "sine=frequency=220:beep_factor=4:sample_rate=48000:duration=6",
+            "-vf",
+            "scale=1080:1920:flags=bilinear,drawbox=x='(w-216)*mod(t/6\\,1)':y=h*0.55:w=216:h=216:color=white@0.92:t=fill,drawtext=fontfile=C\\:/Windows/Fonts/arial.ttf:box=1:boxcolor=black@0.55:boxborderw=15:fontcolor=white:fontsize=77:text='rotated_90':x=(w-text_w)/2:y=h*0.06,drawtext=fontfile=C\\:/Windows/Fonts/arial.ttf:box=1:boxcolor=black@0.55:boxborderw=15:fontcolor=white:fontsize=36:text='1920x1080 avc1 +mp4a 6s rot90':x=(w-text_w)/2:y=h*0.06+131,drawtext=fontfile=C\\:/Windows/Fonts/arial.ttf:box=1:boxcolor=black@0.55:boxborderw=15:fontcolor=white:fontsize=47:text='%{pts\\:hms}':x=(w-text_w)/2:y=h-text_h-h*0.06,transpose=2,setsar=1,format=yuv420p",
+            "-t",
+            "6",
+            "-c:v",
+            "libx264",
+            "-preset",
+            "slow",
+            "-crf",
+            "30",
+            "-g",
+            "12",
+            "-keyint_min",
+            "12",
+            "-sc_threshold",
+            "0",
+            "-pix_fmt",
+            "yuv420p",
+            "-threads",
+            "1",
+            "-c:a",
+            "aac",
+            "-b:a",
+            "32k",
+            "-ac",
+            "1",
+            "-fflags",
+            "+bitexact",
+            "-flags",
+            "+bitexact",
+            "-map_metadata",
+            "-1",
+            "-metadata",
+            "creation_time=2026-08-04T10:12:00Z",
+            "-metadata",
+            "location=+37.33928-121.88630+017.000/",
+            "-f",
+            "mp4",
+            "-movflags",
+            "+faststart"
+          ]
+        },
+        {
+          "step": "set_display_matrix",
+          "argv": [
+            "-y",
+            "-noautorotate",
+            "-display_rotation",
+            "-90",
+            "-i",
+            "STEP_INPUT",
+            "-map",
+            "0",
+            "-c",
+            "copy",
+            "-fflags",
+            "+bitexact",
+            "-map_metadata",
+            "-1",
+            "-metadata",
+            "creation_time=2026-08-04T10:12:00Z",
+            "-metadata",
+            "location=+37.33928-121.88630+017.000/",
+            "-f",
+            "mp4",
+            "-movflags",
+            "+faststart"
+          ]
+        }
+      ],
+      "declared": {
+        "kind": "video",
+        "container": "mp4",
+        "ftyp_brand": "isom",
+        "codec_video": "avc1",
+        "codec_audio": "mp4a",
+        "has_audio": true,
+        "coded_width": 1920,
+        "coded_height": 1080,
+        "sar": "1:1",
+        "tkhd_width": 1920,
+        "tkhd_height": 1080,
+        "rotation_deg": 90,
+        "display_matrix_rotation_ccw_deg": -90,
+        "tkhd_matrix": [
+          0,
+          65536,
+          0,
+          -65536,
+          0,
+          0,
+          0,
+          0,
+          1073741824
+        ],
+        "duration_s": 6,
+        "fps": 24,
+        "gop_frames": 12,
+        "captured_at": "2026-08-04T10:12:00Z",
+        "captured_at_atom": "mvhd",
+        "mvhd_creation_time_raw": 3868683120,
+        "udta_day": null,
+        "gps": {
+          "lat": 37.33928,
+          "lng": -121.8863,
+          "alt_m": 17
+        },
+        "gps_atom": "udta_loci_3gpp",
+        "gps_iso6709": "+37.33928-121.88630+017.000/",
+        "moov_position": "start",
+        "mdat_size_field": "32bit",
+        "bytes": 204686,
+        "facts_verified": true
+      },
+      "expected_preflight": {
+        "version": 2,
+        "policy_tier": null,
+        "policy_tier_note": "Every rule verdict here holds at every ingest policy tier. Only expected_frames varies by tier.",
+        "producer": "browser",
+        "reference_runtime": "chromium_desktop_windows_without_hevc_extension",
+        "rules": {
+          "orientation": {
+            "status": "pass",
+            "evidence": "coded_dims+tkhd_matrix",
+            "blocking": false,
+            "value": "vertical",
+            "required": "vertical",
+            "coded": "1920x1080",
+            "display": "1080x1920",
+            "rotation_deg": 90
+          },
+          "min_duration": {
+            "status": "pass",
+            "evidence": "mvhd",
+            "blocking": false,
+            "value": 6,
+            "required": 3
+          },
+          "min_resolution": {
+            "status": "pass",
+            "evidence": "tkhd+stsd",
+            "blocking": false,
+            "value": "1080x1920",
+            "required": "short edge >= 1080, long edge >= 1920"
+          },
+          "capture_date": {
+            "status": "pass",
+            "evidence": "mvhd",
+            "captured_at_source": "mvhd",
+            "blocking": false,
+            "value": "2026-08-04T10:12:00Z",
+            "visit_date": "2026-08-04",
+            "window_hours": 24,
+            "mvhd_creation_time_raw": 3868683120
+          },
+          "near_branch": {
+            "status": "pass",
+            "evidence": "udta_loci",
+            "blocking": false,
+            "value": {
+              "lat": 37.33928,
+              "lng": -121.8863,
+              "alt_m": 17
+            },
+            "distance_m": 120,
+            "radius_m": 500,
+            "gps_atom": "udta_loci_3gpp",
+            "never_blocking": true
+          },
+          "duplicate": {
+            "status": "pass",
+            "evidence": "phash_over_delivery",
+            "blocking": false,
+            "comparison_set": "all fixtures with group == \"engineered\", ingested as one delivery in manifest order"
+          },
+          "codec_playable": {
+            "status": "pass",
+            "evidence": "stsd+isConfigSupported",
+            "blocking": false,
+            "value": "avc1"
+          }
+        },
+        "rollup": {
+          "pass": 7,
+          "fail": 0,
+          "unknown": 0,
+          "skipped": 0,
+          "blocking_fail": 0
+        }
+      },
+      "expected_frames": {
+        "by_tier": {
+          "constrained": {
+            "count": 3,
+            "t_seconds": [
+              1.5,
+              3,
+              4.5
+            ]
+          },
+          "standard": {
+            "count": 3,
+            "t_seconds": [
+              1.5,
+              3,
+              4.5
+            ]
+          },
+          "ample": {
+            "count": 3,
+            "t_seconds": [
+              1.5,
+              3,
+              4.5
+            ]
+          }
+        },
+        "formula": "clamp(round(duration_s / 4), 3, tier_max), tier_max 3 constrained and 5 otherwise (E.4a)",
+        "approximate": true,
+        "reason": "The `<video>` plus canvas path snaps to the preceding keyframe, so t_seconds is a target rather than a guarantee. GOP is half a second, which is what bounds tolerance.frame_t_seconds."
+      },
+      "expected_derivatives": {
+        "contact_sheet": true,
+        "poster": true,
+        "derivative_state": "client_derived",
+        "derivative_producer": "browser",
+        "reason": null,
+        "guarantee": "A real sheet extracted from real frames, or none. Never a fabricated tile presented as a frame."
+      },
+      "expected_phash_prefix": null,
+      "expected_phash_note": "null until the perceptual hasher exists. An invented prefix would be asserted against forever.",
+      "tolerance": {
+        "duration_s": 0.05,
+        "distance_m": 30,
+        "dhash_hamming": 4,
+        "frame_t_seconds": 0.5
+      }
+    },
+    {
+      "fixture_id": "hevc",
+      "path": "/fixtures/hevc.mov",
+      "group": "engineered",
+      "kind": "video",
+      "proves": "The open hole in E.4b, live rather than simulated. `hvc1` in a QuickTime container: the metadata layer parses completely because atom parsing needs no decoder, and the pixel layer is permanently absent on the reference runtime. Also the only fixture carrying the QuickTime `©xyz` ISO 6709 location atom and a `udta/©day` with a real timezone offset.",
+      "added_beyond_c2d": false,
+      "bytes": 116380,
+      "sha256": "d5fd19dd56c3faf05897e5e6366d3f8b842e4a006b7fc74d65a62f28b132c241",
+      "generator_version": 1,
+      "ffmpeg_args": [
+        "-y",
+        "-f",
+        "lavfi",
+        "-i",
+        "smptebars=size=270x480:rate=24:duration=4",
+        "-f",
+        "lavfi",
+        "-i",
+        "sine=frequency=220:beep_factor=4:sample_rate=48000:duration=4",
+        "-vf",
+        "scale=1080:1920:flags=bilinear,drawbox=x='(w-216)*mod(t/4\\,1)':y=h*0.55:w=216:h=216:color=white@0.92:t=fill,drawtext=fontfile=C\\:/Windows/Fonts/arial.ttf:box=1:boxcolor=black@0.55:boxborderw=15:fontcolor=white:fontsize=77:text='hevc':x=(w-text_w)/2:y=h*0.06,drawtext=fontfile=C\\:/Windows/Fonts/arial.ttf:box=1:boxcolor=black@0.55:boxborderw=15:fontcolor=white:fontsize=36:text='1080x1920 hvc1 +mp4a 4s rot0':x=(w-text_w)/2:y=h*0.06+131,drawtext=fontfile=C\\:/Windows/Fonts/arial.ttf:box=1:boxcolor=black@0.55:boxborderw=15:fontcolor=white:fontsize=47:text='%{pts\\:hms}':x=(w-text_w)/2:y=h-text_h-h*0.06,setsar=1,format=yuv420p",
+        "-t",
+        "4",
+        "-c:v",
+        "libx265",
+        "-preset",
+        "medium",
+        "-crf",
+        "36",
+        "-x265-params",
+        "log-level=none:info=0",
+        "-g",
+        "12",
+        "-pix_fmt",
+        "yuv420p",
+        "-tag:v",
+        "hvc1",
+        "-threads",
+        "1",
+        "-c:a",
+        "aac",
+        "-b:a",
+        "32k",
+        "-ac",
+        "1",
+        "-fflags",
+        "+bitexact",
+        "-flags",
+        "+bitexact",
+        "-map_metadata",
+        "-1",
+        "-metadata",
+        "creation_time=2026-08-04T10:12:00Z",
+        "-metadata",
+        "location=+37.33765-121.88495+021.000/",
+        "-metadata",
+        "date=2026-08-04T03:12:00-0700",
+        "-f",
+        "mov"
+      ],
+      "build_steps": [
+        {
+          "step": "encode",
+          "argv": [
+            "-y",
+            "-f",
+            "lavfi",
+            "-i",
+            "smptebars=size=270x480:rate=24:duration=4",
+            "-f",
+            "lavfi",
+            "-i",
+            "sine=frequency=220:beep_factor=4:sample_rate=48000:duration=4",
+            "-vf",
+            "scale=1080:1920:flags=bilinear,drawbox=x='(w-216)*mod(t/4\\,1)':y=h*0.55:w=216:h=216:color=white@0.92:t=fill,drawtext=fontfile=C\\:/Windows/Fonts/arial.ttf:box=1:boxcolor=black@0.55:boxborderw=15:fontcolor=white:fontsize=77:text='hevc':x=(w-text_w)/2:y=h*0.06,drawtext=fontfile=C\\:/Windows/Fonts/arial.ttf:box=1:boxcolor=black@0.55:boxborderw=15:fontcolor=white:fontsize=36:text='1080x1920 hvc1 +mp4a 4s rot0':x=(w-text_w)/2:y=h*0.06+131,drawtext=fontfile=C\\:/Windows/Fonts/arial.ttf:box=1:boxcolor=black@0.55:boxborderw=15:fontcolor=white:fontsize=47:text='%{pts\\:hms}':x=(w-text_w)/2:y=h-text_h-h*0.06,setsar=1,format=yuv420p",
+            "-t",
+            "4",
+            "-c:v",
+            "libx265",
+            "-preset",
+            "medium",
+            "-crf",
+            "36",
+            "-x265-params",
+            "log-level=none:info=0",
+            "-g",
+            "12",
+            "-pix_fmt",
+            "yuv420p",
+            "-tag:v",
+            "hvc1",
+            "-threads",
+            "1",
+            "-c:a",
+            "aac",
+            "-b:a",
+            "32k",
+            "-ac",
+            "1",
+            "-fflags",
+            "+bitexact",
+            "-flags",
+            "+bitexact",
+            "-map_metadata",
+            "-1",
+            "-metadata",
+            "creation_time=2026-08-04T10:12:00Z",
+            "-metadata",
+            "location=+37.33765-121.88495+021.000/",
+            "-metadata",
+            "date=2026-08-04T03:12:00-0700",
+            "-f",
+            "mov"
+          ]
+        }
+      ],
+      "declared": {
+        "kind": "video",
+        "container": "mov",
+        "ftyp_brand": "qt  ",
+        "codec_video": "hvc1",
+        "codec_audio": "mp4a",
+        "has_audio": true,
+        "coded_width": 1080,
+        "coded_height": 1920,
+        "sar": "1:1",
+        "tkhd_width": 1080,
+        "tkhd_height": 1920,
+        "rotation_deg": 0,
+        "display_matrix_rotation_ccw_deg": 0,
+        "tkhd_matrix": [
+          65536,
+          0,
+          0,
+          0,
+          65536,
+          0,
+          0,
+          0,
+          1073741824
+        ],
+        "duration_s": 4,
+        "fps": 24,
+        "gop_frames": 12,
+        "captured_at": "2026-08-04T10:12:00Z",
+        "captured_at_atom": "mvhd+udta_day",
+        "mvhd_creation_time_raw": 3868683120,
+        "udta_day": "2026-08-04T03:12:00-0700",
+        "gps": {
+          "lat": 37.33765,
+          "lng": -121.88495,
+          "alt_m": 21
+        },
+        "gps_atom": "udta_c_xyz_iso6709",
+        "gps_iso6709": "+37.33765-121.88495+021.000/",
+        "moov_position": "end",
+        "mdat_size_field": "32bit",
+        "bytes": 116380,
+        "facts_verified": true
+      },
+      "expected_preflight": {
+        "version": 2,
+        "policy_tier": null,
+        "policy_tier_note": "Every rule verdict here holds at every ingest policy tier. Only expected_frames varies by tier.",
+        "producer": "browser",
+        "reference_runtime": "chromium_desktop_windows_without_hevc_extension",
+        "rules": {
+          "orientation": {
+            "status": "pass",
+            "evidence": "coded_dims+tkhd_matrix",
+            "blocking": false,
+            "value": "vertical",
+            "required": "vertical",
+            "coded": "1080x1920",
+            "display": "1080x1920",
+            "rotation_deg": 0
+          },
+          "min_duration": {
+            "status": "pass",
+            "evidence": "mvhd",
+            "blocking": false,
+            "value": 4,
+            "required": 3
+          },
+          "min_resolution": {
+            "status": "pass",
+            "evidence": "tkhd+stsd",
+            "blocking": false,
+            "value": "1080x1920",
+            "required": "short edge >= 1080, long edge >= 1920"
+          },
+          "capture_date": {
+            "status": "pass",
+            "evidence": "mvhd+udta_day",
+            "captured_at_source": "udta_day",
+            "note": "udta/©day carries -0700, so this is the one fixture where the capture instant is unambiguous without assuming UTC.",
+            "blocking": false,
+            "value": "2026-08-04T10:12:00Z",
+            "visit_date": "2026-08-04",
+            "window_hours": 24,
+            "mvhd_creation_time_raw": 3868683120
+          },
+          "near_branch": {
+            "status": "pass",
+            "evidence": "udta_c_xyz",
+            "blocking": false,
+            "value": {
+              "lat": 37.33765,
+              "lng": -121.88495,
+              "alt_m": 21
+            },
+            "distance_m": 134,
+            "radius_m": 500,
+            "gps_atom": "udta_c_xyz_iso6709",
+            "never_blocking": true
+          },
+          "duplicate": {
+            "status": "unknown",
+            "evidence": "none",
+            "reason": "no_frames_no_decoder",
+            "runtime_dependent": true,
+            "runtime_note": "Passes on Safari and on any machine with an HEVC decoder, because frames exist there.",
+            "blocking": false,
+            "comparison_set": "all fixtures with group == \"engineered\", ingested as one delivery in manifest order"
+          },
+          "codec_playable": {
+            "status": "fail",
+            "evidence": "stsd+isConfigSupported",
+            "reason": "no_decoder_in_shell",
+            "blocking": false,
+            "routes_to": "transcode",
+            "upload_priority": "required_for_transcode",
+            "runtime_dependent": true,
+            "runtime_note": "Passes on Safari, on iOS, and on Chromium with the HEVC Video Extension present.",
+            "value": "hvc1"
+          }
+        },
+        "rollup": {
+          "pass": 5,
+          "fail": 1,
+          "unknown": 1,
+          "skipped": 0,
+          "blocking_fail": 0
+        }
+      },
+      "expected_frames": {
+        "by_tier": {
+          "constrained": {
+            "count": 0,
+            "t_seconds": []
+          },
+          "standard": {
+            "count": 0,
+            "t_seconds": []
+          },
+          "ample": {
+            "count": 0,
+            "t_seconds": []
+          }
+        },
+        "formula": null,
+        "approximate": false,
+        "reason": "no_decoder_in_shell",
+        "note": "Extraction is NOT attempted. A try-and-catch into a black frame is worse than no frame, because a black frame gets tagged."
+      },
+      "expected_derivatives": {
+        "contact_sheet": false,
+        "poster": false,
+        "derivative_state": "none",
+        "derivative_producer": null,
+        "reason": "no_decoder_in_shell",
+        "guarantee": "No sheet, no poster, no asset_frame rows, no ai_run. Absence is the correct representation. A grey placeholder tile is a UI decision, never a stored artifact."
+      },
+      "expected_phash_prefix": null,
+      "expected_phash_note": "null until the perceptual hasher exists. An invented prefix would be asserted against forever.",
+      "tolerance": {
+        "duration_s": 0.05,
+        "distance_m": 30,
+        "dhash_hamming": 4,
+        "frame_t_seconds": 0.5
+      }
+    },
+    {
+      "fixture_id": "no_metadata",
+      "path": "/fixtures/no_metadata.mp4",
+      "group": "engineered",
+      "kind": "video",
+      "proves": "Honest degradation with no evidence at all: mvhd creation_time is literally 0, which a naive parser reports as a capture date of 1904-01-01 rather than as an absence. No location atom. `moov` sits after `mdat`, so the header walker cannot assume the metadata is at the front.",
+      "added_beyond_c2d": false,
+      "bytes": 208555,
+      "sha256": "477341e8b06ba2e00c283fa944df67c9f560262c2703a0d3ec1341d89ab86228",
+      "generator_version": 1,
+      "ffmpeg_args": [
+        "-y",
+        "-f",
+        "lavfi",
+        "-i",
+        "smptebars=size=270x480:rate=24:duration=6",
+        "-f",
+        "lavfi",
+        "-i",
+        "sine=frequency=220:beep_factor=4:sample_rate=48000:duration=6",
+        "-vf",
+        "scale=1080:1920:flags=bilinear,drawbox=x='(w-216)*mod(t/6\\,1)':y=h*0.55:w=216:h=216:color=white@0.92:t=fill,drawtext=fontfile=C\\:/Windows/Fonts/arial.ttf:box=1:boxcolor=black@0.55:boxborderw=15:fontcolor=white:fontsize=77:text='no_metadata':x=(w-text_w)/2:y=h*0.06,drawtext=fontfile=C\\:/Windows/Fonts/arial.ttf:box=1:boxcolor=black@0.55:boxborderw=15:fontcolor=white:fontsize=36:text='1080x1920 avc1 +mp4a 6s rot0':x=(w-text_w)/2:y=h*0.06+131,drawtext=fontfile=C\\:/Windows/Fonts/arial.ttf:box=1:boxcolor=black@0.55:boxborderw=15:fontcolor=white:fontsize=47:text='%{pts\\:hms}':x=(w-text_w)/2:y=h-text_h-h*0.06,setsar=1,format=yuv420p",
+        "-t",
+        "6",
+        "-c:v",
+        "libx264",
+        "-preset",
+        "slow",
+        "-crf",
+        "30",
+        "-g",
+        "12",
+        "-keyint_min",
+        "12",
+        "-sc_threshold",
+        "0",
+        "-pix_fmt",
+        "yuv420p",
+        "-threads",
+        "1",
+        "-c:a",
+        "aac",
+        "-b:a",
+        "32k",
+        "-ac",
+        "1",
+        "-fflags",
+        "+bitexact",
+        "-flags",
+        "+bitexact",
+        "-map_metadata",
+        "-1",
+        "-f",
+        "mp4"
+      ],
+      "build_steps": [
+        {
+          "step": "encode",
+          "argv": [
+            "-y",
+            "-f",
+            "lavfi",
+            "-i",
+            "smptebars=size=270x480:rate=24:duration=6",
+            "-f",
+            "lavfi",
+            "-i",
+            "sine=frequency=220:beep_factor=4:sample_rate=48000:duration=6",
+            "-vf",
+            "scale=1080:1920:flags=bilinear,drawbox=x='(w-216)*mod(t/6\\,1)':y=h*0.55:w=216:h=216:color=white@0.92:t=fill,drawtext=fontfile=C\\:/Windows/Fonts/arial.ttf:box=1:boxcolor=black@0.55:boxborderw=15:fontcolor=white:fontsize=77:text='no_metadata':x=(w-text_w)/2:y=h*0.06,drawtext=fontfile=C\\:/Windows/Fonts/arial.ttf:box=1:boxcolor=black@0.55:boxborderw=15:fontcolor=white:fontsize=36:text='1080x1920 avc1 +mp4a 6s rot0':x=(w-text_w)/2:y=h*0.06+131,drawtext=fontfile=C\\:/Windows/Fonts/arial.ttf:box=1:boxcolor=black@0.55:boxborderw=15:fontcolor=white:fontsize=47:text='%{pts\\:hms}':x=(w-text_w)/2:y=h-text_h-h*0.06,setsar=1,format=yuv420p",
+            "-t",
+            "6",
+            "-c:v",
+            "libx264",
+            "-preset",
+            "slow",
+            "-crf",
+            "30",
+            "-g",
+            "12",
+            "-keyint_min",
+            "12",
+            "-sc_threshold",
+            "0",
+            "-pix_fmt",
+            "yuv420p",
+            "-threads",
+            "1",
+            "-c:a",
+            "aac",
+            "-b:a",
+            "32k",
+            "-ac",
+            "1",
+            "-fflags",
+            "+bitexact",
+            "-flags",
+            "+bitexact",
+            "-map_metadata",
+            "-1",
+            "-f",
+            "mp4"
+          ]
+        }
+      ],
+      "declared": {
+        "kind": "video",
+        "container": "mp4",
+        "ftyp_brand": "isom",
+        "codec_video": "avc1",
+        "codec_audio": "mp4a",
+        "has_audio": true,
+        "coded_width": 1080,
+        "coded_height": 1920,
+        "sar": "1:1",
+        "tkhd_width": 1080,
+        "tkhd_height": 1920,
+        "rotation_deg": 0,
+        "display_matrix_rotation_ccw_deg": 0,
+        "tkhd_matrix": [
+          65536,
+          0,
+          0,
+          0,
+          65536,
+          0,
+          0,
+          0,
+          1073741824
+        ],
+        "duration_s": 6,
+        "fps": 24,
+        "gop_frames": 12,
+        "captured_at": null,
+        "captured_at_atom": null,
+        "mvhd_creation_time_raw": 0,
+        "udta_day": null,
+        "gps": null,
+        "gps_atom": null,
+        "gps_iso6709": null,
+        "moov_position": "end",
+        "mdat_size_field": "32bit",
+        "bytes": 208555,
+        "facts_verified": true
+      },
+      "expected_preflight": {
+        "version": 2,
+        "policy_tier": null,
+        "policy_tier_note": "Every rule verdict here holds at every ingest policy tier. Only expected_frames varies by tier.",
+        "producer": "browser",
+        "reference_runtime": "chromium_desktop_windows_without_hevc_extension",
+        "rules": {
+          "orientation": {
+            "status": "pass",
+            "evidence": "coded_dims+tkhd_matrix",
+            "blocking": false,
+            "value": "vertical",
+            "required": "vertical",
+            "coded": "1080x1920",
+            "display": "1080x1920",
+            "rotation_deg": 0
+          },
+          "min_duration": {
+            "status": "pass",
+            "evidence": "mvhd",
+            "blocking": false,
+            "value": 6,
+            "required": 3
+          },
+          "min_resolution": {
+            "status": "pass",
+            "evidence": "tkhd+stsd",
+            "blocking": false,
+            "value": "1080x1920",
+            "required": "short edge >= 1080, long edge >= 1920"
+          },
+          "capture_date": {
+            "status": "unknown",
+            "evidence": "none",
+            "reason": "mvhd_creation_time_zero",
+            "also": [
+              "no_udta_day_atom"
+            ],
+            "fallback": "file_mtime",
+            "fallback_never_promoted": true,
+            "captured_at_source": "unknown",
+            "note": "File.lastModified is recorded as a fallback and never written into captured_at. An absent creation atom does not distinguish \"stripped by a re-encode\" from \"never written\", so the UI must claim neither.",
+            "blocking": false,
+            "value": null,
+            "visit_date": "2026-08-04",
+            "window_hours": 24
+          },
+          "near_branch": {
+            "status": "unknown",
+            "evidence": "none",
+            "reason": "no_gps_atom_metadata_stripped",
+            "never_blocking": true,
+            "creator_facing": false,
+            "blocking": false,
+            "value": null,
+            "distance_m": null,
+            "radius_m": 500
+          },
+          "duplicate": {
+            "status": "pass",
+            "evidence": "phash_over_delivery",
+            "blocking": false,
+            "comparison_set": "all fixtures with group == \"engineered\", ingested as one delivery in manifest order"
+          },
+          "codec_playable": {
+            "status": "pass",
+            "evidence": "stsd+isConfigSupported",
+            "blocking": false,
+            "value": "avc1"
+          }
+        },
+        "rollup": {
+          "pass": 5,
+          "fail": 0,
+          "unknown": 2,
+          "skipped": 0,
+          "blocking_fail": 0
+        }
+      },
+      "expected_frames": {
+        "by_tier": {
+          "constrained": {
+            "count": 3,
+            "t_seconds": [
+              1.5,
+              3,
+              4.5
+            ]
+          },
+          "standard": {
+            "count": 3,
+            "t_seconds": [
+              1.5,
+              3,
+              4.5
+            ]
+          },
+          "ample": {
+            "count": 3,
+            "t_seconds": [
+              1.5,
+              3,
+              4.5
+            ]
+          }
+        },
+        "formula": "clamp(round(duration_s / 4), 3, tier_max), tier_max 3 constrained and 5 otherwise (E.4a)",
+        "approximate": true,
+        "reason": "The `<video>` plus canvas path snaps to the preceding keyframe, so t_seconds is a target rather than a guarantee. GOP is half a second, which is what bounds tolerance.frame_t_seconds."
+      },
+      "expected_derivatives": {
+        "contact_sheet": true,
+        "poster": true,
+        "derivative_state": "client_derived",
+        "derivative_producer": "browser",
+        "reason": null,
+        "guarantee": "A real sheet extracted from real frames, or none. Never a fabricated tile presented as a frame."
+      },
+      "expected_phash_prefix": null,
+      "expected_phash_note": "null until the perceptual hasher exists. An invented prefix would be asserted against forever.",
+      "tolerance": {
+        "duration_s": 0.05,
+        "distance_m": 30,
+        "dhash_hamming": 4,
+        "frame_t_seconds": 0.5
+      }
+    },
+    {
+      "fixture_id": "duplicate_of_vertical_ok",
+      "path": "/fixtures/duplicate_of_vertical_ok.mp4",
+      "group": "engineered",
+      "kind": "video",
+      "proves": "Perceptual dedupe where a byte hash cannot help: re-encoded from vertical_ok.mp4 itself at a different quantiser, so the sha256 differs and the frames match within a Hamming distance of 4.",
+      "added_beyond_c2d": false,
+      "bytes": 220798,
+      "sha256": "c1badb0ca974b82478db6ccd5bacae3e7963a94369d1c4f20fc5f9c5da22fdb4",
+      "generator_version": 1,
+      "ffmpeg_args": [
+        "-y",
+        "-i",
+        "STEP_INPUT",
+        "-c:v",
+        "libx264",
+        "-preset",
+        "slow",
+        "-crf",
+        "29",
+        "-g",
+        "12",
+        "-keyint_min",
+        "12",
+        "-sc_threshold",
+        "0",
+        "-pix_fmt",
+        "yuv420p",
+        "-threads",
+        "1",
+        "-c:a",
+        "aac",
+        "-b:a",
+        "48k",
+        "-ac",
+        "1",
+        "-fflags",
+        "+bitexact",
+        "-flags",
+        "+bitexact",
+        "-map_metadata",
+        "-1",
+        "-metadata",
+        "creation_time=2026-08-04T10:12:00Z",
+        "-metadata",
+        "location=+37.33928-121.88630+017.000/",
+        "-f",
+        "mp4",
+        "-movflags",
+        "+faststart"
+      ],
+      "build_steps": [
+        {
+          "step": "reencode",
+          "argv": [
+            "-y",
+            "-i",
+            "STEP_INPUT",
+            "-c:v",
+            "libx264",
+            "-preset",
+            "slow",
+            "-crf",
+            "29",
+            "-g",
+            "12",
+            "-keyint_min",
+            "12",
+            "-sc_threshold",
+            "0",
+            "-pix_fmt",
+            "yuv420p",
+            "-threads",
+            "1",
+            "-c:a",
+            "aac",
+            "-b:a",
+            "48k",
+            "-ac",
+            "1",
+            "-fflags",
+            "+bitexact",
+            "-flags",
+            "+bitexact",
+            "-map_metadata",
+            "-1",
+            "-metadata",
+            "creation_time=2026-08-04T10:12:00Z",
+            "-metadata",
+            "location=+37.33928-121.88630+017.000/",
+            "-f",
+            "mp4",
+            "-movflags",
+            "+faststart"
+          ]
+        }
+      ],
+      "declared": {
+        "kind": "video",
+        "container": "mp4",
+        "ftyp_brand": "isom",
+        "codec_video": "avc1",
+        "codec_audio": "mp4a",
+        "has_audio": true,
+        "coded_width": 1080,
+        "coded_height": 1920,
+        "sar": "1:1",
+        "tkhd_width": 1080,
+        "tkhd_height": 1920,
+        "rotation_deg": 0,
+        "display_matrix_rotation_ccw_deg": 0,
+        "tkhd_matrix": [
+          65536,
+          0,
+          0,
+          0,
+          65536,
+          0,
+          0,
+          0,
+          1073741824
+        ],
+        "duration_s": 6,
+        "fps": 24,
+        "gop_frames": 12,
+        "captured_at": "2026-08-04T10:12:00Z",
+        "captured_at_atom": "mvhd",
+        "mvhd_creation_time_raw": 3868683120,
+        "udta_day": null,
+        "gps": {
+          "lat": 37.33928,
+          "lng": -121.8863,
+          "alt_m": 17
+        },
+        "gps_atom": "udta_loci_3gpp",
+        "gps_iso6709": "+37.33928-121.88630+017.000/",
+        "moov_position": "start",
+        "mdat_size_field": "32bit",
+        "bytes": 220798,
+        "facts_verified": true
+      },
+      "expected_preflight": {
+        "version": 2,
+        "policy_tier": null,
+        "policy_tier_note": "Every rule verdict here holds at every ingest policy tier. Only expected_frames varies by tier.",
+        "producer": "browser",
+        "reference_runtime": "chromium_desktop_windows_without_hevc_extension",
+        "rules": {
+          "orientation": {
+            "status": "pass",
+            "evidence": "coded_dims+tkhd_matrix",
+            "blocking": false,
+            "value": "vertical",
+            "required": "vertical",
+            "coded": "1080x1920",
+            "display": "1080x1920",
+            "rotation_deg": 0
+          },
+          "min_duration": {
+            "status": "pass",
+            "evidence": "mvhd",
+            "blocking": false,
+            "value": 6.016,
+            "required": 3
+          },
+          "min_resolution": {
+            "status": "pass",
+            "evidence": "tkhd+stsd",
+            "blocking": false,
+            "value": "1080x1920",
+            "required": "short edge >= 1080, long edge >= 1920"
+          },
+          "capture_date": {
+            "status": "pass",
+            "evidence": "mvhd",
+            "captured_at_source": "mvhd",
+            "blocking": false,
+            "value": "2026-08-04T10:12:00Z",
+            "visit_date": "2026-08-04",
+            "window_hours": 24,
+            "mvhd_creation_time_raw": 3868683120
+          },
+          "near_branch": {
+            "status": "pass",
+            "evidence": "udta_loci",
+            "blocking": false,
+            "value": {
+              "lat": 37.33928,
+              "lng": -121.8863,
+              "alt_m": 17
+            },
+            "distance_m": 120,
+            "radius_m": 500,
+            "gps_atom": "udta_loci_3gpp",
+            "never_blocking": true
+          },
+          "duplicate": {
+            "status": "fail",
+            "evidence": "phash_over_delivery",
+            "reason": "perceptual_hash_matches_earlier_asset",
+            "duplicate_of_fixture_id": "vertical_ok",
+            "blocking": false,
+            "advisory_note": "Advisory only. A creator delivering the same shot twice is a nudge, not a rejection.",
+            "comparison_set": "all fixtures with group == \"engineered\", ingested as one delivery in manifest order"
+          },
+          "codec_playable": {
+            "status": "pass",
+            "evidence": "stsd+isConfigSupported",
+            "blocking": false,
+            "value": "avc1"
+          }
+        },
+        "rollup": {
+          "pass": 6,
+          "fail": 1,
+          "unknown": 0,
+          "skipped": 0,
+          "blocking_fail": 0
+        }
+      },
+      "expected_frames": {
+        "by_tier": {
+          "constrained": {
+            "count": 3,
+            "t_seconds": [
+              1.504,
+              3.008,
+              4.512
+            ]
+          },
+          "standard": {
+            "count": 3,
+            "t_seconds": [
+              1.504,
+              3.008,
+              4.512
+            ]
+          },
+          "ample": {
+            "count": 3,
+            "t_seconds": [
+              1.504,
+              3.008,
+              4.512
+            ]
+          }
+        },
+        "formula": "clamp(round(duration_s / 4), 3, tier_max), tier_max 3 constrained and 5 otherwise (E.4a)",
+        "approximate": true,
+        "reason": "The `<video>` plus canvas path snaps to the preceding keyframe, so t_seconds is a target rather than a guarantee. GOP is half a second, which is what bounds tolerance.frame_t_seconds."
+      },
+      "expected_derivatives": {
+        "contact_sheet": true,
+        "poster": true,
+        "derivative_state": "client_derived",
+        "derivative_producer": "browser",
+        "reason": null,
+        "guarantee": "A real sheet extracted from real frames, or none. Never a fabricated tile presented as a frame."
+      },
+      "expected_phash_prefix": null,
+      "expected_phash_note": "null until the perceptual hasher exists. An invented prefix would be asserted against forever.",
+      "tolerance": {
+        "duration_s": 0.05,
+        "distance_m": 30,
+        "dhash_hamming": 4,
+        "frame_t_seconds": 0.5
+      }
+    },
+    {
+      "fixture_id": "prores",
+      "path": "/fixtures/prores.mov",
+      "group": "engineered",
+      "kind": "video",
+      "proves": "The camera offload path, and the fixture that makes `unknown` real. A mirrorless body has no GPS receiver, so `near_branch` is `unknown` and must never render as a red cross: failing a creator for owning better equipment is a product defect, not a strict rule. ProRes `apcn` also decodes in no browser at all, which is a stronger statement than the HEVC case. No audio track.",
+      "added_beyond_c2d": false,
+      "bytes": 1665893,
+      "sha256": "dee1305ff0735a06c1d3350dce13b02d91f29efb241904239e1d77f8822a0aad",
+      "generator_version": 1,
+      "ffmpeg_args": [
+        "-y",
+        "-f",
+        "lavfi",
+        "-i",
+        "gradients=size=1024x576:rate=10:duration=3.5:c0=0x3f4448:c1=0x6b7076:seed=20260804:speed=0.03:type=linear",
+        "-vf",
+        "eq=contrast=0.55:brightness=0.06:saturation=0.35,drawtext=fontfile=C\\:/Windows/Fonts/arial.ttf:box=1:boxcolor=black@0.55:boxborderw=8:fontcolor=white:fontsize=41:text='prores':x=(w-text_w)/2:y=h*0.06,drawtext=fontfile=C\\:/Windows/Fonts/arial.ttf:box=1:boxcolor=black@0.55:boxborderw=8:fontcolor=white:fontsize=19:text='1024x576 apcn no-audio 3.5s rot0':x=(w-text_w)/2:y=h*0.06+70,drawtext=fontfile=C\\:/Windows/Fonts/arial.ttf:box=1:boxcolor=black@0.55:boxborderw=8:fontcolor=white:fontsize=25:text='%{pts\\:hms}':x=(w-text_w)/2:y=h-text_h-h*0.06,setsar=1,format=yuv422p10le",
+        "-t",
+        "3.5",
+        "-c:v",
+        "prores_ks",
+        "-profile:v",
+        "2",
+        "-vendor",
+        "apl0",
+        "-pix_fmt",
+        "yuv422p10le",
+        "-threads",
+        "1",
+        "-an",
+        "-fflags",
+        "+bitexact",
+        "-flags",
+        "+bitexact",
+        "-map_metadata",
+        "-1",
+        "-f",
+        "mov"
+      ],
+      "build_steps": [
+        {
+          "step": "encode",
+          "argv": [
+            "-y",
+            "-f",
+            "lavfi",
+            "-i",
+            "gradients=size=1024x576:rate=10:duration=3.5:c0=0x3f4448:c1=0x6b7076:seed=20260804:speed=0.03:type=linear",
+            "-vf",
+            "eq=contrast=0.55:brightness=0.06:saturation=0.35,drawtext=fontfile=C\\:/Windows/Fonts/arial.ttf:box=1:boxcolor=black@0.55:boxborderw=8:fontcolor=white:fontsize=41:text='prores':x=(w-text_w)/2:y=h*0.06,drawtext=fontfile=C\\:/Windows/Fonts/arial.ttf:box=1:boxcolor=black@0.55:boxborderw=8:fontcolor=white:fontsize=19:text='1024x576 apcn no-audio 3.5s rot0':x=(w-text_w)/2:y=h*0.06+70,drawtext=fontfile=C\\:/Windows/Fonts/arial.ttf:box=1:boxcolor=black@0.55:boxborderw=8:fontcolor=white:fontsize=25:text='%{pts\\:hms}':x=(w-text_w)/2:y=h-text_h-h*0.06,setsar=1,format=yuv422p10le",
+            "-t",
+            "3.5",
+            "-c:v",
+            "prores_ks",
+            "-profile:v",
+            "2",
+            "-vendor",
+            "apl0",
+            "-pix_fmt",
+            "yuv422p10le",
+            "-threads",
+            "1",
+            "-an",
+            "-fflags",
+            "+bitexact",
+            "-flags",
+            "+bitexact",
+            "-map_metadata",
+            "-1",
+            "-f",
+            "mov"
+          ]
+        }
+      ],
+      "declared": {
+        "kind": "video",
+        "container": "mov",
+        "ftyp_brand": "qt  ",
+        "codec_video": "apcn",
+        "codec_audio": null,
+        "has_audio": false,
+        "coded_width": 1024,
+        "coded_height": 576,
+        "sar": "1:1",
+        "tkhd_width": 1024,
+        "tkhd_height": 576,
+        "rotation_deg": 0,
+        "display_matrix_rotation_ccw_deg": 0,
+        "tkhd_matrix": [
+          65536,
+          0,
+          0,
+          0,
+          65536,
+          0,
+          0,
+          0,
+          1073741824
+        ],
+        "duration_s": 3.5,
+        "fps": 10,
+        "gop_frames": 1,
+        "captured_at": null,
+        "captured_at_atom": null,
+        "mvhd_creation_time_raw": 0,
+        "udta_day": null,
+        "gps": null,
+        "gps_atom": null,
+        "gps_iso6709": null,
+        "moov_position": "end",
+        "mdat_size_field": "32bit",
+        "bytes": 1665893,
+        "facts_verified": true
+      },
+      "expected_preflight": {
+        "version": 2,
+        "policy_tier": null,
+        "policy_tier_note": "Every rule verdict here holds at every ingest policy tier. Only expected_frames varies by tier.",
+        "producer": "browser",
+        "reference_runtime": "chromium_desktop_windows_without_hevc_extension",
+        "rules": {
+          "orientation": {
+            "status": "fail",
+            "evidence": "coded_dims+tkhd_matrix",
+            "reason": "display_orientation_not_vertical",
+            "blocking": true,
+            "value": "horizontal",
+            "required": "vertical",
+            "coded": "1024x576",
+            "display": "1024x576",
+            "rotation_deg": 0
+          },
+          "min_duration": {
+            "status": "pass",
+            "evidence": "mvhd",
+            "blocking": false,
+            "value": 3.5,
+            "required": 3
+          },
+          "min_resolution": {
+            "status": "fail",
+            "evidence": "tkhd+stsd",
+            "reason": "below_min_resolution",
+            "blocking": true,
+            "value": "1024x576",
+            "required": "short edge >= 1080, long edge >= 1920"
+          },
+          "capture_date": {
+            "status": "unknown",
+            "evidence": "none",
+            "reason": "mvhd_creation_time_zero",
+            "also": [
+              "no_udta_day_atom"
+            ],
+            "fallback": "file_mtime",
+            "fallback_never_promoted": true,
+            "captured_at_source": "unknown",
+            "note": "Cameras commonly write no creation atom, or write camera local time with no offset. Either way this is absence of evidence, not a rule violation.",
+            "blocking": false,
+            "value": null,
+            "visit_date": "2026-08-04",
+            "window_hours": 24
+          },
+          "near_branch": {
+            "status": "unknown",
+            "evidence": "none",
+            "reason": "no_gps_atom_camera_has_no_receiver",
+            "never_blocking": true,
+            "creator_facing": false,
+            "note": "THE RULE THAT GOVERNS THE WHOLE PIPELINE. Grey dash, never red. Nothing shown to the creator, because there is no action available.",
+            "blocking": false,
+            "value": null,
+            "distance_m": null,
+            "radius_m": 500
+          },
+          "duplicate": {
+            "status": "unknown",
+            "evidence": "none",
+            "reason": "no_frames_no_decoder",
+            "runtime_dependent": false,
+            "blocking": false,
+            "comparison_set": "all fixtures with group == \"engineered\", ingested as one delivery in manifest order"
+          },
+          "codec_playable": {
+            "status": "fail",
+            "evidence": "stsd+isConfigSupported",
+            "reason": "codec_unsupported_in_every_browser",
+            "blocking": false,
+            "routes_to": "transcode",
+            "upload_priority": "required_for_transcode",
+            "runtime_dependent": false,
+            "runtime_note": "No browser decodes ProRes, so unlike hvc1 this answer does not move with the runtime.",
+            "value": "apcn"
+          }
+        },
+        "rollup": {
+          "pass": 1,
+          "fail": 3,
+          "unknown": 3,
+          "skipped": 0,
+          "blocking_fail": 2
+        }
+      },
+      "expected_frames": {
+        "by_tier": {
+          "constrained": {
+            "count": 0,
+            "t_seconds": []
+          },
+          "standard": {
+            "count": 0,
+            "t_seconds": []
+          },
+          "ample": {
+            "count": 0,
+            "t_seconds": []
+          }
+        },
+        "formula": null,
+        "approximate": false,
+        "reason": "codec_unsupported_in_every_browser",
+        "note": "Extraction is NOT attempted. A try-and-catch into a black frame is worse than no frame, because a black frame gets tagged."
+      },
+      "expected_derivatives": {
+        "contact_sheet": false,
+        "poster": false,
+        "derivative_state": "none",
+        "derivative_producer": null,
+        "reason": "codec_unsupported_in_every_browser",
+        "guarantee": "Same guarantee as hevc.mov: no sheet, no poster, no ai_run, and no black frame passed off as a frame."
+      },
+      "expected_phash_prefix": null,
+      "expected_phash_note": "null until the perceptual hasher exists. An invented prefix would be asserted against forever.",
+      "tolerance": {
+        "duration_s": 0.05,
+        "distance_m": 30,
+        "dhash_hamming": 4,
+        "frame_t_seconds": 0.5
+      }
+    },
+    {
+      "fixture_id": "largesize_mdat",
+      "path": "/fixtures/largesize_mdat.mp4",
+      "group": "engineered",
+      "kind": "video",
+      "proves": "The 64 bit atom size path the charter requires: `size == 1` followed by a 64 bit largesize. Real files only take that form above 4GB, which cannot be committed, so the builder rewrites the 8 byte `free` atom that ffmpeg already reserves in front of `mdat` into a 16 byte 64 bit `mdat` header. The mdat payload does not move, so every `stco` offset stays valid and the file still decodes. Without this fixture the 64 bit branch has nothing to assert against at any size.",
+      "added_beyond_c2d": true,
+      "bytes": 72896,
+      "sha256": "f64f8cf64f24a6c1a3a5ba9971660dd3208125e1c5e35f940ed85657d240a57e",
+      "generator_version": 1,
+      "ffmpeg_args": [
+        "-y",
+        "-f",
+        "lavfi",
+        "-i",
+        "smptebars=size=270x480:rate=24:duration=2",
+        "-f",
+        "lavfi",
+        "-i",
+        "sine=frequency=220:beep_factor=4:sample_rate=48000:duration=2",
+        "-vf",
+        "scale=1080:1920:flags=bilinear,drawbox=x='(w-216)*mod(t/2\\,1)':y=h*0.55:w=216:h=216:color=white@0.92:t=fill,drawtext=fontfile=C\\:/Windows/Fonts/arial.ttf:box=1:boxcolor=black@0.55:boxborderw=15:fontcolor=white:fontsize=77:text='largesize_mdat':x=(w-text_w)/2:y=h*0.06,drawtext=fontfile=C\\:/Windows/Fonts/arial.ttf:box=1:boxcolor=black@0.55:boxborderw=15:fontcolor=white:fontsize=36:text='1080x1920 avc1 +mp4a 2s rot0':x=(w-text_w)/2:y=h*0.06+131,drawtext=fontfile=C\\:/Windows/Fonts/arial.ttf:box=1:boxcolor=black@0.55:boxborderw=15:fontcolor=white:fontsize=47:text='%{pts\\:hms}':x=(w-text_w)/2:y=h-text_h-h*0.06,setsar=1,format=yuv420p",
+        "-t",
+        "2",
+        "-c:v",
+        "libx264",
+        "-preset",
+        "slow",
+        "-crf",
+        "30",
+        "-g",
+        "12",
+        "-keyint_min",
+        "12",
+        "-sc_threshold",
+        "0",
+        "-pix_fmt",
+        "yuv420p",
+        "-threads",
+        "1",
+        "-c:a",
+        "aac",
+        "-b:a",
+        "32k",
+        "-ac",
+        "1",
+        "-fflags",
+        "+bitexact",
+        "-flags",
+        "+bitexact",
+        "-map_metadata",
+        "-1",
+        "-metadata",
+        "creation_time=2026-08-04T10:12:00Z",
+        "-metadata",
+        "location=+37.33928-121.88630+017.000/",
+        "-f",
+        "mp4",
+        "-movflags",
+        "+faststart"
+      ],
+      "build_steps": [
+        {
+          "step": "encode",
+          "argv": [
+            "-y",
+            "-f",
+            "lavfi",
+            "-i",
+            "smptebars=size=270x480:rate=24:duration=2",
+            "-f",
+            "lavfi",
+            "-i",
+            "sine=frequency=220:beep_factor=4:sample_rate=48000:duration=2",
+            "-vf",
+            "scale=1080:1920:flags=bilinear,drawbox=x='(w-216)*mod(t/2\\,1)':y=h*0.55:w=216:h=216:color=white@0.92:t=fill,drawtext=fontfile=C\\:/Windows/Fonts/arial.ttf:box=1:boxcolor=black@0.55:boxborderw=15:fontcolor=white:fontsize=77:text='largesize_mdat':x=(w-text_w)/2:y=h*0.06,drawtext=fontfile=C\\:/Windows/Fonts/arial.ttf:box=1:boxcolor=black@0.55:boxborderw=15:fontcolor=white:fontsize=36:text='1080x1920 avc1 +mp4a 2s rot0':x=(w-text_w)/2:y=h*0.06+131,drawtext=fontfile=C\\:/Windows/Fonts/arial.ttf:box=1:boxcolor=black@0.55:boxborderw=15:fontcolor=white:fontsize=47:text='%{pts\\:hms}':x=(w-text_w)/2:y=h-text_h-h*0.06,setsar=1,format=yuv420p",
+            "-t",
+            "2",
+            "-c:v",
+            "libx264",
+            "-preset",
+            "slow",
+            "-crf",
+            "30",
+            "-g",
+            "12",
+            "-keyint_min",
+            "12",
+            "-sc_threshold",
+            "0",
+            "-pix_fmt",
+            "yuv420p",
+            "-threads",
+            "1",
+            "-c:a",
+            "aac",
+            "-b:a",
+            "32k",
+            "-ac",
+            "1",
+            "-fflags",
+            "+bitexact",
+            "-flags",
+            "+bitexact",
+            "-map_metadata",
+            "-1",
+            "-metadata",
+            "creation_time=2026-08-04T10:12:00Z",
+            "-metadata",
+            "location=+37.33928-121.88630+017.000/",
+            "-f",
+            "mp4",
+            "-movflags",
+            "+faststart"
+          ]
+        },
+        {
+          "step": "patch_bytes",
+          "argv": [],
+          "patch": "largesize_mdat"
+        }
+      ],
+      "declared": {
+        "kind": "video",
+        "container": "mp4",
+        "ftyp_brand": "isom",
+        "codec_video": "avc1",
+        "codec_audio": "mp4a",
+        "has_audio": true,
+        "coded_width": 1080,
+        "coded_height": 1920,
+        "sar": "1:1",
+        "tkhd_width": 1080,
+        "tkhd_height": 1920,
+        "rotation_deg": 0,
+        "display_matrix_rotation_ccw_deg": 0,
+        "tkhd_matrix": [
+          65536,
+          0,
+          0,
+          0,
+          65536,
+          0,
+          0,
+          0,
+          1073741824
+        ],
+        "duration_s": 2,
+        "fps": 24,
+        "gop_frames": 12,
+        "captured_at": "2026-08-04T10:12:00Z",
+        "captured_at_atom": "mvhd",
+        "mvhd_creation_time_raw": 3868683120,
+        "udta_day": null,
+        "gps": {
+          "lat": 37.33928,
+          "lng": -121.8863,
+          "alt_m": 17
+        },
+        "gps_atom": "udta_loci_3gpp",
+        "gps_iso6709": "+37.33928-121.88630+017.000/",
+        "moov_position": "start",
+        "mdat_size_field": "64bit_largesize",
+        "bytes": 72896,
+        "facts_verified": true
+      },
+      "expected_preflight": {
+        "version": 2,
+        "policy_tier": null,
+        "policy_tier_note": "Every rule verdict here holds at every ingest policy tier. Only expected_frames varies by tier.",
+        "producer": "browser",
+        "reference_runtime": "chromium_desktop_windows_without_hevc_extension",
+        "rules": {
+          "orientation": {
+            "status": "pass",
+            "evidence": "coded_dims+tkhd_matrix",
+            "blocking": false,
+            "value": "vertical",
+            "required": "vertical",
+            "coded": "1080x1920",
+            "display": "1080x1920",
+            "rotation_deg": 0
+          },
+          "min_duration": {
+            "status": "fail",
+            "evidence": "mvhd",
+            "reason": "below_min_duration",
+            "blocking": true,
+            "advisory_note": "This clip is 2s to keep the committed bytes small, so it fails min_duration as a side effect. It exists to test the atom walker, not the duration rule, and the QA case asserts the parsed duration rather than the verdict.",
+            "value": 2,
+            "required": 3
+          },
+          "min_resolution": {
+            "status": "pass",
+            "evidence": "tkhd+stsd",
+            "blocking": false,
+            "value": "1080x1920",
+            "required": "short edge >= 1080, long edge >= 1920"
+          },
+          "capture_date": {
+            "status": "pass",
+            "evidence": "mvhd",
+            "captured_at_source": "mvhd",
+            "blocking": false,
+            "value": "2026-08-04T10:12:00Z",
+            "visit_date": "2026-08-04",
+            "window_hours": 24,
+            "mvhd_creation_time_raw": 3868683120
+          },
+          "near_branch": {
+            "status": "pass",
+            "evidence": "udta_loci",
+            "blocking": false,
+            "value": {
+              "lat": 37.33928,
+              "lng": -121.8863,
+              "alt_m": 17
+            },
+            "distance_m": 120,
+            "radius_m": 500,
+            "gps_atom": "udta_loci_3gpp",
+            "never_blocking": true
+          },
+          "duplicate": {
+            "status": "pass",
+            "evidence": "phash_over_delivery",
+            "blocking": false,
+            "comparison_set": "all fixtures with group == \"engineered\", ingested as one delivery in manifest order"
+          },
+          "codec_playable": {
+            "status": "pass",
+            "evidence": "stsd+isConfigSupported",
+            "blocking": false,
+            "value": "avc1"
+          }
+        },
+        "rollup": {
+          "pass": 6,
+          "fail": 1,
+          "unknown": 0,
+          "skipped": 0,
+          "blocking_fail": 1
+        }
+      },
+      "expected_frames": {
+        "by_tier": {
+          "constrained": {
+            "count": 3,
+            "t_seconds": [
+              0.5,
+              1,
+              1.5
+            ]
+          },
+          "standard": {
+            "count": 3,
+            "t_seconds": [
+              0.5,
+              1,
+              1.5
+            ]
+          },
+          "ample": {
+            "count": 3,
+            "t_seconds": [
+              0.5,
+              1,
+              1.5
+            ]
+          }
+        },
+        "formula": "clamp(round(duration_s / 4), 3, tier_max), tier_max 3 constrained and 5 otherwise (E.4a)",
+        "approximate": true,
+        "reason": "The `<video>` plus canvas path snaps to the preceding keyframe, so t_seconds is a target rather than a guarantee. GOP is half a second, which is what bounds tolerance.frame_t_seconds."
+      },
+      "expected_derivatives": {
+        "contact_sheet": true,
+        "poster": true,
+        "derivative_state": "client_derived",
+        "derivative_producer": "browser",
+        "reason": null,
+        "guarantee": "A real sheet extracted from real frames, or none. Never a fabricated tile presented as a frame."
+      },
+      "expected_phash_prefix": null,
+      "expected_phash_note": "null until the perceptual hasher exists. An invented prefix would be asserted against forever.",
+      "tolerance": {
+        "duration_s": 0.05,
+        "distance_m": 30,
+        "dhash_hamming": 4,
+        "frame_t_seconds": 0.5
+      }
+    },
+    {
+      "fixture_id": "long_ok",
+      "path": "/fixtures/long_ok.mp4",
+      "group": "engineered",
+      "kind": "video",
+      "proves": "The only fixture long enough for the frame count formula to produce 5 frames, so the 1x5 sheet layout and the constrained versus standard tier difference have a fixture at all. Under E.4a every clip below about 14s gets 3 frames at every tier, which means the rest of this set cannot exercise the layout the contact sheet spec is written around.",
+      "added_beyond_c2d": true,
+      "bytes": 595165,
+      "sha256": "37a3dbc987c2fdc37c1ca9446166ac0e99fb9d38bc9e75597c5673c3c466d9f3",
+      "generator_version": 1,
+      "ffmpeg_args": [
+        "-y",
+        "-f",
+        "lavfi",
+        "-i",
+        "smptebars=size=270x480:rate=24:duration=20",
+        "-f",
+        "lavfi",
+        "-i",
+        "sine=frequency=220:beep_factor=4:sample_rate=48000:duration=20",
+        "-vf",
+        "scale=1080:1920:flags=bilinear,drawbox=x='(w-216)*mod(t/20\\,1)':y=h*0.55:w=216:h=216:color=white@0.92:t=fill,drawtext=fontfile=C\\:/Windows/Fonts/arial.ttf:box=1:boxcolor=black@0.55:boxborderw=15:fontcolor=white:fontsize=77:text='long_ok':x=(w-text_w)/2:y=h*0.06,drawtext=fontfile=C\\:/Windows/Fonts/arial.ttf:box=1:boxcolor=black@0.55:boxborderw=15:fontcolor=white:fontsize=36:text='1080x1920 avc1 +mp4a 20s rot0':x=(w-text_w)/2:y=h*0.06+131,drawtext=fontfile=C\\:/Windows/Fonts/arial.ttf:box=1:boxcolor=black@0.55:boxborderw=15:fontcolor=white:fontsize=47:text='%{pts\\:hms}':x=(w-text_w)/2:y=h-text_h-h*0.06,setsar=1,format=yuv420p",
+        "-t",
+        "20",
+        "-c:v",
+        "libx264",
+        "-preset",
+        "slow",
+        "-crf",
+        "32",
+        "-g",
+        "12",
+        "-keyint_min",
+        "12",
+        "-sc_threshold",
+        "0",
+        "-pix_fmt",
+        "yuv420p",
+        "-threads",
+        "1",
+        "-c:a",
+        "aac",
+        "-b:a",
+        "32k",
+        "-ac",
+        "1",
+        "-fflags",
+        "+bitexact",
+        "-flags",
+        "+bitexact",
+        "-map_metadata",
+        "-1",
+        "-metadata",
+        "creation_time=2026-08-04T10:12:00Z",
+        "-metadata",
+        "location=+37.33928-121.88630+017.000/",
+        "-f",
+        "mp4",
+        "-movflags",
+        "+faststart"
+      ],
+      "build_steps": [
+        {
+          "step": "encode",
+          "argv": [
+            "-y",
+            "-f",
+            "lavfi",
+            "-i",
+            "smptebars=size=270x480:rate=24:duration=20",
+            "-f",
+            "lavfi",
+            "-i",
+            "sine=frequency=220:beep_factor=4:sample_rate=48000:duration=20",
+            "-vf",
+            "scale=1080:1920:flags=bilinear,drawbox=x='(w-216)*mod(t/20\\,1)':y=h*0.55:w=216:h=216:color=white@0.92:t=fill,drawtext=fontfile=C\\:/Windows/Fonts/arial.ttf:box=1:boxcolor=black@0.55:boxborderw=15:fontcolor=white:fontsize=77:text='long_ok':x=(w-text_w)/2:y=h*0.06,drawtext=fontfile=C\\:/Windows/Fonts/arial.ttf:box=1:boxcolor=black@0.55:boxborderw=15:fontcolor=white:fontsize=36:text='1080x1920 avc1 +mp4a 20s rot0':x=(w-text_w)/2:y=h*0.06+131,drawtext=fontfile=C\\:/Windows/Fonts/arial.ttf:box=1:boxcolor=black@0.55:boxborderw=15:fontcolor=white:fontsize=47:text='%{pts\\:hms}':x=(w-text_w)/2:y=h-text_h-h*0.06,setsar=1,format=yuv420p",
+            "-t",
+            "20",
+            "-c:v",
+            "libx264",
+            "-preset",
+            "slow",
+            "-crf",
+            "32",
+            "-g",
+            "12",
+            "-keyint_min",
+            "12",
+            "-sc_threshold",
+            "0",
+            "-pix_fmt",
+            "yuv420p",
+            "-threads",
+            "1",
+            "-c:a",
+            "aac",
+            "-b:a",
+            "32k",
+            "-ac",
+            "1",
+            "-fflags",
+            "+bitexact",
+            "-flags",
+            "+bitexact",
+            "-map_metadata",
+            "-1",
+            "-metadata",
+            "creation_time=2026-08-04T10:12:00Z",
+            "-metadata",
+            "location=+37.33928-121.88630+017.000/",
+            "-f",
+            "mp4",
+            "-movflags",
+            "+faststart"
+          ]
+        }
+      ],
+      "declared": {
+        "kind": "video",
+        "container": "mp4",
+        "ftyp_brand": "isom",
+        "codec_video": "avc1",
+        "codec_audio": "mp4a",
+        "has_audio": true,
+        "coded_width": 1080,
+        "coded_height": 1920,
+        "sar": "1:1",
+        "tkhd_width": 1080,
+        "tkhd_height": 1920,
+        "rotation_deg": 0,
+        "display_matrix_rotation_ccw_deg": 0,
+        "tkhd_matrix": [
+          65536,
+          0,
+          0,
+          0,
+          65536,
+          0,
+          0,
+          0,
+          1073741824
+        ],
+        "duration_s": 20,
+        "fps": 24,
+        "gop_frames": 12,
+        "captured_at": "2026-08-04T10:12:00Z",
+        "captured_at_atom": "mvhd",
+        "mvhd_creation_time_raw": 3868683120,
+        "udta_day": null,
+        "gps": {
+          "lat": 37.33928,
+          "lng": -121.8863,
+          "alt_m": 17
+        },
+        "gps_atom": "udta_loci_3gpp",
+        "gps_iso6709": "+37.33928-121.88630+017.000/",
+        "moov_position": "start",
+        "mdat_size_field": "32bit",
+        "bytes": 595165,
+        "facts_verified": true
+      },
+      "expected_preflight": {
+        "version": 2,
+        "policy_tier": null,
+        "policy_tier_note": "Every rule verdict here holds at every ingest policy tier. Only expected_frames varies by tier.",
+        "producer": "browser",
+        "reference_runtime": "chromium_desktop_windows_without_hevc_extension",
+        "rules": {
+          "orientation": {
+            "status": "pass",
+            "evidence": "coded_dims+tkhd_matrix",
+            "blocking": false,
+            "value": "vertical",
+            "required": "vertical",
+            "coded": "1080x1920",
+            "display": "1080x1920",
+            "rotation_deg": 0
+          },
+          "min_duration": {
+            "status": "pass",
+            "evidence": "mvhd",
+            "blocking": false,
+            "value": 20,
+            "required": 3
+          },
+          "min_resolution": {
+            "status": "pass",
+            "evidence": "tkhd+stsd",
+            "blocking": false,
+            "value": "1080x1920",
+            "required": "short edge >= 1080, long edge >= 1920"
+          },
+          "capture_date": {
+            "status": "pass",
+            "evidence": "mvhd",
+            "captured_at_source": "mvhd",
+            "blocking": false,
+            "value": "2026-08-04T10:12:00Z",
+            "visit_date": "2026-08-04",
+            "window_hours": 24,
+            "mvhd_creation_time_raw": 3868683120
+          },
+          "near_branch": {
+            "status": "pass",
+            "evidence": "udta_loci",
+            "blocking": false,
+            "value": {
+              "lat": 37.33928,
+              "lng": -121.8863,
+              "alt_m": 17
+            },
+            "distance_m": 120,
+            "radius_m": 500,
+            "gps_atom": "udta_loci_3gpp",
+            "never_blocking": true
+          },
+          "duplicate": {
+            "status": "pass",
+            "evidence": "phash_over_delivery",
+            "blocking": false,
+            "comparison_set": "all fixtures with group == \"engineered\", ingested as one delivery in manifest order"
+          },
+          "codec_playable": {
+            "status": "pass",
+            "evidence": "stsd+isConfigSupported",
+            "blocking": false,
+            "value": "avc1"
+          }
+        },
+        "rollup": {
+          "pass": 7,
+          "fail": 0,
+          "unknown": 0,
+          "skipped": 0,
+          "blocking_fail": 0
+        }
+      },
+      "expected_frames": {
+        "by_tier": {
+          "constrained": {
+            "count": 3,
+            "t_seconds": [
+              5,
+              10,
+              15
+            ]
+          },
+          "standard": {
+            "count": 5,
+            "t_seconds": [
+              3.333,
+              6.667,
+              10,
+              13.333,
+              16.667
+            ]
+          },
+          "ample": {
+            "count": 5,
+            "t_seconds": [
+              3.333,
+              6.667,
+              10,
+              13.333,
+              16.667
+            ]
+          }
+        },
+        "formula": "clamp(round(duration_s / 4), 3, tier_max), tier_max 3 constrained and 5 otherwise (E.4a)",
+        "approximate": true,
+        "reason": "The `<video>` plus canvas path snaps to the preceding keyframe, so t_seconds is a target rather than a guarantee. GOP is half a second, which is what bounds tolerance.frame_t_seconds."
+      },
+      "expected_derivatives": {
+        "contact_sheet": true,
+        "poster": true,
+        "derivative_state": "client_derived",
+        "derivative_producer": "browser",
+        "reason": null,
+        "guarantee": "A real sheet extracted from real frames, or none. Never a fabricated tile presented as a frame."
+      },
+      "expected_phash_prefix": null,
+      "expected_phash_note": "null until the perceptual hasher exists. An invented prefix would be asserted against forever.",
+      "tolerance": {
+        "duration_s": 0.05,
+        "distance_m": 30,
+        "dhash_hamming": 4,
+        "frame_t_seconds": 0.5
+      }
+    },
+    {
+      "fixture_id": "photo_still",
+      "path": "/fixtures/photo_still.jpg",
+      "group": "engineered",
+      "kind": "photo",
+      "proves": "The only fixture where a rule is `skipped` rather than `unknown`. A photo has no duration to check, and \"this does not apply\" reads differently to a human than \"we could not tell\". Also the not-a-movie input: the container walker must return a reason rather than throwing when handed bytes that are not ISO BMFF at all.",
+      "added_beyond_c2d": true,
+      "bytes": 51914,
+      "sha256": "2e4b107af35f101b06274e8543a6046453e99edc79d97f5572ad0aa2304f5ee2",
+      "generator_version": 1,
+      "ffmpeg_args": [
+        "-y",
+        "-f",
+        "lavfi",
+        "-i",
+        "gradients=size=1080x1920:rate=1:duration=1:c0=0xf7ddc6:c1=0xd39c74:seed=20260804:speed=0.02:type=radial",
+        "-frames:v",
+        "1",
+        "-vf",
+        "drawtext=fontfile=C\\:/Windows/Fonts/arial.ttf:box=1:boxcolor=black@0.55:boxborderw=15:fontcolor=white:fontsize=77:text='photo_still':x=(w-text_w)/2:y=h*0.06,drawtext=fontfile=C\\:/Windows/Fonts/arial.ttf:box=1:boxcolor=black@0.55:boxborderw=15:fontcolor=white:fontsize=36:text='1080x1920 avc1 no-audio undefineds rot0':x=(w-text_w)/2:y=h*0.06+131",
+        "-q:v",
+        "4",
+        "-fflags",
+        "+bitexact",
+        "-flags",
+        "+bitexact",
+        "-update",
+        "1",
+        "-f",
+        "image2"
+      ],
+      "build_steps": [
+        {
+          "step": "encode_still",
+          "argv": [
+            "-y",
+            "-f",
+            "lavfi",
+            "-i",
+            "gradients=size=1080x1920:rate=1:duration=1:c0=0xf7ddc6:c1=0xd39c74:seed=20260804:speed=0.02:type=radial",
+            "-frames:v",
+            "1",
+            "-vf",
+            "drawtext=fontfile=C\\:/Windows/Fonts/arial.ttf:box=1:boxcolor=black@0.55:boxborderw=15:fontcolor=white:fontsize=77:text='photo_still':x=(w-text_w)/2:y=h*0.06,drawtext=fontfile=C\\:/Windows/Fonts/arial.ttf:box=1:boxcolor=black@0.55:boxborderw=15:fontcolor=white:fontsize=36:text='1080x1920 avc1 no-audio undefineds rot0':x=(w-text_w)/2:y=h*0.06+131",
+            "-q:v",
+            "4",
+            "-fflags",
+            "+bitexact",
+            "-flags",
+            "+bitexact",
+            "-update",
+            "1",
+            "-f",
+            "image2"
+          ]
+        }
+      ],
+      "declared": {
+        "kind": "photo",
+        "container": "jpeg",
+        "ftyp_brand": null,
+        "codec_video": "mjpeg",
+        "codec_audio": null,
+        "has_audio": false,
+        "coded_width": 1080,
+        "coded_height": 1920,
+        "sar": null,
+        "tkhd_width": null,
+        "tkhd_height": null,
+        "rotation_deg": 0,
+        "display_matrix_rotation_ccw_deg": 0,
+        "tkhd_matrix": null,
+        "duration_s": null,
+        "fps": null,
+        "gop_frames": null,
+        "captured_at": null,
+        "captured_at_atom": null,
+        "mvhd_creation_time_raw": null,
+        "udta_day": null,
+        "gps": null,
+        "gps_atom": null,
+        "gps_iso6709": null,
+        "moov_position": null,
+        "mdat_size_field": null,
+        "bytes": 51914,
+        "facts_verified": true
+      },
+      "expected_preflight": {
+        "version": 2,
+        "policy_tier": null,
+        "policy_tier_note": "Every rule verdict here holds at every ingest policy tier. Only expected_frames varies by tier.",
+        "producer": "browser",
+        "reference_runtime": "chromium_desktop_windows_without_hevc_extension",
+        "rules": {
+          "orientation": {
+            "status": "pass",
+            "evidence": "image_dims",
+            "blocking": false,
+            "value": "vertical",
+            "required": "vertical",
+            "coded": "1080x1920",
+            "display": "1080x1920",
+            "rotation_deg": 0
+          },
+          "min_duration": {
+            "status": "skipped",
+            "evidence": "none",
+            "reason": "rule_not_applicable_to_kind",
+            "kind": "photo",
+            "note": "Not rendered at all in the UI. `skipped` is invisible, `unknown` is a grey dash with a reason.",
+            "blocking": false
+          },
+          "min_resolution": {
+            "status": "pass",
+            "evidence": "image_dims",
+            "blocking": false,
+            "value": "1080x1920",
+            "required": "short edge >= 1080, long edge >= 1920"
+          },
+          "capture_date": {
+            "status": "unknown",
+            "evidence": "none",
+            "reason": "no_exif_parser_for_still_images",
+            "fallback": "file_mtime",
+            "fallback_never_promoted": true,
+            "captured_at_source": "unknown",
+            "note": "ffmpeg writes no EXIF, and we ship no EXIF parser, so this is honestly unknown rather than pretending a stills path exists.",
+            "blocking": false,
+            "value": null,
+            "visit_date": "2026-08-04",
+            "window_hours": 24
+          },
+          "near_branch": {
+            "status": "unknown",
+            "evidence": "none",
+            "reason": "no_gps_atom_not_written_by_encoder",
+            "never_blocking": true,
+            "creator_facing": false,
+            "blocking": false,
+            "value": null,
+            "distance_m": null,
+            "radius_m": 500
+          },
+          "duplicate": {
+            "status": "pass",
+            "evidence": "phash_over_delivery",
+            "note": "A still has exactly one frame, which is its own sheet, so dedupe genuinely can run.",
+            "blocking": false,
+            "comparison_set": "all fixtures with group == \"engineered\", ingested as one delivery in manifest order"
+          },
+          "codec_playable": {
+            "status": "pass",
+            "evidence": "image_decode",
+            "blocking": false,
+            "value": "mjpeg"
+          }
+        },
+        "rollup": {
+          "pass": 4,
+          "fail": 0,
+          "unknown": 2,
+          "skipped": 1,
+          "blocking_fail": 0
+        }
+      },
+      "expected_frames": {
+        "by_tier": {
+          "constrained": {
+            "count": 1,
+            "t_seconds": []
+          },
+          "standard": {
+            "count": 1,
+            "t_seconds": []
+          },
+          "ample": {
+            "count": 1,
+            "t_seconds": []
+          }
+        },
+        "formula": "a still is its own single frame",
+        "approximate": false,
+        "reason": null
+      },
+      "expected_derivatives": {
+        "contact_sheet": true,
+        "poster": true,
+        "derivative_state": "client_derived",
+        "derivative_producer": "browser",
+        "reason": null,
+        "guarantee": "A real sheet extracted from real frames, or none. Never a fabricated tile presented as a frame."
+      },
+      "expected_phash_prefix": null,
+      "expected_phash_note": "null until the perceptual hasher exists. An invented prefix would be asserted against forever.",
+      "tolerance": {
+        "duration_s": 0.05,
+        "distance_m": 30,
+        "dhash_hamming": 4,
+        "frame_t_seconds": 0.5
+      }
+    },
+    {
+      "fixture_id": "preview_01",
+      "path": "/fixtures/preview_01.mp4",
+      "group": "preview",
+      "kind": "video",
+      "proves": "Preview player only. Pleasant vertical synthetic clip, no engineered defect, depicts no room and no subject.",
+      "added_beyond_c2d": false,
+      "bytes": 223813,
+      "sha256": "58ee3339a4869bee90f8911ff64c0a22934925fb3aa35a6f0c8fa9021509f92a",
+      "generator_version": 1,
+      "ffmpeg_args": [
+        "-y",
+        "-f",
+        "lavfi",
+        "-i",
+        "gradients=size=1080x1920:rate=24:duration=5:c0=0xf7ddc6:c1=0xd39c74:seed=20260804:speed=0.02:type=radial",
+        "-f",
+        "lavfi",
+        "-i",
+        "sine=frequency=220:beep_factor=4:sample_rate=48000:duration=5",
+        "-vf",
+        "drawtext=fontfile=C\\:/Windows/Fonts/arial.ttf:box=1:boxcolor=black@0.55:boxborderw=15:fontcolor=white:fontsize=77:text='preview_01':x=(w-text_w)/2:y=h*0.06,drawtext=fontfile=C\\:/Windows/Fonts/arial.ttf:box=1:boxcolor=black@0.55:boxborderw=15:fontcolor=white:fontsize=36:text='1080x1920 avc1 +mp4a 5s rot0':x=(w-text_w)/2:y=h*0.06+131,drawtext=fontfile=C\\:/Windows/Fonts/arial.ttf:box=1:boxcolor=black@0.55:boxborderw=15:fontcolor=white:fontsize=47:text='%{pts\\:hms}':x=(w-text_w)/2:y=h-text_h-h*0.06,setsar=1,format=yuv420p",
+        "-t",
+        "5",
+        "-c:v",
+        "libx264",
+        "-preset",
+        "slow",
+        "-crf",
+        "32",
+        "-g",
+        "12",
+        "-keyint_min",
+        "12",
+        "-sc_threshold",
+        "0",
+        "-pix_fmt",
+        "yuv420p",
+        "-threads",
+        "1",
+        "-c:a",
+        "aac",
+        "-b:a",
+        "32k",
+        "-ac",
+        "1",
+        "-fflags",
+        "+bitexact",
+        "-flags",
+        "+bitexact",
+        "-map_metadata",
+        "-1",
+        "-metadata",
+        "creation_time=2026-08-04T10:12:00Z",
+        "-metadata",
+        "location=+37.33928-121.88630+017.000/",
+        "-f",
+        "mp4",
+        "-movflags",
+        "+faststart"
+      ],
+      "build_steps": [
+        {
+          "step": "encode",
+          "argv": [
+            "-y",
+            "-f",
+            "lavfi",
+            "-i",
+            "gradients=size=1080x1920:rate=24:duration=5:c0=0xf7ddc6:c1=0xd39c74:seed=20260804:speed=0.02:type=radial",
+            "-f",
+            "lavfi",
+            "-i",
+            "sine=frequency=220:beep_factor=4:sample_rate=48000:duration=5",
+            "-vf",
+            "drawtext=fontfile=C\\:/Windows/Fonts/arial.ttf:box=1:boxcolor=black@0.55:boxborderw=15:fontcolor=white:fontsize=77:text='preview_01':x=(w-text_w)/2:y=h*0.06,drawtext=fontfile=C\\:/Windows/Fonts/arial.ttf:box=1:boxcolor=black@0.55:boxborderw=15:fontcolor=white:fontsize=36:text='1080x1920 avc1 +mp4a 5s rot0':x=(w-text_w)/2:y=h*0.06+131,drawtext=fontfile=C\\:/Windows/Fonts/arial.ttf:box=1:boxcolor=black@0.55:boxborderw=15:fontcolor=white:fontsize=47:text='%{pts\\:hms}':x=(w-text_w)/2:y=h-text_h-h*0.06,setsar=1,format=yuv420p",
+            "-t",
+            "5",
+            "-c:v",
+            "libx264",
+            "-preset",
+            "slow",
+            "-crf",
+            "32",
+            "-g",
+            "12",
+            "-keyint_min",
+            "12",
+            "-sc_threshold",
+            "0",
+            "-pix_fmt",
+            "yuv420p",
+            "-threads",
+            "1",
+            "-c:a",
+            "aac",
+            "-b:a",
+            "32k",
+            "-ac",
+            "1",
+            "-fflags",
+            "+bitexact",
+            "-flags",
+            "+bitexact",
+            "-map_metadata",
+            "-1",
+            "-metadata",
+            "creation_time=2026-08-04T10:12:00Z",
+            "-metadata",
+            "location=+37.33928-121.88630+017.000/",
+            "-f",
+            "mp4",
+            "-movflags",
+            "+faststart"
+          ]
+        }
+      ],
+      "declared": {
+        "kind": "video",
+        "container": "mp4",
+        "ftyp_brand": "isom",
+        "codec_video": "avc1",
+        "codec_audio": "mp4a",
+        "has_audio": true,
+        "coded_width": 1080,
+        "coded_height": 1920,
+        "sar": "1:1",
+        "tkhd_width": 1080,
+        "tkhd_height": 1920,
+        "rotation_deg": 0,
+        "display_matrix_rotation_ccw_deg": 0,
+        "tkhd_matrix": [
+          65536,
+          0,
+          0,
+          0,
+          65536,
+          0,
+          0,
+          0,
+          1073741824
+        ],
+        "duration_s": 5,
+        "fps": 24,
+        "gop_frames": 12,
+        "captured_at": "2026-08-04T10:12:00Z",
+        "captured_at_atom": "mvhd",
+        "mvhd_creation_time_raw": 3868683120,
+        "udta_day": null,
+        "gps": {
+          "lat": 37.33928,
+          "lng": -121.8863,
+          "alt_m": 17
+        },
+        "gps_atom": "udta_loci_3gpp",
+        "gps_iso6709": "+37.33928-121.88630+017.000/",
+        "moov_position": "start",
+        "mdat_size_field": "32bit",
+        "bytes": 223813,
+        "facts_verified": true
+      },
+      "expected_preflight": {
+        "version": 2,
+        "policy_tier": null,
+        "policy_tier_note": "Every rule verdict here holds at every ingest policy tier. Only expected_frames varies by tier.",
+        "producer": "browser",
+        "reference_runtime": "chromium_desktop_windows_without_hevc_extension",
+        "rules": {
+          "orientation": {
+            "status": "pass",
+            "evidence": "coded_dims+tkhd_matrix",
+            "blocking": false,
+            "value": "vertical",
+            "required": "vertical",
+            "coded": "1080x1920",
+            "display": "1080x1920",
+            "rotation_deg": 0
+          },
+          "min_duration": {
+            "status": "pass",
+            "evidence": "mvhd",
+            "blocking": false,
+            "value": 5,
+            "required": 3
+          },
+          "min_resolution": {
+            "status": "pass",
+            "evidence": "tkhd+stsd",
+            "blocking": false,
+            "value": "1080x1920",
+            "required": "short edge >= 1080, long edge >= 1920"
+          },
+          "capture_date": {
+            "status": "pass",
+            "evidence": "mvhd",
+            "captured_at_source": "mvhd",
+            "blocking": false,
+            "value": "2026-08-04T10:12:00Z",
+            "visit_date": "2026-08-04",
+            "window_hours": 24,
+            "mvhd_creation_time_raw": 3868683120
+          },
+          "near_branch": {
+            "status": "pass",
+            "evidence": "udta_loci",
+            "blocking": false,
+            "value": {
+              "lat": 37.33928,
+              "lng": -121.8863,
+              "alt_m": 17
+            },
+            "distance_m": 120,
+            "radius_m": 500,
+            "gps_atom": "udta_loci_3gpp",
+            "never_blocking": true
+          },
+          "duplicate": {
+            "status": "pass",
+            "evidence": "phash_over_delivery",
+            "blocking": false,
+            "comparison_set": "all fixtures with group == \"engineered\", ingested as one delivery in manifest order"
+          },
+          "codec_playable": {
+            "status": "pass",
+            "evidence": "stsd+isConfigSupported",
+            "blocking": false,
+            "value": "avc1"
+          }
+        },
+        "rollup": {
+          "pass": 7,
+          "fail": 0,
+          "unknown": 0,
+          "skipped": 0,
+          "blocking_fail": 0
+        }
+      },
+      "expected_frames": {
+        "by_tier": {
+          "constrained": {
+            "count": 3,
+            "t_seconds": [
+              1.25,
+              2.5,
+              3.75
+            ]
+          },
+          "standard": {
+            "count": 3,
+            "t_seconds": [
+              1.25,
+              2.5,
+              3.75
+            ]
+          },
+          "ample": {
+            "count": 3,
+            "t_seconds": [
+              1.25,
+              2.5,
+              3.75
+            ]
+          }
+        },
+        "formula": "clamp(round(duration_s / 4), 3, tier_max), tier_max 3 constrained and 5 otherwise (E.4a)",
+        "approximate": true,
+        "reason": "The `<video>` plus canvas path snaps to the preceding keyframe, so t_seconds is a target rather than a guarantee. GOP is half a second, which is what bounds tolerance.frame_t_seconds."
+      },
+      "expected_derivatives": {
+        "contact_sheet": true,
+        "poster": true,
+        "derivative_state": "client_derived",
+        "derivative_producer": "browser",
+        "reason": null,
+        "guarantee": "A real sheet extracted from real frames, or none. Never a fabricated tile presented as a frame."
+      },
+      "expected_phash_prefix": null,
+      "expected_phash_note": "null until the perceptual hasher exists. An invented prefix would be asserted against forever.",
+      "tolerance": {
+        "duration_s": 0.05,
+        "distance_m": 30,
+        "dhash_hamming": 4,
+        "frame_t_seconds": 0.5
+      }
+    },
+    {
+      "fixture_id": "preview_02",
+      "path": "/fixtures/preview_02.mp4",
+      "group": "preview",
+      "kind": "video",
+      "proves": "Preview player only. Second clip so the player can be driven across a queue rather than a single item.",
+      "added_beyond_c2d": false,
+      "bytes": 201786,
+      "sha256": "f0dc502c9eb1571441f05b76a83a8a9c5d188ec71338694e6455d7cc98d4d166",
+      "generator_version": 1,
+      "ffmpeg_args": [
+        "-y",
+        "-f",
+        "lavfi",
+        "-i",
+        "gradients=size=1080x1920:rate=24:duration=5:c0=0xd6e6ee:c1=0x8ba7b8:seed=20260804:speed=0.02:type=radial",
+        "-f",
+        "lavfi",
+        "-i",
+        "sine=frequency=220:beep_factor=4:sample_rate=48000:duration=5",
+        "-vf",
+        "drawtext=fontfile=C\\:/Windows/Fonts/arial.ttf:box=1:boxcolor=black@0.55:boxborderw=15:fontcolor=white:fontsize=77:text='preview_02':x=(w-text_w)/2:y=h*0.06,drawtext=fontfile=C\\:/Windows/Fonts/arial.ttf:box=1:boxcolor=black@0.55:boxborderw=15:fontcolor=white:fontsize=36:text='1080x1920 avc1 +mp4a 5s rot0':x=(w-text_w)/2:y=h*0.06+131,drawtext=fontfile=C\\:/Windows/Fonts/arial.ttf:box=1:boxcolor=black@0.55:boxborderw=15:fontcolor=white:fontsize=47:text='%{pts\\:hms}':x=(w-text_w)/2:y=h-text_h-h*0.06,setsar=1,format=yuv420p",
+        "-t",
+        "5",
+        "-c:v",
+        "libx264",
+        "-preset",
+        "slow",
+        "-crf",
+        "32",
+        "-g",
+        "12",
+        "-keyint_min",
+        "12",
+        "-sc_threshold",
+        "0",
+        "-pix_fmt",
+        "yuv420p",
+        "-threads",
+        "1",
+        "-c:a",
+        "aac",
+        "-b:a",
+        "32k",
+        "-ac",
+        "1",
+        "-fflags",
+        "+bitexact",
+        "-flags",
+        "+bitexact",
+        "-map_metadata",
+        "-1",
+        "-metadata",
+        "creation_time=2026-08-04T10:12:00Z",
+        "-metadata",
+        "location=+37.33928-121.88630+017.000/",
+        "-f",
+        "mp4",
+        "-movflags",
+        "+faststart"
+      ],
+      "build_steps": [
+        {
+          "step": "encode",
+          "argv": [
+            "-y",
+            "-f",
+            "lavfi",
+            "-i",
+            "gradients=size=1080x1920:rate=24:duration=5:c0=0xd6e6ee:c1=0x8ba7b8:seed=20260804:speed=0.02:type=radial",
+            "-f",
+            "lavfi",
+            "-i",
+            "sine=frequency=220:beep_factor=4:sample_rate=48000:duration=5",
+            "-vf",
+            "drawtext=fontfile=C\\:/Windows/Fonts/arial.ttf:box=1:boxcolor=black@0.55:boxborderw=15:fontcolor=white:fontsize=77:text='preview_02':x=(w-text_w)/2:y=h*0.06,drawtext=fontfile=C\\:/Windows/Fonts/arial.ttf:box=1:boxcolor=black@0.55:boxborderw=15:fontcolor=white:fontsize=36:text='1080x1920 avc1 +mp4a 5s rot0':x=(w-text_w)/2:y=h*0.06+131,drawtext=fontfile=C\\:/Windows/Fonts/arial.ttf:box=1:boxcolor=black@0.55:boxborderw=15:fontcolor=white:fontsize=47:text='%{pts\\:hms}':x=(w-text_w)/2:y=h-text_h-h*0.06,setsar=1,format=yuv420p",
+            "-t",
+            "5",
+            "-c:v",
+            "libx264",
+            "-preset",
+            "slow",
+            "-crf",
+            "32",
+            "-g",
+            "12",
+            "-keyint_min",
+            "12",
+            "-sc_threshold",
+            "0",
+            "-pix_fmt",
+            "yuv420p",
+            "-threads",
+            "1",
+            "-c:a",
+            "aac",
+            "-b:a",
+            "32k",
+            "-ac",
+            "1",
+            "-fflags",
+            "+bitexact",
+            "-flags",
+            "+bitexact",
+            "-map_metadata",
+            "-1",
+            "-metadata",
+            "creation_time=2026-08-04T10:12:00Z",
+            "-metadata",
+            "location=+37.33928-121.88630+017.000/",
+            "-f",
+            "mp4",
+            "-movflags",
+            "+faststart"
+          ]
+        }
+      ],
+      "declared": {
+        "kind": "video",
+        "container": "mp4",
+        "ftyp_brand": "isom",
+        "codec_video": "avc1",
+        "codec_audio": "mp4a",
+        "has_audio": true,
+        "coded_width": 1080,
+        "coded_height": 1920,
+        "sar": "1:1",
+        "tkhd_width": 1080,
+        "tkhd_height": 1920,
+        "rotation_deg": 0,
+        "display_matrix_rotation_ccw_deg": 0,
+        "tkhd_matrix": [
+          65536,
+          0,
+          0,
+          0,
+          65536,
+          0,
+          0,
+          0,
+          1073741824
+        ],
+        "duration_s": 5,
+        "fps": 24,
+        "gop_frames": 12,
+        "captured_at": "2026-08-04T10:12:00Z",
+        "captured_at_atom": "mvhd",
+        "mvhd_creation_time_raw": 3868683120,
+        "udta_day": null,
+        "gps": {
+          "lat": 37.33928,
+          "lng": -121.8863,
+          "alt_m": 17
+        },
+        "gps_atom": "udta_loci_3gpp",
+        "gps_iso6709": "+37.33928-121.88630+017.000/",
+        "moov_position": "start",
+        "mdat_size_field": "32bit",
+        "bytes": 201786,
+        "facts_verified": true
+      },
+      "expected_preflight": {
+        "version": 2,
+        "policy_tier": null,
+        "policy_tier_note": "Every rule verdict here holds at every ingest policy tier. Only expected_frames varies by tier.",
+        "producer": "browser",
+        "reference_runtime": "chromium_desktop_windows_without_hevc_extension",
+        "rules": {
+          "orientation": {
+            "status": "pass",
+            "evidence": "coded_dims+tkhd_matrix",
+            "blocking": false,
+            "value": "vertical",
+            "required": "vertical",
+            "coded": "1080x1920",
+            "display": "1080x1920",
+            "rotation_deg": 0
+          },
+          "min_duration": {
+            "status": "pass",
+            "evidence": "mvhd",
+            "blocking": false,
+            "value": 5,
+            "required": 3
+          },
+          "min_resolution": {
+            "status": "pass",
+            "evidence": "tkhd+stsd",
+            "blocking": false,
+            "value": "1080x1920",
+            "required": "short edge >= 1080, long edge >= 1920"
+          },
+          "capture_date": {
+            "status": "pass",
+            "evidence": "mvhd",
+            "captured_at_source": "mvhd",
+            "blocking": false,
+            "value": "2026-08-04T10:12:00Z",
+            "visit_date": "2026-08-04",
+            "window_hours": 24,
+            "mvhd_creation_time_raw": 3868683120
+          },
+          "near_branch": {
+            "status": "pass",
+            "evidence": "udta_loci",
+            "blocking": false,
+            "value": {
+              "lat": 37.33928,
+              "lng": -121.8863,
+              "alt_m": 17
+            },
+            "distance_m": 120,
+            "radius_m": 500,
+            "gps_atom": "udta_loci_3gpp",
+            "never_blocking": true
+          },
+          "duplicate": {
+            "status": "pass",
+            "evidence": "phash_over_delivery",
+            "blocking": false,
+            "comparison_set": "all fixtures with group == \"engineered\", ingested as one delivery in manifest order"
+          },
+          "codec_playable": {
+            "status": "pass",
+            "evidence": "stsd+isConfigSupported",
+            "blocking": false,
+            "value": "avc1"
+          }
+        },
+        "rollup": {
+          "pass": 7,
+          "fail": 0,
+          "unknown": 0,
+          "skipped": 0,
+          "blocking_fail": 0
+        }
+      },
+      "expected_frames": {
+        "by_tier": {
+          "constrained": {
+            "count": 3,
+            "t_seconds": [
+              1.25,
+              2.5,
+              3.75
+            ]
+          },
+          "standard": {
+            "count": 3,
+            "t_seconds": [
+              1.25,
+              2.5,
+              3.75
+            ]
+          },
+          "ample": {
+            "count": 3,
+            "t_seconds": [
+              1.25,
+              2.5,
+              3.75
+            ]
+          }
+        },
+        "formula": "clamp(round(duration_s / 4), 3, tier_max), tier_max 3 constrained and 5 otherwise (E.4a)",
+        "approximate": true,
+        "reason": "The `<video>` plus canvas path snaps to the preceding keyframe, so t_seconds is a target rather than a guarantee. GOP is half a second, which is what bounds tolerance.frame_t_seconds."
+      },
+      "expected_derivatives": {
+        "contact_sheet": true,
+        "poster": true,
+        "derivative_state": "client_derived",
+        "derivative_producer": "browser",
+        "reason": null,
+        "guarantee": "A real sheet extracted from real frames, or none. Never a fabricated tile presented as a frame."
+      },
+      "expected_phash_prefix": null,
+      "expected_phash_note": "null until the perceptual hasher exists. An invented prefix would be asserted against forever.",
+      "tolerance": {
+        "duration_s": 0.05,
+        "distance_m": 30,
+        "dhash_hamming": 4,
+        "frame_t_seconds": 0.5
+      }
+    },
+    {
+      "fixture_id": "preview_03",
+      "path": "/fixtures/preview_03.mp4",
+      "group": "preview",
+      "kind": "video",
+      "proves": "Preview player only. Third clip, slower movement, for scrub and seek behaviour.",
+      "added_beyond_c2d": false,
+      "bytes": 337193,
+      "sha256": "a9df94b0eb4374d32c5de09c3790159ca5928b9934dc0aeff0dcd63ff7e06dc2",
+      "generator_version": 1,
+      "ffmpeg_args": [
+        "-y",
+        "-f",
+        "lavfi",
+        "-i",
+        "gradients=size=1080x1920:rate=24:duration=5:c0=0xdde8d4:c1=0x8ea988:seed=20260804:speed=0.015:type=circular",
+        "-f",
+        "lavfi",
+        "-i",
+        "sine=frequency=220:beep_factor=4:sample_rate=48000:duration=5",
+        "-vf",
+        "drawtext=fontfile=C\\:/Windows/Fonts/arial.ttf:box=1:boxcolor=black@0.55:boxborderw=15:fontcolor=white:fontsize=77:text='preview_03':x=(w-text_w)/2:y=h*0.06,drawtext=fontfile=C\\:/Windows/Fonts/arial.ttf:box=1:boxcolor=black@0.55:boxborderw=15:fontcolor=white:fontsize=36:text='1080x1920 avc1 +mp4a 5s rot0':x=(w-text_w)/2:y=h*0.06+131,drawtext=fontfile=C\\:/Windows/Fonts/arial.ttf:box=1:boxcolor=black@0.55:boxborderw=15:fontcolor=white:fontsize=47:text='%{pts\\:hms}':x=(w-text_w)/2:y=h-text_h-h*0.06,setsar=1,format=yuv420p",
+        "-t",
+        "5",
+        "-c:v",
+        "libx264",
+        "-preset",
+        "slow",
+        "-crf",
+        "32",
+        "-g",
+        "12",
+        "-keyint_min",
+        "12",
+        "-sc_threshold",
+        "0",
+        "-pix_fmt",
+        "yuv420p",
+        "-threads",
+        "1",
+        "-c:a",
+        "aac",
+        "-b:a",
+        "32k",
+        "-ac",
+        "1",
+        "-fflags",
+        "+bitexact",
+        "-flags",
+        "+bitexact",
+        "-map_metadata",
+        "-1",
+        "-metadata",
+        "creation_time=2026-08-04T10:12:00Z",
+        "-metadata",
+        "location=+37.33928-121.88630+017.000/",
+        "-f",
+        "mp4",
+        "-movflags",
+        "+faststart"
+      ],
+      "build_steps": [
+        {
+          "step": "encode",
+          "argv": [
+            "-y",
+            "-f",
+            "lavfi",
+            "-i",
+            "gradients=size=1080x1920:rate=24:duration=5:c0=0xdde8d4:c1=0x8ea988:seed=20260804:speed=0.015:type=circular",
+            "-f",
+            "lavfi",
+            "-i",
+            "sine=frequency=220:beep_factor=4:sample_rate=48000:duration=5",
+            "-vf",
+            "drawtext=fontfile=C\\:/Windows/Fonts/arial.ttf:box=1:boxcolor=black@0.55:boxborderw=15:fontcolor=white:fontsize=77:text='preview_03':x=(w-text_w)/2:y=h*0.06,drawtext=fontfile=C\\:/Windows/Fonts/arial.ttf:box=1:boxcolor=black@0.55:boxborderw=15:fontcolor=white:fontsize=36:text='1080x1920 avc1 +mp4a 5s rot0':x=(w-text_w)/2:y=h*0.06+131,drawtext=fontfile=C\\:/Windows/Fonts/arial.ttf:box=1:boxcolor=black@0.55:boxborderw=15:fontcolor=white:fontsize=47:text='%{pts\\:hms}':x=(w-text_w)/2:y=h-text_h-h*0.06,setsar=1,format=yuv420p",
+            "-t",
+            "5",
+            "-c:v",
+            "libx264",
+            "-preset",
+            "slow",
+            "-crf",
+            "32",
+            "-g",
+            "12",
+            "-keyint_min",
+            "12",
+            "-sc_threshold",
+            "0",
+            "-pix_fmt",
+            "yuv420p",
+            "-threads",
+            "1",
+            "-c:a",
+            "aac",
+            "-b:a",
+            "32k",
+            "-ac",
+            "1",
+            "-fflags",
+            "+bitexact",
+            "-flags",
+            "+bitexact",
+            "-map_metadata",
+            "-1",
+            "-metadata",
+            "creation_time=2026-08-04T10:12:00Z",
+            "-metadata",
+            "location=+37.33928-121.88630+017.000/",
+            "-f",
+            "mp4",
+            "-movflags",
+            "+faststart"
+          ]
+        }
+      ],
+      "declared": {
+        "kind": "video",
+        "container": "mp4",
+        "ftyp_brand": "isom",
+        "codec_video": "avc1",
+        "codec_audio": "mp4a",
+        "has_audio": true,
+        "coded_width": 1080,
+        "coded_height": 1920,
+        "sar": "1:1",
+        "tkhd_width": 1080,
+        "tkhd_height": 1920,
+        "rotation_deg": 0,
+        "display_matrix_rotation_ccw_deg": 0,
+        "tkhd_matrix": [
+          65536,
+          0,
+          0,
+          0,
+          65536,
+          0,
+          0,
+          0,
+          1073741824
+        ],
+        "duration_s": 5,
+        "fps": 24,
+        "gop_frames": 12,
+        "captured_at": "2026-08-04T10:12:00Z",
+        "captured_at_atom": "mvhd",
+        "mvhd_creation_time_raw": 3868683120,
+        "udta_day": null,
+        "gps": {
+          "lat": 37.33928,
+          "lng": -121.8863,
+          "alt_m": 17
+        },
+        "gps_atom": "udta_loci_3gpp",
+        "gps_iso6709": "+37.33928-121.88630+017.000/",
+        "moov_position": "start",
+        "mdat_size_field": "32bit",
+        "bytes": 337193,
+        "facts_verified": true
+      },
+      "expected_preflight": {
+        "version": 2,
+        "policy_tier": null,
+        "policy_tier_note": "Every rule verdict here holds at every ingest policy tier. Only expected_frames varies by tier.",
+        "producer": "browser",
+        "reference_runtime": "chromium_desktop_windows_without_hevc_extension",
+        "rules": {
+          "orientation": {
+            "status": "pass",
+            "evidence": "coded_dims+tkhd_matrix",
+            "blocking": false,
+            "value": "vertical",
+            "required": "vertical",
+            "coded": "1080x1920",
+            "display": "1080x1920",
+            "rotation_deg": 0
+          },
+          "min_duration": {
+            "status": "pass",
+            "evidence": "mvhd",
+            "blocking": false,
+            "value": 5,
+            "required": 3
+          },
+          "min_resolution": {
+            "status": "pass",
+            "evidence": "tkhd+stsd",
+            "blocking": false,
+            "value": "1080x1920",
+            "required": "short edge >= 1080, long edge >= 1920"
+          },
+          "capture_date": {
+            "status": "pass",
+            "evidence": "mvhd",
+            "captured_at_source": "mvhd",
+            "blocking": false,
+            "value": "2026-08-04T10:12:00Z",
+            "visit_date": "2026-08-04",
+            "window_hours": 24,
+            "mvhd_creation_time_raw": 3868683120
+          },
+          "near_branch": {
+            "status": "pass",
+            "evidence": "udta_loci",
+            "blocking": false,
+            "value": {
+              "lat": 37.33928,
+              "lng": -121.8863,
+              "alt_m": 17
+            },
+            "distance_m": 120,
+            "radius_m": 500,
+            "gps_atom": "udta_loci_3gpp",
+            "never_blocking": true
+          },
+          "duplicate": {
+            "status": "pass",
+            "evidence": "phash_over_delivery",
+            "blocking": false,
+            "comparison_set": "all fixtures with group == \"engineered\", ingested as one delivery in manifest order"
+          },
+          "codec_playable": {
+            "status": "pass",
+            "evidence": "stsd+isConfigSupported",
+            "blocking": false,
+            "value": "avc1"
+          }
+        },
+        "rollup": {
+          "pass": 7,
+          "fail": 0,
+          "unknown": 0,
+          "skipped": 0,
+          "blocking_fail": 0
+        }
+      },
+      "expected_frames": {
+        "by_tier": {
+          "constrained": {
+            "count": 3,
+            "t_seconds": [
+              1.25,
+              2.5,
+              3.75
+            ]
+          },
+          "standard": {
+            "count": 3,
+            "t_seconds": [
+              1.25,
+              2.5,
+              3.75
+            ]
+          },
+          "ample": {
+            "count": 3,
+            "t_seconds": [
+              1.25,
+              2.5,
+              3.75
+            ]
+          }
+        },
+        "formula": "clamp(round(duration_s / 4), 3, tier_max), tier_max 3 constrained and 5 otherwise (E.4a)",
+        "approximate": true,
+        "reason": "The `<video>` plus canvas path snaps to the preceding keyframe, so t_seconds is a target rather than a guarantee. GOP is half a second, which is what bounds tolerance.frame_t_seconds."
+      },
+      "expected_derivatives": {
+        "contact_sheet": true,
+        "poster": true,
+        "derivative_state": "client_derived",
+        "derivative_producer": "browser",
+        "reason": null,
+        "guarantee": "A real sheet extracted from real frames, or none. Never a fabricated tile presented as a frame."
+      },
+      "expected_phash_prefix": null,
+      "expected_phash_note": "null until the perceptual hasher exists. An invented prefix would be asserted against forever.",
+      "tolerance": {
+        "duration_s": 0.05,
+        "distance_m": 30,
+        "dhash_hamming": 4,
+        "frame_t_seconds": 0.5
+      }
+    }
+  ]
+}

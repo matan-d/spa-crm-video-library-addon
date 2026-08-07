@@ -1,0 +1,143 @@
+/**
+ * Design tokens. See docs/05-design-system.md.
+ *
+ * Colour encodes who is responsible: --ai means a model produced it, --human
+ * means a person decided it, and the neutrals mean a measured fact. That rule is
+ * load bearing rather than decorative, because it is how a manager sees at a
+ * glance which parts of a screen nobody has checked yet.
+ */
+
+:root {
+  --bg: #eef1eb;
+  --surface: #ffffff;
+  --surface-2: #f6f8f4;
+  --ink: #16211c;
+  --muted: #64736b;
+  --line: #d3dbd1;
+  --ai: #9c6210;
+  --ai-soft: #f7e9cc;
+  --ai-line: #ddbe85;
+  --human: #2f4a3e;
+  --human-soft: #e2eae3;
+
+  --good: #3f6b4a;
+  --warn: #8a6a1f;
+  --critical: #8c3b34;
+
+  --sans: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --mono: ui-monospace, 'SF Mono', 'Cascadia Mono', Consolas, monospace;
+
+  --radius: 3px;
+  --radius-pill: 999px;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0f1512;
+    --surface: #161e1a;
+    --surface-2: #1b241f;
+    --ink: #e4eae2;
+    --muted: #93a29a;
+    --line: #27332d;
+    --ai: #e7b45f;
+    --ai-soft: rgba(53, 41, 20, 0.58);
+    --ai-line: #6b5426;
+    --human: #bfd6c7;
+    --human-soft: #202c25;
+
+    --good: #8fbf9b;
+    --warn: #d9b463;
+    --critical: #d99a93;
+  }
+}
+
+/* An explicit user toggle wins over the OS preference, in both directions. */
+:root[data-theme='dark'] {
+  --bg: #0f1512;
+  --surface: #161e1a;
+  --surface-2: #1b241f;
+  --ink: #e4eae2;
+  --muted: #93a29a;
+  --line: #27332d;
+  --ai: #e7b45f;
+  --ai-soft: rgba(53, 41, 20, 0.58);
+  --ai-line: #6b5426;
+  --human: #bfd6c7;
+  --human-soft: #202c25;
+
+  --good: #8fbf9b;
+  --warn: #d9b463;
+  --critical: #d99a93;
+}
+
+:root[data-theme='light'] {
+  --bg: #eef1eb;
+  --surface: #ffffff;
+  --surface-2: #f6f8f4;
+  --ink: #16211c;
+  --muted: #64736b;
+  --line: #d3dbd1;
+  --ai: #9c6210;
+  --ai-soft: #f7e9cc;
+  --ai-line: #ddbe85;
+  --human: #2f4a3e;
+  --human-soft: #e2eae3;
+
+  --good: #3f6b4a;
+  --warn: #8a6a1f;
+  --critical: #8c3b34;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 15px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Digits line up in nearly every surface in this product. */
+.num,
+td,
+.mono {
+  font-variant-numeric: tabular-nums;
+}
+
+.mono {
+  font-family: var(--mono);
+}
+
+:focus-visible {
+  outline: 2px solid var(--ai);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

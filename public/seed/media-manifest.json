@@ -1,0 +1,1281 @@
+{
+  "generator_version": 1,
+  "built_at": "2026-08-07T02:48:03.716Z",
+  "license": {
+    "source": "Pexels",
+    "license": "Pexels License",
+    "url": "https://www.pexels.com/license/",
+    "terms": "Free to use, including commercially. Modification permitted. Attribution not required, recorded here anyway."
+  },
+  "note": "Clips are derived from the source stills by a synthetic pan and zoom. Contact sheets are real frame extractions from those clips. See scripts/build-seed-media.mjs for why.",
+  "items": [
+    {
+      "slug": "hands-back-oil-01",
+      "source": {
+        "provider": "pexels",
+        "photo_id": 6628701,
+        "page_url": "https://www.pexels.com/photo/6628701/",
+        "file_url": "https://images.pexels.com/photos/6628701/pexels-photo-6628701.jpeg"
+      },
+      "orientation": "vertical",
+      "meta": {
+        "shot_type": "closeup",
+        "room": "treatment_room",
+        "subjects": [
+          "hands",
+          "back"
+        ],
+        "vibe": "calm",
+        "light": "soft_indoor"
+      },
+      "derived_clip": {
+        "width": 1080,
+        "height": 1920,
+        "duration_s": 6,
+        "fps": 25,
+        "codec_video": "h264",
+        "facts_verified": true,
+        "has_audio": false,
+        "committed": true,
+        "path": "/seed/clips/hands-back-oil-01.mp4",
+        "bytes": 467358,
+        "sha256": "5c9a9dcae485432cba3bf2bb1a43eff5866292ae899d7d96258e0a6461caf1c5"
+      },
+      "poster": {
+        "path": "/seed/posters/hands-back-oil-01.jpg",
+        "bytes": 10201,
+        "sha256": "c8fb7f041fadbfcc8fb405cd5ff8c702ca4748f9302d4b1ff662f9ea38ecb827"
+      },
+      "contact_sheet": {
+        "path": "/seed/sheets/hands-back-oil-01.jpg",
+        "bytes": 33785,
+        "sha256": "3769f9a6ea6cf104b25f246a73b1b21e0e575a2e090ef1d8a5647ab6a6dd0dd5",
+        "layout": "1x5",
+        "tile_width": 216,
+        "frames": 5
+      },
+      "generator_version": 1
+    },
+    {
+      "slug": "hands-oil-pour-01",
+      "source": {
+        "provider": "pexels",
+        "photo_id": 38407789,
+        "page_url": "https://www.pexels.com/photo/38407789/",
+        "file_url": "https://images.pexels.com/photos/38407789/pexels-photo-38407789.jpeg"
+      },
+      "orientation": "vertical",
+      "meta": {
+        "shot_type": "macro",
+        "room": "treatment_room",
+        "subjects": [
+          "hands",
+          "oil"
+        ],
+        "vibe": "calm",
+        "light": "warm"
+      },
+      "derived_clip": {
+        "width": 1080,
+        "height": 1920,
+        "duration_s": 6,
+        "fps": 25,
+        "codec_video": "h264",
+        "facts_verified": true,
+        "has_audio": false,
+        "committed": false,
+        "path": null,
+        "bytes": 450338,
+        "sha256": null
+      },
+      "poster": {
+        "path": "/seed/posters/hands-oil-pour-01.jpg",
+        "bytes": 10450,
+        "sha256": "22310e800cbf9fed604ed6aa627511dd2b3866b3e19810eb9f9e89d18aa25b33"
+      },
+      "contact_sheet": {
+        "path": "/seed/sheets/hands-oil-pour-01.jpg",
+        "bytes": 33401,
+        "sha256": "5a0336d8c8aa722032c47bf838ab4583ec513ad0de2f359ef58fff4a369e8860",
+        "layout": "1x5",
+        "tile_width": 216,
+        "frames": 5
+      },
+      "generator_version": 1
+    },
+    {
+      "slug": "hands-arm-massage-01",
+      "source": {
+        "provider": "pexels",
+        "photo_id": 14187888,
+        "page_url": "https://www.pexels.com/photo/14187888/",
+        "file_url": "https://images.pexels.com/photos/14187888/pexels-photo-14187888.jpeg"
+      },
+      "orientation": "vertical",
+      "meta": {
+        "shot_type": "closeup",
+        "room": "treatment_room",
+        "subjects": [
+          "hands",
+          "arm"
+        ],
+        "vibe": "clinical",
+        "light": "soft_indoor"
+      },
+      "derived_clip": {
+        "width": 1080,
+        "height": 1920,
+        "duration_s": 6,
+        "fps": 25,
+        "codec_video": "h264",
+        "facts_verified": true,
+        "has_audio": false,
+        "committed": false,
+        "path": null,
+        "bytes": 266362,
+        "sha256": null
+      },
+      "poster": {
+        "path": "/seed/posters/hands-arm-massage-01.jpg",
+        "bytes": 6325,
+        "sha256": "332cda8b74dafb77fa92dc5f1ee59c1b1a9d3c2b3a0cf7a02124b6cee1360482"
+      },
+      "contact_sheet": {
+        "path": "/seed/sheets/hands-arm-massage-01.jpg",
+        "bytes": 20902,
+        "sha256": "d0fc9c424b1ca592c7cbf688c0162db5180e65b68e0b6398402392b261be2f94",
+        "layout": "1x5",
+        "tile_width": 216,
+        "frames": 5
+      },
+      "generator_version": 1
+    },
+    {
+      "slug": "facial-massage-01",
+      "source": {
+        "provider": "pexels",
+        "photo_id": 37229288,
+        "page_url": "https://www.pexels.com/photo/37229288/",
+        "file_url": "https://images.pexels.com/photos/37229288/pexels-photo-37229288.jpeg"
+      },
+      "orientation": "vertical",
+      "meta": {
+        "shot_type": "closeup",
+        "room": "treatment_room",
+        "subjects": [
+          "hands",
+          "face",
+          "client"
+        ],
+        "vibe": "calm",
+        "light": "soft_indoor"
+      },
+      "derived_clip": {
+        "width": 1080,
+        "height": 1920,
+        "duration_s": 6,
+        "fps": 25,
+        "codec_video": "h264",
+        "facts_verified": true,
+        "has_audio": false,
+        "committed": false,
+        "path": null,
+        "bytes": 738186,
+        "sha256": null
+      },
+      "poster": {
+        "path": "/seed/posters/facial-massage-01.jpg",
+        "bytes": 10008,
+        "sha256": "51b6e64b3867f71f863a7ce708dab23ec05b3c1db1b010f8310e2ea9c387154f"
+      },
+      "contact_sheet": {
+        "path": "/seed/sheets/facial-massage-01.jpg",
+        "bytes": 33326,
+        "sha256": "09aead7e731458e2f6c1ce70cf6785a25bc89851311eda91359835b8c9ef0bc9",
+        "layout": "1x5",
+        "tile_width": 216,
+        "frames": 5
+      },
+      "generator_version": 1
+    },
+    {
+      "slug": "neck-massage-aroma-01",
+      "source": {
+        "provider": "pexels",
+        "photo_id": 19666192,
+        "page_url": "https://www.pexels.com/photo/19666192/",
+        "file_url": "https://images.pexels.com/photos/19666192/pexels-photo-19666192.jpeg"
+      },
+      "orientation": "vertical",
+      "meta": {
+        "shot_type": "medium",
+        "room": "treatment_room",
+        "subjects": [
+          "hands",
+          "neck",
+          "client"
+        ],
+        "vibe": "calm",
+        "light": "warm"
+      },
+      "derived_clip": {
+        "width": 1080,
+        "height": 1920,
+        "duration_s": 6,
+        "fps": 25,
+        "codec_video": "h264",
+        "facts_verified": true,
+        "has_audio": false,
+        "committed": false,
+        "path": null,
+        "bytes": 645298,
+        "sha256": null
+      },
+      "poster": {
+        "path": "/seed/posters/neck-massage-aroma-01.jpg",
+        "bytes": 12783,
+        "sha256": "9e8a89230b9101cccad8e21e4339f39302f3386f1dd0c025a764fb916b5c2b1a"
+      },
+      "contact_sheet": {
+        "path": "/seed/sheets/neck-massage-aroma-01.jpg",
+        "bytes": 42064,
+        "sha256": "3e5e23f5ba1f8ad3ce949fdf6346e20d0fce49a384bac411b5251e033c4cb9b3",
+        "layout": "1x5",
+        "tile_width": 216,
+        "frames": 5
+      },
+      "generator_version": 1
+    },
+    {
+      "slug": "foot-massage-01",
+      "source": {
+        "provider": "pexels",
+        "photo_id": 9146381,
+        "page_url": "https://www.pexels.com/photo/9146381/",
+        "file_url": "https://images.pexels.com/photos/9146381/pexels-photo-9146381.jpeg"
+      },
+      "orientation": "vertical",
+      "meta": {
+        "shot_type": "closeup",
+        "room": "treatment_room",
+        "subjects": [
+          "hands",
+          "feet"
+        ],
+        "vibe": "calm",
+        "light": "soft_indoor"
+      },
+      "derived_clip": {
+        "width": 1080,
+        "height": 1920,
+        "duration_s": 6,
+        "fps": 25,
+        "codec_video": "h264",
+        "facts_verified": true,
+        "has_audio": false,
+        "committed": false,
+        "path": null,
+        "bytes": 420347,
+        "sha256": null
+      },
+      "poster": {
+        "path": "/seed/posters/foot-massage-01.jpg",
+        "bytes": 11141,
+        "sha256": "9fa49cea7fc9b43c352f3dd23b633429473baabeff71f15a6894b804f07a2500"
+      },
+      "contact_sheet": {
+        "path": "/seed/sheets/foot-massage-01.jpg",
+        "bytes": 35853,
+        "sha256": "41df687f7fa83e9644c2fc1b6ad6840e491cf90c3a7664b4a0cdd403585f0a4d",
+        "layout": "1x5",
+        "tile_width": 216,
+        "frames": 5
+      },
+      "generator_version": 1
+    },
+    {
+      "slug": "therapist-working-01",
+      "source": {
+        "provider": "pexels",
+        "photo_id": 6187418,
+        "page_url": "https://www.pexels.com/photo/6187418/",
+        "file_url": "https://images.pexels.com/photos/6187418/pexels-photo-6187418.jpeg"
+      },
+      "orientation": "vertical",
+      "meta": {
+        "shot_type": "medium",
+        "room": "treatment_room",
+        "subjects": [
+          "therapist",
+          "client"
+        ],
+        "vibe": "professional",
+        "light": "soft_indoor"
+      },
+      "derived_clip": {
+        "width": 1080,
+        "height": 1920,
+        "duration_s": 6,
+        "fps": 25,
+        "codec_video": "h264",
+        "facts_verified": true,
+        "has_audio": false,
+        "committed": false,
+        "path": null,
+        "bytes": 472126,
+        "sha256": null
+      },
+      "poster": {
+        "path": "/seed/posters/therapist-working-01.jpg",
+        "bytes": 9810,
+        "sha256": "b854eb1bd7e0ced1eae90e0be4d8b36eba0bb68406a001305a8bd040fdc875ff"
+      },
+      "contact_sheet": {
+        "path": "/seed/sheets/therapist-working-01.jpg",
+        "bytes": 28604,
+        "sha256": "afc2d243b76fd812d2d3efc89648c3bf94cda21377c60e88de3c8393a3626321",
+        "layout": "1x5",
+        "tile_width": 216,
+        "frames": 5
+      },
+      "generator_version": 1
+    },
+    {
+      "slug": "treatment-table-drapes-01",
+      "source": {
+        "provider": "pexels",
+        "photo_id": 35546238,
+        "page_url": "https://www.pexels.com/photo/35546238/",
+        "file_url": "https://images.pexels.com/photos/35546238/pexels-photo-35546238.jpeg"
+      },
+      "orientation": "vertical",
+      "meta": {
+        "shot_type": "wide",
+        "room": "treatment_room",
+        "subjects": [
+          "table",
+          "linen"
+        ],
+        "vibe": "calm",
+        "light": "soft_indoor"
+      },
+      "derived_clip": {
+        "width": 1080,
+        "height": 1920,
+        "duration_s": 6,
+        "fps": 25,
+        "codec_video": "h264",
+        "facts_verified": true,
+        "has_audio": false,
+        "committed": true,
+        "path": "/seed/clips/treatment-table-drapes-01.mp4",
+        "bytes": 399178,
+        "sha256": "3e64cd157a32fb46162b5c728ca5ff80e9b0c84aa8bb49d61d8cb7dec9cf0a7e"
+      },
+      "poster": {
+        "path": "/seed/posters/treatment-table-drapes-01.jpg",
+        "bytes": 7346,
+        "sha256": "3440ca3da26ef9b9f58ca5afb39ef1cf2855eb2e71e7d0d543d616356d73e03a"
+      },
+      "contact_sheet": {
+        "path": "/seed/sheets/treatment-table-drapes-01.jpg",
+        "bytes": 22477,
+        "sha256": "08ad8cb5316686d2455de30b23be79e93e3774c28c3e3f58f2124d6d95aefe0c",
+        "layout": "1x5",
+        "tile_width": 216,
+        "frames": 5
+      },
+      "generator_version": 1
+    },
+    {
+      "slug": "treatment-room-wood-01",
+      "source": {
+        "provider": "pexels",
+        "photo_id": 7598363,
+        "page_url": "https://www.pexels.com/photo/7598363/",
+        "file_url": "https://images.pexels.com/photos/7598363/pexels-photo-7598363.jpeg"
+      },
+      "orientation": "vertical",
+      "meta": {
+        "shot_type": "wide",
+        "room": "treatment_room",
+        "subjects": [
+          "interior"
+        ],
+        "vibe": "warm",
+        "light": "ambient"
+      },
+      "derived_clip": {
+        "width": 1080,
+        "height": 1920,
+        "duration_s": 6,
+        "fps": 25,
+        "codec_video": "h264",
+        "facts_verified": true,
+        "has_audio": false,
+        "committed": false,
+        "path": null,
+        "bytes": 908324,
+        "sha256": null
+      },
+      "poster": {
+        "path": "/seed/posters/treatment-room-wood-01.jpg",
+        "bytes": 19640,
+        "sha256": "00c19fbaf064f1f83de280a5eb1e6ee100b8a9c85dc58f0cb9e3c0f8414e8299"
+      },
+      "contact_sheet": {
+        "path": "/seed/sheets/treatment-room-wood-01.jpg",
+        "bytes": 59895,
+        "sha256": "9529799d32c734b87067ddef4cc1fa374fe267b0a88dbd2733ee379129fee650",
+        "layout": "1x5",
+        "tile_width": 216,
+        "frames": 5
+      },
+      "generator_version": 1
+    },
+    {
+      "slug": "treatment-room-daylight-01",
+      "source": {
+        "provider": "pexels",
+        "photo_id": 17570403,
+        "page_url": "https://www.pexels.com/photo/17570403/",
+        "file_url": "https://images.pexels.com/photos/17570403/pexels-photo-17570403.jpeg"
+      },
+      "orientation": "vertical",
+      "meta": {
+        "shot_type": "wide",
+        "room": "treatment_room",
+        "subjects": [
+          "interior"
+        ],
+        "vibe": "minimal",
+        "light": "daylight"
+      },
+      "derived_clip": {
+        "width": 1080,
+        "height": 1920,
+        "duration_s": 6,
+        "fps": 25,
+        "codec_video": "h264",
+        "facts_verified": true,
+        "has_audio": false,
+        "committed": false,
+        "path": null,
+        "bytes": 670693,
+        "sha256": null
+      },
+      "poster": {
+        "path": "/seed/posters/treatment-room-daylight-01.jpg",
+        "bytes": 16839,
+        "sha256": "d83261c4897276fd746bed939b2d9728994f10f12a57f8f4055037d3bd8b9d33"
+      },
+      "contact_sheet": {
+        "path": "/seed/sheets/treatment-room-daylight-01.jpg",
+        "bytes": 51387,
+        "sha256": "a9c6b052a4be89140c1a918c75e7126b5ac3ca7f37f59dea9c837ee7f074c412",
+        "layout": "1x5",
+        "tile_width": 216,
+        "frames": 5
+      },
+      "generator_version": 1
+    },
+    {
+      "slug": "interior-greenery-01",
+      "source": {
+        "provider": "pexels",
+        "photo_id": 17640383,
+        "page_url": "https://www.pexels.com/photo/17640383/",
+        "file_url": "https://images.pexels.com/photos/17640383/pexels-photo-17640383.jpeg"
+      },
+      "orientation": "vertical",
+      "meta": {
+        "shot_type": "wide",
+        "room": "corridor",
+        "subjects": [
+          "interior",
+          "plants"
+        ],
+        "vibe": "minimal",
+        "light": "daylight"
+      },
+      "derived_clip": {
+        "width": 1080,
+        "height": 1920,
+        "duration_s": 6,
+        "fps": 25,
+        "codec_video": "h264",
+        "facts_verified": true,
+        "has_audio": false,
+        "committed": false,
+        "path": null,
+        "bytes": 932533,
+        "sha256": null
+      },
+      "poster": {
+        "path": "/seed/posters/interior-greenery-01.jpg",
+        "bytes": 13487,
+        "sha256": "18dd33df8df089ab0b7d01f3bc9a1159e35247514c5c2e98ccbac538aaa068fd"
+      },
+      "contact_sheet": {
+        "path": "/seed/sheets/interior-greenery-01.jpg",
+        "bytes": 39595,
+        "sha256": "77804f4b3ee251f22c80e3cc6c49f74da8342990604f00271508eeb26ecb1abe",
+        "layout": "1x5",
+        "tile_width": 216,
+        "frames": 5
+      },
+      "generator_version": 1
+    },
+    {
+      "slug": "reception-waiting-01",
+      "source": {
+        "provider": "pexels",
+        "photo_id": 17640381,
+        "page_url": "https://www.pexels.com/photo/17640381/",
+        "file_url": "https://images.pexels.com/photos/17640381/pexels-photo-17640381.jpeg"
+      },
+      "orientation": "horizontal",
+      "meta": {
+        "shot_type": "wide",
+        "room": "reception",
+        "subjects": [
+          "furniture",
+          "plants"
+        ],
+        "vibe": "welcoming",
+        "light": "daylight"
+      },
+      "derived_clip": {
+        "width": 1920,
+        "height": 1080,
+        "duration_s": 6,
+        "fps": 25,
+        "codec_video": "h264",
+        "facts_verified": true,
+        "has_audio": false,
+        "committed": false,
+        "path": null,
+        "bytes": 900838,
+        "sha256": null
+      },
+      "poster": {
+        "path": "/seed/posters/reception-waiting-01.jpg",
+        "bytes": 14871,
+        "sha256": "3bc0a1aa0cc3d27951316356d4d5bae2954f03e23640b3d672e7638ed7dea35c"
+      },
+      "contact_sheet": {
+        "path": "/seed/sheets/reception-waiting-01.jpg",
+        "bytes": 15278,
+        "sha256": "1ddfde31c64437c5b259567942b355bb2408acb010d3b28db3308c1d1db3b127",
+        "layout": "1x5",
+        "tile_width": 216,
+        "frames": 5
+      },
+      "generator_version": 1
+    },
+    {
+      "slug": "lounge-chairs-01",
+      "source": {
+        "provider": "pexels",
+        "photo_id": 7031704,
+        "page_url": "https://www.pexels.com/photo/7031704/",
+        "file_url": "https://images.pexels.com/photos/7031704/pexels-photo-7031704.jpeg"
+      },
+      "orientation": "horizontal",
+      "meta": {
+        "shot_type": "wide",
+        "room": "lounge",
+        "subjects": [
+          "furniture"
+        ],
+        "vibe": "spacious",
+        "light": "ambient"
+      },
+      "derived_clip": {
+        "width": 1920,
+        "height": 1080,
+        "duration_s": 6,
+        "fps": 25,
+        "codec_video": "h264",
+        "facts_verified": true,
+        "has_audio": false,
+        "committed": false,
+        "path": null,
+        "bytes": 1181757,
+        "sha256": null
+      },
+      "poster": {
+        "path": "/seed/posters/lounge-chairs-01.jpg",
+        "bytes": 26178,
+        "sha256": "b123bcbfed587a0fb9fcf1c504438c75dd8da3db158208884079932f32ec1384"
+      },
+      "contact_sheet": {
+        "path": "/seed/sheets/lounge-chairs-01.jpg",
+        "bytes": 29181,
+        "sha256": "01e5e676fb528cef0b98a53e1e549bbb421ab950e91bbd106c1b4e4339c1b581",
+        "layout": "1x5",
+        "tile_width": 216,
+        "frames": 5
+      },
+      "generator_version": 1
+    },
+    {
+      "slug": "sauna-wood-01",
+      "source": {
+        "provider": "pexels",
+        "photo_id": 36420270,
+        "page_url": "https://www.pexels.com/photo/36420270/",
+        "file_url": "https://images.pexels.com/photos/36420270/pexels-photo-36420270.jpeg"
+      },
+      "orientation": "vertical",
+      "meta": {
+        "shot_type": "wide",
+        "room": "sauna",
+        "subjects": [
+          "interior",
+          "stone"
+        ],
+        "vibe": "warm",
+        "light": "low"
+      },
+      "derived_clip": {
+        "width": 1080,
+        "height": 1920,
+        "duration_s": 6,
+        "fps": 25,
+        "codec_video": "h264",
+        "facts_verified": true,
+        "has_audio": false,
+        "committed": false,
+        "path": null,
+        "bytes": 628338,
+        "sha256": null
+      },
+      "poster": {
+        "path": "/seed/posters/sauna-wood-01.jpg",
+        "bytes": 13730,
+        "sha256": "03a3885ad7890af12532d9d9576c09f61226414bbb58c9923ab98a1d5c0e798d"
+      },
+      "contact_sheet": {
+        "path": "/seed/sheets/sauna-wood-01.jpg",
+        "bytes": 42866,
+        "sha256": "ff3593cb123a00cb877d851986e9a7eb697287c1b60578eeb82e1286bcaabd0a",
+        "layout": "1x5",
+        "tile_width": 216,
+        "frames": 5
+      },
+      "generator_version": 1
+    },
+    {
+      "slug": "sauna-doors-01",
+      "source": {
+        "provider": "pexels",
+        "photo_id": 7587822,
+        "page_url": "https://www.pexels.com/photo/7587822/",
+        "file_url": "https://images.pexels.com/photos/7587822/pexels-photo-7587822.jpeg"
+      },
+      "orientation": "vertical",
+      "meta": {
+        "shot_type": "medium",
+        "room": "sauna",
+        "subjects": [
+          "door",
+          "brick"
+        ],
+        "vibe": "rustic",
+        "light": "ambient"
+      },
+      "derived_clip": {
+        "width": 1080,
+        "height": 1920,
+        "duration_s": 6,
+        "fps": 25,
+        "codec_video": "h264",
+        "facts_verified": true,
+        "has_audio": false,
+        "committed": false,
+        "path": null,
+        "bytes": 608992,
+        "sha256": null
+      },
+      "poster": {
+        "path": "/seed/posters/sauna-doors-01.jpg",
+        "bytes": 16900,
+        "sha256": "3f5a831d2580ecb3c848f16eafd132e1d7068d76036948c73115dc2d63774453"
+      },
+      "contact_sheet": {
+        "path": "/seed/sheets/sauna-doors-01.jpg",
+        "bytes": 48304,
+        "sha256": "acc0cb14512954f089abf37a018dd345a9165290402fc3df4621b5a196f3e1e8",
+        "layout": "1x5",
+        "tile_width": 216,
+        "frames": 5
+      },
+      "generator_version": 1
+    },
+    {
+      "slug": "corridor-marble-01",
+      "source": {
+        "provider": "pexels",
+        "photo_id": 26729558,
+        "page_url": "https://www.pexels.com/photo/26729558/",
+        "file_url": "https://images.pexels.com/photos/26729558/pexels-photo-26729558.jpeg"
+      },
+      "orientation": "vertical",
+      "meta": {
+        "shot_type": "wide",
+        "room": "corridor",
+        "subjects": [
+          "interior",
+          "marble"
+        ],
+        "vibe": "elegant",
+        "light": "ambient"
+      },
+      "derived_clip": {
+        "width": 1080,
+        "height": 1920,
+        "duration_s": 6,
+        "fps": 25,
+        "codec_video": "h264",
+        "facts_verified": true,
+        "has_audio": false,
+        "committed": false,
+        "path": null,
+        "bytes": 573255,
+        "sha256": null
+      },
+      "poster": {
+        "path": "/seed/posters/corridor-marble-01.jpg",
+        "bytes": 14868,
+        "sha256": "d1e48e8a298faa51fdd1c98dc9d1350c71a668e2ee279cf5de899527682a404c"
+      },
+      "contact_sheet": {
+        "path": "/seed/sheets/corridor-marble-01.jpg",
+        "bytes": 46228,
+        "sha256": "136ef46f9dc3f3803be3c66263481f94dea412a1dfeb7e91e8d759f79d2fc06d",
+        "layout": "1x5",
+        "tile_width": 216,
+        "frames": 5
+      },
+      "generator_version": 1
+    },
+    {
+      "slug": "bath-plants-01",
+      "source": {
+        "provider": "pexels",
+        "photo_id": 8449824,
+        "page_url": "https://www.pexels.com/photo/8449824/",
+        "file_url": "https://images.pexels.com/photos/8449824/pexels-photo-8449824.jpeg"
+      },
+      "orientation": "vertical",
+      "meta": {
+        "shot_type": "wide",
+        "room": "wet_room",
+        "subjects": [
+          "bath",
+          "plants"
+        ],
+        "vibe": "lush",
+        "light": "daylight"
+      },
+      "derived_clip": {
+        "width": 1080,
+        "height": 1920,
+        "duration_s": 6,
+        "fps": 25,
+        "codec_video": "h264",
+        "facts_verified": true,
+        "has_audio": false,
+        "committed": false,
+        "path": null,
+        "bytes": 814833,
+        "sha256": null
+      },
+      "poster": {
+        "path": "/seed/posters/bath-plants-01.jpg",
+        "bytes": 23108,
+        "sha256": "bac6c97e33f184dc90a07b7c7788c5816bc060a0686c20a154aee87f2f86c531"
+      },
+      "contact_sheet": {
+        "path": "/seed/sheets/bath-plants-01.jpg",
+        "bytes": 69262,
+        "sha256": "051c3f11756d7558f46fa6ca49852c1c25ba3dec249a64ef94f13d09a8012805",
+        "layout": "1x5",
+        "tile_width": 216,
+        "frames": 5
+      },
+      "generator_version": 1
+    },
+    {
+      "slug": "bath-greenery-01",
+      "source": {
+        "provider": "pexels",
+        "photo_id": 32203052,
+        "page_url": "https://www.pexels.com/photo/32203052/",
+        "file_url": "https://images.pexels.com/photos/32203052/pexels-photo-32203052.jpeg"
+      },
+      "orientation": "vertical",
+      "meta": {
+        "shot_type": "medium",
+        "room": "wet_room",
+        "subjects": [
+          "bath",
+          "plants"
+        ],
+        "vibe": "lush",
+        "light": "daylight"
+      },
+      "derived_clip": {
+        "width": 1080,
+        "height": 1920,
+        "duration_s": 6,
+        "fps": 25,
+        "codec_video": "h264",
+        "facts_verified": true,
+        "has_audio": false,
+        "committed": false,
+        "path": null,
+        "bytes": 1052628,
+        "sha256": null
+      },
+      "poster": {
+        "path": "/seed/posters/bath-greenery-01.jpg",
+        "bytes": 26852,
+        "sha256": "335630895c763813ac383465e4e6a2b7b08fd5ffdcbadab037cf7a90f7d544ea"
+      },
+      "contact_sheet": {
+        "path": "/seed/sheets/bath-greenery-01.jpg",
+        "bytes": 79625,
+        "sha256": "89d823098700db4c973555b84709d1dd4a2c468b54326710e1cd203aa963423e",
+        "layout": "1x5",
+        "tile_width": 216,
+        "frames": 5
+      },
+      "generator_version": 1
+    },
+    {
+      "slug": "product-marble-01",
+      "source": {
+        "provider": "pexels",
+        "photo_id": 6682950,
+        "page_url": "https://www.pexels.com/photo/6682950/",
+        "file_url": "https://images.pexels.com/photos/6682950/pexels-photo-6682950.jpeg"
+      },
+      "orientation": "vertical",
+      "meta": {
+        "shot_type": "macro",
+        "room": "studio",
+        "subjects": [
+          "product",
+          "marble"
+        ],
+        "vibe": "clean",
+        "light": "soft_indoor"
+      },
+      "derived_clip": {
+        "width": 1080,
+        "height": 1920,
+        "duration_s": 6,
+        "fps": 25,
+        "codec_video": "h264",
+        "facts_verified": true,
+        "has_audio": false,
+        "committed": true,
+        "path": "/seed/clips/product-marble-01.mp4",
+        "bytes": 309006,
+        "sha256": "9455e5966e86e3a3aa686d917a77bc9444052ac7a2ccfaac5fc4f137202000ed"
+      },
+      "poster": {
+        "path": "/seed/posters/product-marble-01.jpg",
+        "bytes": 5025,
+        "sha256": "4c7d46f24efce2adbf8a9a04c166de8f634a895871dfbb41619fe2ffe2338bbe"
+      },
+      "contact_sheet": {
+        "path": "/seed/sheets/product-marble-01.jpg",
+        "bytes": 15207,
+        "sha256": "6d62554baaa9d2b08669a0c6d386a65228a99d3b163cc235e55e7cdcabdd74e9",
+        "layout": "1x5",
+        "tile_width": 216,
+        "frames": 5
+      },
+      "generator_version": 1
+    },
+    {
+      "slug": "product-fabric-serum-01",
+      "source": {
+        "provider": "pexels",
+        "photo_id": 8101673,
+        "page_url": "https://www.pexels.com/photo/8101673/",
+        "file_url": "https://images.pexels.com/photos/8101673/pexels-photo-8101673.jpeg"
+      },
+      "orientation": "vertical",
+      "meta": {
+        "shot_type": "macro",
+        "room": "studio",
+        "subjects": [
+          "product",
+          "fabric"
+        ],
+        "vibe": "natural",
+        "light": "soft_indoor"
+      },
+      "derived_clip": {
+        "width": 1080,
+        "height": 1920,
+        "duration_s": 6,
+        "fps": 25,
+        "codec_video": "h264",
+        "facts_verified": true,
+        "has_audio": false,
+        "committed": false,
+        "path": null,
+        "bytes": 1129066,
+        "sha256": null
+      },
+      "poster": {
+        "path": "/seed/posters/product-fabric-serum-01.jpg",
+        "bytes": 16968,
+        "sha256": "184b5ed0053ec7a720f3db0de10a9e9c64aeb5d62d00343f2d7055a43bc40499"
+      },
+      "contact_sheet": {
+        "path": "/seed/sheets/product-fabric-serum-01.jpg",
+        "bytes": 51540,
+        "sha256": "a39020029ca903ad6560a7f1072b3ab56610d489294e1221aeab173d43d27649",
+        "layout": "1x5",
+        "tile_width": 216,
+        "frames": 5
+      },
+      "generator_version": 1
+    },
+    {
+      "slug": "product-guasha-dark-01",
+      "source": {
+        "provider": "pexels",
+        "photo_id": 8102021,
+        "page_url": "https://www.pexels.com/photo/8102021/",
+        "file_url": "https://images.pexels.com/photos/8102021/pexels-photo-8102021.jpeg"
+      },
+      "orientation": "vertical",
+      "meta": {
+        "shot_type": "macro",
+        "room": "studio",
+        "subjects": [
+          "product",
+          "tool"
+        ],
+        "vibe": "moody",
+        "light": "low"
+      },
+      "derived_clip": {
+        "width": 1080,
+        "height": 1920,
+        "duration_s": 6,
+        "fps": 25,
+        "codec_video": "h264",
+        "facts_verified": true,
+        "has_audio": false,
+        "committed": false,
+        "path": null,
+        "bytes": 1241073,
+        "sha256": null
+      },
+      "poster": {
+        "path": "/seed/posters/product-guasha-dark-01.jpg",
+        "bytes": 22072,
+        "sha256": "7b26072b538069e0ab55a2d1bd22dd4f1531ddcc7f75180f555f34f9ba284cbd"
+      },
+      "contact_sheet": {
+        "path": "/seed/sheets/product-guasha-dark-01.jpg",
+        "bytes": 59435,
+        "sha256": "cf78867163d37de4a110b47b50c1ce2e87ff57be4be3426e87e2134dfce4c2c5",
+        "layout": "1x5",
+        "tile_width": 216,
+        "frames": 5
+      },
+      "generator_version": 1
+    },
+    {
+      "slug": "oil-pipette-01",
+      "source": {
+        "provider": "pexels",
+        "photo_id": 5240623,
+        "page_url": "https://www.pexels.com/photo/5240623/",
+        "file_url": "https://images.pexels.com/photos/5240623/pexels-photo-5240623.jpeg"
+      },
+      "orientation": "vertical",
+      "meta": {
+        "shot_type": "macro",
+        "room": "studio",
+        "subjects": [
+          "oil",
+          "pipette"
+        ],
+        "vibe": "clean",
+        "light": "soft_indoor"
+      },
+      "derived_clip": {
+        "width": 1080,
+        "height": 1920,
+        "duration_s": 6,
+        "fps": 25,
+        "codec_video": "h264",
+        "facts_verified": true,
+        "has_audio": false,
+        "committed": false,
+        "path": null,
+        "bytes": 252201,
+        "sha256": null
+      },
+      "poster": {
+        "path": "/seed/posters/oil-pipette-01.jpg",
+        "bytes": 6256,
+        "sha256": "5516f552cb35df1122ebcbfa831f26e749d0ff219bc0f76b2ceea9604275f6a1"
+      },
+      "contact_sheet": {
+        "path": "/seed/sheets/oil-pipette-01.jpg",
+        "bytes": 20398,
+        "sha256": "e1799e12f0aa07c23b1dd25856a55269a0014a144796003520c0a2e2bc948ed7",
+        "layout": "1x5",
+        "tile_width": 216,
+        "frames": 5
+      },
+      "generator_version": 1
+    },
+    {
+      "slug": "product-dropper-dark-01",
+      "source": {
+        "provider": "pexels",
+        "photo_id": 8100776,
+        "page_url": "https://www.pexels.com/photo/8100776/",
+        "file_url": "https://images.pexels.com/photos/8100776/pexels-photo-8100776.jpeg"
+      },
+      "orientation": "vertical",
+      "meta": {
+        "shot_type": "macro",
+        "room": "studio",
+        "subjects": [
+          "product"
+        ],
+        "vibe": "moody",
+        "light": "low"
+      },
+      "derived_clip": {
+        "width": 1080,
+        "height": 1920,
+        "duration_s": 6,
+        "fps": 25,
+        "codec_video": "h264",
+        "facts_verified": true,
+        "has_audio": false,
+        "committed": false,
+        "path": null,
+        "bytes": 607112,
+        "sha256": null
+      },
+      "poster": {
+        "path": "/seed/posters/product-dropper-dark-01.jpg",
+        "bytes": 9359,
+        "sha256": "608073d5eb98f9c720924f67bad9a75f8fae5b567ab0de9d3c587ed781df5d06"
+      },
+      "contact_sheet": {
+        "path": "/seed/sheets/product-dropper-dark-01.jpg",
+        "bytes": 30587,
+        "sha256": "e715f1493cd1113210de9b423ceee8cb08cf00eff6200255cda6b72257e32d4d",
+        "layout": "1x5",
+        "tile_width": 216,
+        "frames": 5
+      },
+      "generator_version": 1
+    },
+    {
+      "slug": "product-jade-roller-01",
+      "source": {
+        "provider": "pexels",
+        "photo_id": 10712765,
+        "page_url": "https://www.pexels.com/photo/10712765/",
+        "file_url": "https://images.pexels.com/photos/10712765/pexels-photo-10712765.jpeg"
+      },
+      "orientation": "vertical",
+      "meta": {
+        "shot_type": "macro",
+        "room": "studio",
+        "subjects": [
+          "product",
+          "tool"
+        ],
+        "vibe": "clean",
+        "light": "soft_indoor"
+      },
+      "derived_clip": {
+        "width": 1080,
+        "height": 1920,
+        "duration_s": 6,
+        "fps": 25,
+        "codec_video": "h264",
+        "facts_verified": true,
+        "has_audio": false,
+        "committed": false,
+        "path": null,
+        "bytes": 1211032,
+        "sha256": null
+      },
+      "poster": {
+        "path": "/seed/posters/product-jade-roller-01.jpg",
+        "bytes": 25977,
+        "sha256": "7bc9a8c5d01e5b0b24c8383c3f5966a74b86f82694672701b2efe426622fa01d"
+      },
+      "contact_sheet": {
+        "path": "/seed/sheets/product-jade-roller-01.jpg",
+        "bytes": 74769,
+        "sha256": "9105b9b3e2a81f89f5149d73f6c8ec4a11863e9eaf177371f3fc0fe0b1f1ad91",
+        "layout": "1x5",
+        "tile_width": 216,
+        "frames": 5
+      },
+      "generator_version": 1
+    },
+    {
+      "slug": "towels-bottles-01",
+      "source": {
+        "provider": "pexels",
+        "photo_id": 8015807,
+        "page_url": "https://www.pexels.com/photo/8015807/",
+        "file_url": "https://images.pexels.com/photos/8015807/pexels-photo-8015807.jpeg"
+      },
+      "orientation": "vertical",
+      "meta": {
+        "shot_type": "macro",
+        "room": "studio",
+        "subjects": [
+          "towels",
+          "product"
+        ],
+        "vibe": "minimal",
+        "light": "soft_indoor"
+      },
+      "derived_clip": {
+        "width": 1080,
+        "height": 1920,
+        "duration_s": 6,
+        "fps": 25,
+        "codec_video": "h264",
+        "facts_verified": true,
+        "has_audio": false,
+        "committed": false,
+        "path": null,
+        "bytes": 548400,
+        "sha256": null
+      },
+      "poster": {
+        "path": "/seed/posters/towels-bottles-01.jpg",
+        "bytes": 11488,
+        "sha256": "c7f36dfe839ce39479d7977ea2a7b48ceedf2be10d39ccf9ff6de0d820b58cad"
+      },
+      "contact_sheet": {
+        "path": "/seed/sheets/towels-bottles-01.jpg",
+        "bytes": 31850,
+        "sha256": "1886cab67c2e84890f80a41b65abe73058dddcd71f280910ed0cd3bb11be3542",
+        "layout": "1x5",
+        "tile_width": 216,
+        "frames": 5
+      },
+      "generator_version": 1
+    },
+    {
+      "slug": "cotton-pads-01",
+      "source": {
+        "provider": "pexels",
+        "photo_id": 7691165,
+        "page_url": "https://www.pexels.com/photo/7691165/",
+        "file_url": "https://images.pexels.com/photos/7691165/pexels-photo-7691165.jpeg"
+      },
+      "orientation": "vertical",
+      "meta": {
+        "shot_type": "macro",
+        "room": "studio",
+        "subjects": [
+          "product",
+          "cotton"
+        ],
+        "vibe": "clean",
+        "light": "bright"
+      },
+      "derived_clip": {
+        "width": 1080,
+        "height": 1920,
+        "duration_s": 6,
+        "fps": 25,
+        "codec_video": "h264",
+        "facts_verified": true,
+        "has_audio": false,
+        "committed": false,
+        "path": null,
+        "bytes": 216955,
+        "sha256": null
+      },
+      "poster": {
+        "path": "/seed/posters/cotton-pads-01.jpg",
+        "bytes": 3429,
+        "sha256": "f517a4036caeb2811fba0201edcc80d49750868cb913ec33d45d7f732594493d"
+      },
+      "contact_sheet": {
+        "path": "/seed/sheets/cotton-pads-01.jpg",
+        "bytes": 10525,
+        "sha256": "51c2e4a195ee2e987b2a836c9adfecf928cad8601662751fc2536424f18f48b4",
+        "layout": "1x5",
+        "tile_width": 216,
+        "frames": 5
+      },
+      "generator_version": 1
+    },
+    {
+      "slug": "product-linen-plant-01",
+      "source": {
+        "provider": "pexels",
+        "photo_id": 8101134,
+        "page_url": "https://www.pexels.com/photo/8101134/",
+        "file_url": "https://images.pexels.com/photos/8101134/pexels-photo-8101134.jpeg"
+      },
+      "orientation": "vertical",
+      "meta": {
+        "shot_type": "macro",
+        "room": "studio",
+        "subjects": [
+          "product",
+          "plant",
+          "linen"
+        ],
+        "vibe": "natural",
+        "light": "soft_indoor"
+      },
+      "derived_clip": {
+        "width": 1080,
+        "height": 1920,
+        "duration_s": 6,
+        "fps": 25,
+        "codec_video": "h264",
+        "facts_verified": true,
+        "has_audio": false,
+        "committed": false,
+        "path": null,
+        "bytes": 871308,
+        "sha256": null
+      },
+      "poster": {
+        "path": "/seed/posters/product-linen-plant-01.jpg",
+        "bytes": 14764,
+        "sha256": "287f86cd92b2c85a7955c488c69d0688f1ed1a9460b6bb44c521139b7919aa7b"
+      },
+      "contact_sheet": {
+        "path": "/seed/sheets/product-linen-plant-01.jpg",
+        "bytes": 43042,
+        "sha256": "4b5c1d3162d17deb3233028cc2efa0710097000c094528e7e82d329faf65e760",
+        "layout": "1x5",
+        "tile_width": 216,
+        "frames": 5
+      },
+      "generator_version": 1
+    }
+  ]
+}
