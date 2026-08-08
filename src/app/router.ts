@@ -29,6 +29,8 @@ import SurfacePlaceholderView from './views/SurfacePlaceholderView.vue'
 import TriageView from './views/TriageView.vue'
 import DealsView from './views/DealsView.vue'
 import ReviewQueueView from './views/ReviewQueueView.vue'
+import GapsView from './views/GapsView.vue'
+import BriefsView from './views/BriefsView.vue'
 
 /** Where each role lands. Also the redirect target when a route is refused. */
 export function roleHome(role: ActiveRole, creatorToken?: string | null): string {
@@ -90,18 +92,16 @@ export const routes: RouteRecordRaw[] = [
     component: DealsView,
     meta: { roles: ['manager'], title: 'Deals' } satisfies SurfaceMeta,
   },
-  placeholder(
-    '/briefs',
-    ['manager'],
-    'Briefs',
-    'Gap-fed brief generation and the brief lock. Lands with the loop.',
-  ),
-  placeholder(
-    '/gaps',
-    ['manager'],
-    'Gaps',
-    'The gap scan and the close detection. Lands with the loop.',
-  ),
+  {
+    path: '/briefs',
+    component: BriefsView,
+    meta: { roles: ['manager'], title: 'Briefs' } satisfies SurfaceMeta,
+  },
+  {
+    path: '/gaps',
+    component: GapsView,
+    meta: { roles: ['manager'], title: 'Gaps' } satisfies SurfaceMeta,
+  },
   placeholder(
     '/creators',
     ['manager'],
