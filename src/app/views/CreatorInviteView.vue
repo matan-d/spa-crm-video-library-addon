@@ -22,6 +22,15 @@ interface CollabRow {
   id: string
   branch_id: string
   visit_at: number | null
+  usage_terms_text: string | null
+  consent_text_version: string | null
+}
+interface ConsentRow {
+  id: string
+  collab_id: string
+  consent_text_version: string
+  accepted_at: number
+  created_at: number
 }
 interface BranchRow {
   id: string
@@ -33,8 +42,11 @@ const store = useAppStore()
 const gate = computed(() => store.creatorGate)
 
 const branch = ref<BranchRow | null>(null)
+const collab = ref<CollabRow | null>(null)
 const visitAt = ref<number | null>(null)
 const items = ref<BriefItemRow[]>([])
+const consent = ref<ConsentRow | null>(null)
+const declined = ref(false)
 const loaded = ref(false)
 
 onMounted(async () => {
@@ -42,11 +54,23 @@ onMounted(async () => {
   const session = store.session
   if (!repo || !session || session.kind !== 'creator_token') return
 
-  const collab = session.collab_id ? await repo.get<CollabRow>('collab', session.collab_id) : undefined
-  if (collab) {
-    visitAt.value = collab.visit_at
-    branch.value = (await repo.get<BranchRow>('branch', collab.branch_id)) ?? null
+  const collabRow = session.collab_id
+    ? await repo.get<CollabRow>('collab', session.collab_id)
+    : undefined
+  if (collabRow) {
+    collab.value = collabRow
+    visitAt.value = collabRow.visit_at
+    branch.value = (await repo.get<BranchRow>('branch', collabRow.branch_id)) ?? null
   }
+
+  // The consent record is the source of truth for whether THIS creator
+  // accepted, queried directly rather than trusting the denormalised fields on
+  // the collab: those are a projection sync maintains, and a projection must
+  // never be what gates a legal record's creation.
+  const records = await repo.list<ConsentRow>('consent_record', {
+    where: (row) => row.collab_id === session.collab_id,
+  })
+  consent.value = records.sort((a, b) => b.created_at - a.created_at)[0] ?? null
 
   const briefs = await repo.list<BriefRow>('brief')
   const locked = briefs.find((brief) => brief.status === 'locked') ?? briefs[0]
@@ -58,6 +82,34 @@ onMounted(async () => {
   }
   loaded.value = true
 })
+
+/**
+ * Acceptance writes an immutable, versioned record.
+ * ip hash and user agent belong to the server in the real product; this build
+ * has no server, so they are stored as null rather than read from the browser,
+ * because reading them here would both break the determinism rule and imply a
+ * verification the demo cannot perform.
+ */
+async function acceptConsent() {
+  const repo = store.repo
+  const session = store.session
+  const clock = store.ctx?.clock
+  if (!repo || !session || !clock || !collab.value || consent.value) return
+  const id = await repo.create('consent_record', {
+    collab_id: session.collab_id,
+    token_id: session.token_id,
+    consent_text_version: collab.value.consent_text_version ?? 'consent-v1',
+    terms_text_snapshot: collab.value.usage_terms_text,
+    accepted_at: clock.now(),
+    consent_ip_hash: null,
+    consent_user_agent: null,
+  })
+  consent.value = (await repo.get<ConsentRow>('consent_record', id)) ?? null
+}
+
+function declineConsent() {
+  declined.value = true
+}
 
 function visitDate(ms: number | null): string {
   if (ms == null) return 'to be scheduled'
@@ -136,10 +188,88 @@ function visitDate(ms: number | null): string {
       </li>
     </ol>
 
-    <p class="note">
-      Consent and the upload page land with the creator surface task. The brief
-      above is already read through your token, and nothing else is.
-    </p>
+    <section
+      data-testid="invite-how-to-shoot"
+      class="how-to"
+    >
+      <h2>How to shoot it</h2>
+      <ul>
+        <li>Vertical, at the highest resolution your phone offers.</li>
+        <li
+          data-testid="invite-most-compatible-instruction"
+        >
+          iPhone: in Settings, Camera, Formats, choose <strong>Most Compatible</strong>
+          before shooting. It is required, not a nicety: the other setting
+          produces files we cannot preview in the browser.
+        </li>
+        <li>Natural light where you can, and steady hands over fancy moves.</li>
+      </ul>
+    </section>
+
+    <section
+      v-if="collab?.usage_terms_text"
+      data-testid="consent-panel"
+      class="consent"
+    >
+      <h2>Usage agreement</h2>
+      <p
+        data-testid="consent-text"
+        class="consent-text"
+        :data-consent-version="collab.consent_text_version ?? 'consent-v1'"
+      >
+        {{ collab.usage_terms_text }}
+      </p>
+
+      <p
+        v-if="consent"
+        data-testid="consent-recorded"
+        class="consent-recorded"
+        :data-consent-id="consent.id"
+        :data-consent-version="consent.consent_text_version"
+        :data-accepted-at="consent.accepted_at"
+      >
+        Accepted. Your agreement is recorded and versioned, and it will not
+        change underneath you.
+      </p>
+      <p
+        v-else-if="declined"
+        class="consent-declined"
+      >
+        No problem, nothing is recorded. If you change your mind this page will
+        be here, and if not, just let your contact at the studio know.
+      </p>
+      <div
+        v-else
+        class="consent-actions"
+      >
+        <button
+          type="button"
+          data-testid="consent-decline"
+          class="consent-button"
+          @click="declineConsent"
+        >
+          Not now
+        </button>
+        <button
+          type="button"
+          data-testid="consent-accept"
+          class="consent-button primary"
+          @click="acceptConsent"
+        >
+          I agree
+        </button>
+      </div>
+    </section>
+
+    <button
+      v-if="consent"
+      type="button"
+      data-testid="invite-continue"
+      class="continue"
+      disabled
+    >
+      Continue to upload (lands with the creator upload page)
+    </button>
   </section>
 </template>
 
@@ -189,5 +319,83 @@ h2 {
   font-size: 0.85rem;
   max-width: 62ch;
   margin: var(--space-5) 0 0;
+}
+
+.how-to ul {
+  margin: 0;
+  padding-left: 1.2rem;
+  display: grid;
+  gap: var(--space-1);
+  font-size: 0.88rem;
+}
+
+.consent {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  padding: var(--space-4);
+  margin-top: var(--space-5);
+  display: grid;
+  gap: var(--space-3);
+}
+
+.consent h2 {
+  margin: 0;
+}
+
+.consent-text {
+  margin: 0;
+  font-size: 0.85rem;
+}
+
+.consent-actions {
+  display: flex;
+  gap: var(--space-2);
+  justify-content: flex-end;
+}
+
+.consent-button {
+  appearance: none;
+  font: inherit;
+  font-size: 0.85rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  color: var(--ink);
+  padding: var(--space-2) var(--space-3);
+  cursor: pointer;
+}
+
+.consent-button.primary {
+  background: var(--human);
+  border-color: var(--human);
+  color: var(--surface);
+}
+
+.consent-recorded {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--human);
+  background: var(--human-soft);
+  border-radius: var(--radius);
+  padding: var(--space-2);
+}
+
+.consent-declined {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.continue {
+  margin-top: var(--space-4);
+  appearance: none;
+  font: inherit;
+  font-size: 0.85rem;
+  border: 1px dashed var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--muted);
+  padding: var(--space-2) var(--space-3);
 }
 </style>
