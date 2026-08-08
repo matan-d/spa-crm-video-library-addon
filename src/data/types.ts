@@ -324,7 +324,8 @@ export interface ReviewAction extends Envelope {
 export type GapStatus = 'open' | 'closed' | 'dismissed'
 
 export interface Gap extends Envelope {
-  gap_scan_id: string
+  /** Null for a gap born from an editor request rather than a scan. */
+  gap_scan_id: string | null
   branch_id: string | null
   /** Keyed by signature, not id, so a dismissal survives a rescan. */
   cell_signature: string
