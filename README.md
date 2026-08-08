@@ -6,7 +6,11 @@ Concretely: it takes a creator from "possible collab" to "usable, tagged footage
 
 Built for the Astolia / Willow Glow AI Builder challenge.
 
-> **Status: foundation.** The deterministic core, the local store, and the committed media are in place and tested. The role surfaces are not built yet. Progress is stated honestly here rather than implied.
+> **Status: the loop runs.** All three role surfaces are built, the media pipeline derives real contact sheets in the browser, the simulated AI seam is exercised by the app itself, and the closed loop is proved end to end by an automated run that asserts the id chain from a failed search to a closed gap.
+>
+> Gates at the last commit: 742 unit and integration tests, clean typecheck, clean lint, 16 committed fixtures verified against their manifest, and 564 end to end assertions across seven browser runs with nothing pending.
+>
+> What is deliberately not built is listed under [Not built, on purpose](#not-built-on-purpose) rather than left for you to discover.
 
 ## Run it
 
@@ -17,7 +21,22 @@ npm install
 npm run dev
 ```
 
-Then open the printed local URL. No API key is needed, and none is included in this repository.
+Then open the printed local URL. No API key is needed, and none is included in this repository. The demo database seeds itself on first load, so the library is already full when the page opens.
+
+## See the loop in five minutes
+
+The demo strip at the top right switches role. It is labelled `demo` and styled as a demo control on purpose: this build has no authentication, and a control that looked like an account menu would imply access control that does not exist.
+
+1. **Editor.** Switch to `editor`. Search `hands warm light`: the chips under the box show what those words were understood as, `hands` and `warm_light`. Now search `lounge macro`. Nothing matches, and instead of an empty state you get the ladder: the term that was dropped to find near matches, the near matches themselves, and one button that turns the failure into a tracked request. Press it.
+2. **Manager.** Switch to `manager`, open **Gaps**. Your request is there with its evidence. Open **Briefs**, press **Generate from gaps**, and the new brief's first item carries the note `from gap`. Press **Lock**, then **Create invite link**, and copy the link.
+3. **Creator.** Open that link in the same browser. There is no account and no install. Agree to the usage terms, then choose a vertical clip from your phone or desktop. Everything is checked locally before anything is stored: orientation, duration, resolution, capture date, distance from the studio, whether it duplicates an earlier clip, and whether this browser can decode it at all. Say which shot it is, then send.
+4. **Manager again.** Open **Triage**. The delivery is in `needs review`. Open it to see promise versus delivered, including the extras bucket. Press **Review**, then **Analyse the contact sheet**: the amber block is the simulated model's output, labelled `simulated` because the record says so, not because the app is in demo mode. Confirm which brief item it covers, approve, and publish.
+5. **Editor again.** The clip is now in the library. Add it to the bin and press **Confirm use**: the receipt records the rank the clip held at that moment, which is the one relevance signal that cannot be reconstructed later.
+6. **Manager, last step.** Back in **Gaps**, press **Detect closures**. Your gap is closed and names the clip that closed it.
+
+That is the whole thesis: an unanswered search became a shot list, became footage, became a measurably closed gap.
+
+If you would rather watch it happen without clicking, `npm run test:e2e` drives exactly that sequence in a real browser and prints the id chain.
 
 | command | what it does |
 |---|---|
@@ -28,6 +47,8 @@ Then open the printed local URL. No API key is needed, and none is included in t
 | `npm run typecheck` | `vue-tsc --noEmit` |
 | `npm run fixtures` | regenerate the engineered media fixtures, no network needed |
 | `npm run fixtures:verify` | re-verify committed fixtures against their manifest |
+| `npm run test:e2e` | every end to end run in a real Chromium: boot, editor, manager, decode, AI, creator, loop |
+| `npm run test:e2e:boot` | just the boot smoke run |
 | `node scripts/build-seed-media.mjs` | re-fetch and rebuild the seeded library media, needs network |
 
 Generated media is committed, so a fresh clone runs with no media build step.
@@ -61,11 +82,29 @@ Three roles share one dataset, each fully capable on desktop and mobile:
 
 **One thing is deliberately left broken, visibly.** iPhone HEVC copied to a Windows laptop cannot be decoded by any runtime this build ships, so that clip gets no contact sheet, no AI analysis, and no invented tags. It degrades to a labelled state with approval disabled and a stated reason, rather than to a black rectangle or a plausible guess. Local desktop transcode and server side transcode are both specified; neither is deployed.
 
+## Not built, on purpose
+
+Stated here rather than left to be discovered, because a proof of concept that hides its edges is not proving much.
+
+- **No server.** Nothing is deployed. The Supabase schema, its row level security policies and the `security definer` RPC for creator tokens are fully written in the architecture review; the local scoped repository implements the same allowlists so the two cannot drift.
+- **No live model call.** The `live` adapter is written and ships constructed disabled. `replay` is written and unexercised. `mock` is the only mode that runs, and it is exercised by the app rather than only by tests.
+- **The WebCodecs decode path declines.** The `<video>` plus canvas path is built and produces real sheets. WebCodecs asks `isConfigSupported` and then declines out loud, because sample feeding buys frame accuracy and a half written decoder that lands on the wrong frame is worse than one that refuses.
+- **The desktop shell and mobile native are configured and never built.** Written blind, documented as untested.
+- **Search is deterministic, not yet indexed.** Term to taxonomy mapping, facets and ranking are real and tested; the persistent index and the AI query parser are the next track.
+- **HEVC from an iPhone on a machine without a decoder gets no sheet, no AI and no invented tags.** It degrades to a labelled state with a stated reason. This is the one hole left visible on purpose.
+
 ## Layout
 
 ```
-src/platform/     clock, rng, uuidv7, canonical hashing. The only place ambient time and randomness are allowed
-src/data/         schema, migrations, profile namespacing. Demo and live are separate databases, not a row flag
+src/platform/     clock, rng, uuidv7, canonical hashing, the platform port, the capability probe.
+                  The only place ambient time, randomness and platform globals are allowed
+src/data/         schema, migrations, profile namespacing, the scoped repository and the outbox.
+                  Demo and live are separate databases, not a row flag
+src/media/        atom parsing, frame extraction, contact sheets, hashes, the four-state pre-flight engine.
+                  src/media/browser/ holds the decode adapters that need a real browser
+src/ai/           the provider interface, seven JSON schemas, the authored mock fixtures, replay, live, the ai_run writer
+src/app/          the shell, the store, the router, and one directory per role surface
+e2e/              seven browser runs, including the flagship loop run that asserts the id chain
 public/fixtures/  engineered clips, one per container or codec gotcha, with a manifest of expected pre-flight results
 public/seed/      the seeded library: real stock stills, frame-extracted contact sheets, three playable clips
 scripts/          the fixture and seed media generators, plus their verifiers
@@ -76,13 +115,18 @@ tests/            unit and integration suites
 
 ## Documentation
 
-The thinking behind this is written down rather than summarised:
+Start with [docs/08-thinking.md](docs/08-thinking.md), which is the two page version: the problem as I understood it, the four decisions that shaped the build, where AI is deliberately absent, and what I would do next.
+
+The rest is written down rather than summarised:
 
 - [docs/01-architecture-review.md](docs/01-architecture-review.md), the data model, storage tiering, the future Postgres schema with row level security, sync mechanics, and the dependency ordered build.
 - [docs/02-caveats-review.md](docs/02-caveats-review.md), failure modes per surface, per AI capability and per device, with sources and dates, and every claim marked verified or inferred.
 - [docs/04-cross-check.md](docs/04-cross-check.md), what survived independent verification, where the two reviews disagreed, and what that changed.
 - [docs/05-design-system.md](docs/05-design-system.md), where colour encodes who is responsible: amber for model output, green for human decisions, neutral for measured facts.
-- [qa/PLAN.md](qa/PLAN.md), the test layers, the three role end to end runs, and an explicit list of what cannot be tested in this build.
+- [docs/06-decisions.md](docs/06-decisions.md), every decision that was made and why, including the ones that were reversed and what evidence reversed them.
+- [docs/platform-matrix.md](docs/platform-matrix.md), what each browser and shell actually supports, with a source and a date on every cell.
+- [qa/PLAN.md](qa/PLAN.md), the test layers, the role end to end runs, and an explicit list of what cannot be tested in this build.
+- [qa/manual-checklist.md](qa/manual-checklist.md), everything that needs a human, a device or a service this build does not have, so coverage is never implied.
 
 ## Media
 

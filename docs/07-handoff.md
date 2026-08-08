@@ -2,8 +2,8 @@
 
 Read `CLAUDE.md` first. This file is the ordered task list, so the sequence cannot be mistaken.
 
-Last pushed commit: both specialist tracks complete, the platform matrix, and the editor and manager e2e runs (see git log).
-Gates at that commit: 740 tests passing twice, clean typecheck, clean lint, 16 fixtures verified, e2e 54 plus 14 plus 44 with zero pending.
+Last pushed commit: the flagship loop run (see git log).
+Gates at that commit: 742 unit tests, clean typecheck, clean lint, 16 fixtures verified, and `npm run test:e2e` at 564 passed, 0 failed, 0 pending across seven browser runs.
 
 ## Resume in one line
 
@@ -49,18 +49,20 @@ An unmapped term never filters: a vocabulary gap must not masquerade as a conten
 Triage inbox bucketed by actionability, the three-bucket diff whose provisional AI matches stop counting the moment a human decides (the seeded over-claim renders struck through), the frozen keyboard review queue with stale-row refusal and append-only additions, publish as an explicit step, and the read-only kanban.
 `src/app/manager/{triage,health}.ts` hold the pure logic.
 
-### 4. PARTIAL: the creator surface
+### 4. DONE: the creator surface
 
-Invite page and the consent flow are done (immutable, versioned, snapshotted; see the creator spec).
-NEXT: the upload page running `src/media` ingest and pre-flight locally with the per-file four-valued verdict, the live checklist against the locked brief, resume on reopen, and the visibly degraded HEVC path.
-The media pipeline it needs is built; only the DOM decode adapters are absent (D24), so sheets do not derive in-browser yet and the upload page must degrade exactly like the HEVC case until they land.
+Invite, consent (immutable and versioned), and the upload page running real local pre-flight before anything is stored.
+The browser decode adapters landed with it (D25 reverses D24 for the element path), so the app now derives real contact sheets: `e2e/decode.e2e.mjs` proves five frames at five distinct timestamps with distinct hashes.
+Thresholds resolve from the spec key the brief names (`src/app/creator/tech-specs.ts`), and the demo's visit date and branch coordinates match the fixture manifest so the committed fixtures pre-flight in the demo exactly as the contract says.
 
-### 5. DONE where it matters: the loop, E1 to E5
+### 5. DONE: the loop, E1 to E5, and it is proved in a browser
 
 `src/app/loop/loop.ts`: the scan (zero-result clusters plus coverage targets, dismissals by signature, vocabulary gaps to insights), gap-fed brief generation writing `origin_gap_id`, the lock, invite token minting, and close detection with before and after counts.
-The flagship test replays the chain from ids alone.
+`e2e/loop.e2e.mjs` drives the whole chain in one browser context across three role switches and prints the id chain: gap, brief item, asset, review action, published, usage event, gap closed.
+Closure happens first on the paper trail (a human confirmed a published clip covers the item the gap produced) and only second on facet matching, so the flagship claim does not rest on model output.
+An explicit editor request is never displaced by a scored gap during brief generation, because a request that vanishes without trace is worse than no request feature at all.
 
-### 6. Search D1 to D4
+### 6. NEXT: Search D1 to D4
 
 Still to build: the persistent index (`search_token`, `asset_facet`, `reindex_queue` with the incremental worker) and the AI query parser wired through `src/ai` search_parse.
 The deterministic in-memory search in `src/app/editor/search.ts` is the floor it replaces; keep its two rules.
@@ -68,8 +70,8 @@ The deterministic in-memory search in `src/app/editor/search.ts` is the floor it
 ### 7. The rest
 
 Data health and storage panels are done, with snapshot export and import.
-Still to build: the loopback sync adapter and sync panel, the env-gated Supabase adapter, Capacitor config and platform notes, the two page thinking doc, the demo script, and the DOM decode adapters when a real browser context exists to test them in.
-Also: the creator e2e run un-pends with the upload page, and the loop e2e run is unwritten.
+Done: data health and storage panels with snapshot export and import, the two page thinking doc (`docs/08-thinking.md`), the README demo walkthrough, and `e2e/run-all.mjs` so `npm run test:e2e` finally does what package.json always claimed.
+Still to build: the loopback sync adapter and sync panel, the env-gated Supabase adapter, Capacitor config and platform notes, and the WebCodecs sample feeding if frame accuracy is ever wanted.
 Findings filed by the tracks and not yet actioned: the seed vocabulary drift (manifest meta terms versus `src/ai/taxonomy.ts`), `ai_run.input_ref` missing from the local schema, seeded AI tags carrying `ai_run_id: null`, and the eligibility gate before vetting (QC-AI-061).
 
 ## Things that will bite, recorded so they only bite once
