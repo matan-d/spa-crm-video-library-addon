@@ -10,6 +10,8 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:e2e": "node e2e/run-all.mjs",
+    "test:e2e:boot": "node e2e/boot.e2e.mjs",
     "lint": "eslint . --max-warnings 0",
     "typecheck": "vue-tsc --noEmit",
     "fixtures": "node scripts/build-fixtures.mjs",

@@ -74,8 +74,10 @@ export default tseslint.config(
     rules: { 'no-restricted-syntax': 'off' },
   },
   {
-    // Build scripts run in Node, outside the app, and legitimately use real time.
-    files: ['scripts/**/*.mjs', 'netlify/**/*.mjs', 'eslint.config.js', 'vite.config.ts'],
+    // Build scripts and the e2e harness run in Node, outside the app, and both
+    // legitimately use real time and print to the console: a test harness that
+    // cannot report is not a harness.
+    files: ['scripts/**/*.mjs', 'e2e/**/*.mjs', 'netlify/**/*.mjs', 'eslint.config.js', 'vite.config.ts'],
     rules: { 'no-restricted-syntax': 'off', 'no-console': 'off' },
   },
 )

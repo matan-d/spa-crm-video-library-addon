@@ -2,98 +2,95 @@
 
 Read `CLAUDE.md` first. This file is the ordered task list, so the sequence cannot be mistaken.
 
-Last commit at the time of writing: `8ebece5`, "F6: the platform port, the capability probe, and the ingest tiers".
-Gates at that commit: 198 tests passing, clean typecheck, clean lint, 16 fixtures verified.
+Last pushed commit: `0de1d10`, "Seed: a deliberately imperfect demo dataset, generated deterministically".
+Gates at that commit: 262 tests passing, clean typecheck, clean lint, 16 fixtures verified.
 
 ## Resume in one line
 
-> Read `CLAUDE.md` and `docs/07-handoff.md`, then continue at the first task marked NEXT.
+> Read `CLAUDE.md` and `docs/07-handoff.md`, then continue at the first task marked NEXT. Do not ask questions: every decision is closed in `docs/06-decisions.md`.
 
 ## Done
 
 | id | what | evidence |
 |---|---|---|
-| F1 | Injected `Clock` and `Rng`, one UUIDv7 generator with the 12-bit `rand_a` field as a monotonic sub-millisecond counter | `src/platform/{clock,rng,id}.ts`, `tests/platform/id.spec.ts`. The load-bearing test is that 500 ids under a frozen clock still sort in generation order |
-| F5 | Canonical JSON with sorted keys, plus sha256. Throws on `NaN`, `Date`, `Map`, `Set` rather than guessing | `src/platform/hash.ts`, `tests/platform/hash.spec.ts` |
-| F2 | Store and index schema, migration runner, profile namespacing. Demo and live are separate databases | `src/data/{schema,db,profile}.ts`, `tests/data/db.spec.ts` |
-| B1 | 16 engineered fixtures plus a manifest separating `declared` from `expected_preflight`, with tolerances, and a verifier that re-reads the bytes | `public/fixtures/`, `scripts/{build-fixtures,verify-fixtures}.mjs`, `tests/fixtures/manifest.spec.ts`, `docs/media-pipeline.md` |
-| Seed media | 27 real stock items. Contact sheets are genuine frame extractions from rendered clips, not five crops of one photo | `public/seed/`, `scripts/build-seed-media.mjs`, `docs/MEDIA-CREDITS.md` |
-| F6 | `PlatformPort` with seven sub-interfaces, the capability probe, three ingest tiers, `deriveIngestPolicy`, and the browser implementation | `src/platform/{port,capability}.ts`, `src/platform/browser/`, `tests/platform/{capability,bytes}.spec.ts` |
+| F1 | Injected `Clock` and `Rng`, one UUIDv7 generator using the 12-bit `rand_a` field as a monotonic sub-millisecond counter | `src/platform/{clock,rng,id}.ts`. The load-bearing test: 500 ids under a frozen clock still sort in generation order |
+| F5 | Canonical JSON with sorted keys plus sha256, throwing on `NaN`, `Date`, `Map`, `Set` rather than guessing | `src/platform/hash.ts` |
+| F2 | Store and index schema, migration runner, profile namespacing | `src/data/{schema,db,profile}.ts`. Demo and live are separate databases, with a test proving a row in one is invisible from the other |
+| F6 | `PlatformPort` (7 sub-interfaces), the capability probe, three ingest tiers, `deriveIngestPolicy`, the browser implementation | `src/platform/{port,capability}.ts`, `src/platform/browser/` |
+| F3+F4 | The scoped repository and the outbox, in one layer | `src/data/{scope,repo}.ts`. Three session factories, table allowlist then predicate then projection, boolean `_i` mirrors, outbox appended in the same transaction as the row |
+| B1 | 16 engineered fixtures, a manifest separating `declared` from `expected_preflight` with tolerances, a verifier, and a formula drift guard | `public/fixtures/`, `scripts/{build-fixtures,verify-fixtures}.mjs` |
+| Seed media | 27 real stock items. Contact sheets are genuine frame extractions from rendered clips | `public/seed/`, `scripts/build-seed-media.mjs` |
+| Seed data | The demo dataset, generated at runtime, deterministic, with 10 deliberate imperfections each covered by a test | `src/data/{seed,hydrate}.ts` |
 
-Two things inside F6 worth knowing before you touch anything media related:
+## Possibly in flight, check before starting
 
-- `MediaCodecs.transcode()` throws `Unsupported('no_transcoder_in_browser')`. That is the design, not a stub to fill in. It is the single line where this build's known open hole lives.
-- Frame count is settled: `clamp(3 + round(duration_s / 3), tier.floor, tier.ceiling)`, tiers `ample` 5 to 7, `standard` 4 to 6, `constrained` 3 to 3. Reasoning in `docs/06-decisions.md` D2.
+Three specialist agents were working when this was written. Their output may or may not be in the commit you are reading. **Check `git log` and the tree before assuming any of it is missing or present:**
+
+- `src/ai/**`: provider interface, the seven JSON schemas, the shared validator, the deterministic mock, the `replay` reader, the unexercised `live` adapter, and the `ai_run` writer whose enqueue guard refuses vision tagging without a `sheet_key`.
+- `src/media/**`: the MP4 and MOV atom parser, the extraction capability chain, and the four-state pre-flight rule engine.
+- `e2e/**`: the browser harness on the 432 Player convention, plus `e2e/_support/testids.mjs`, which is the selector contract the UI must implement.
+
+If any of those directories is missing, that track was not finished and is yours to complete. The briefs are in this file's task list below.
 
 ## The task list, in dependency order
 
-### 1. DONE: the fixture manifest is aligned to the resolved frame count formula
+### 1. NEXT: the app shell
 
-`public/fixtures/manifest.json` now carries `expected_frames.by_tier` for all three tiers, recomputed from `frameCountFor()`. `scripts/fixtures.config.mjs` restates the formula (Node cannot import a TypeScript module) and `assertFrameFormulaMatchesSource()` reads `src/platform/capability.ts` as text on every build, failing with a named diff if the two ever drift. `docs/media-pipeline.md` 4.5 records the resolution, and QC-MEDIA-100, 101, 103 and 104 assert it.
+Nothing renders real data yet. `src/App.vue` is a placeholder.
 
-One consequence worth carrying forward into A2: at the `ample` floor of 5 frames, a 1.5 second clip plans frames a quarter second apart while every fixture has a half second GOP. On the `<video>` plus canvas path two planned times can legitimately snap to the same decoded frame, so the extractor must record the times it actually reached rather than the times it planned, and must not present near identical tiles as five distinct moments. See QC-MEDIA-104.
+Build `src/app/`:
+- A bootstrap that opens the database for the active profile, hydrates the demo seed if needed, probes capabilities, assembles the browser platform, and creates a scoped repository for the active session.
+- A Pinia store holding the session, the platform report, and the repository. No component may touch IndexedDB or the platform directly.
+- A router with the role surfaces plus the creator token route at `/#/c/:token`, whose loader can only construct a `creatorTokenSession`, so there is no reachable path from creator UI to a manager repository.
+- A role switcher, dev-only behind `import.meta.env.VITE_DEMO_TOOLS`, styled as a demo affordance rather than an account menu so nobody mistakes it for proof there is no access control.
 
-### 2. F3 plus F4, together, and this ordering matters more than any other in the build
+Critical: on a role switch the view tree must remount rather than restore. A cached view holding the previous role's data is ranked the highest-probability leak in the whole product, and it is caused by the standard fix for preserving grid scroll position. Key the router view on the session kind.
 
-The scoped repository and the outbox must be built in the same pass. The outbox is fed by every mutation, so adding it afterwards means reopening every write path in the application. Built together, the repository is the only writer and the outbox append is one line inside it.
+### 2. The editor surface, the most demoable one
 
-Deliver:
-- `createScopedRepo(session)` with exactly three session factories: `managerSession(user)`, `editorSession(user)`, `creatorTokenSession(token)`.
-- Per role, on every read: a table allowlist, a mandatory predicate, and a field projection. The editor never reads `creator` or `collab` at all, and `asset.creator_credit` is the denormalised credit line that replaces a column-level policy.
-- Writes go through the same layer, which is also the only thing that appends to the outbox.
-- The boolean `_i` mirrors are written here, by the repository, never by callers.
-- A scope test asserting per role that forbidden tables throw and forbidden field names are absent from projection output, so a field added later fails unless somebody deliberately allowlists it.
+Library grid reading published assets through the repository, with real posters from `/seed/posters/`. One search box as the primary interaction, facets as results-derived chips with counts (never a taxonomy tree), a clip sheet, bins, and the zero-result ladder ending in "add to next brief" which writes a `gap` row.
 
-Read `docs/01-architecture-review.md` A2.3 and C.2, and use `tenancy-guard` to review the projections against the visibility matrix.
+Desktop is a three pane layout, mobile is search plus grid plus sheet. Use the testids from `e2e/_support/testids.mjs`.
 
-### 3. A1 to A3, the media pipeline
+### 3. The manager surface
 
-- A1 MP4 and MOV atom parser: `moov/mvhd` (note the 1904 epoch), the `tkhd` display matrix for rotation, `udta/©day`, the Apple `com.apple.quicktime.creationdate` and `location.ISO6709` keys, `stsd` codec fourcc, 64-bit atom sizes, and tolerance for a `moov` that follows `mdat`. A pure function over an `ArrayBuffer` returning facts with per-field confidence.
-- A2 frame extraction as a capability chain: WebCodecs `VideoDecoder` first, then `<video>` plus canvas (muted, `playsInline`, awaiting `seeked`, keyframe snapping means frames are approximate), then a generated placeholder tile so the UI never breaks on an undecodable file. Record which path produced each sheet and version the extractor.
-- A3 the four-state pre-flight rule engine as a pure function over facts plus the locked brief item plus the branch.
+Triage inbox FIRST, then the kanban. The inbox is the real product and the kanban demos well, so building the kanban first is optimising for the demo over the user. Then the review queue: a frozen ordered list, keyboard driven on desktop, stale-row refusal, and `review_action` as the log that `asset.review_status` projects from.
 
-Every rule asserts against `expected_preflight` in the fixture manifest, within its tolerance. Never assert against `declared`, because that tests ffmpeg rather than our parser.
+The promise-versus-delivered diff must show the extras bucket, and it must show the AI over-claim the seed contains: the model matches a clip to an eighth brief item nothing covers, and the human correction reveals the true seven of ten.
 
-Owner: `media-pipeline`, with `platform-matrix` reviewing the runtime branches.
+### 4. The creator surface
 
-### 4. C1 plus C2, the AI contract
+Invite page with the brief as a checklist and consent acceptance (immutable, versioned, terms snapshotted). Upload page running local pre-flight before anything transfers, with a per-file verdict in plain language, and the live checklist against the locked brief. The HEVC case must degrade visibly: no sheet, no AI, approval disabled with a stated reason.
 
-One provider interface, seven capabilities (`vet`, `brief_gen`, `vision_tag`, `brief_match`, `search_parse`, `gap_scan`, `nudge_draft`), one JSON schema each, and a validator shared by every implementation and by the tests. Then the deterministic `mock`, the `replay` reader, and the `live` adapter that is built and never exercised.
+### 5. Search: D1 to D4
 
-Owner: `ai-contract`. It must load the `claude-api` skill before writing any model call and never state a model fact from memory.
+Index writers and the `reindex_queue` with an incremental worker, then retrieval and ranking, then the AI query parser producing a filter and ranking spec. The model's job is term-to-taxonomy mapping shown as removable chips (`golden hour` to `warm_light`), with unmapped terms surfaced explicitly. An unmapped term is a vocabulary gap and must never be counted as a content gap.
 
-### 5. Everything after that, in order
+### 6. The loop: E1 to E5
 
-1. `ai_run` writer with the provenance guard, `is_current` maintenance, and the projection step. This blocks every AI-derived field in the UI.
-2. D1 search index writers, `reindex_queue` with its incremental worker.
-3. Seed generator (`scripts/build-seed.mjs`) under the seeded clock and RNG, producing `public/seed/seed.json`, plus hydration, reset, and profile switch.
-4. Authored mock fixtures, deliberately imperfect. See `.claude/agents/ai-contract.md` for the authoring rules; uniformly clean fixtures are a failure even when every schema validates.
-5. Creator surface: invite page with consent, upload page with the live checklist against the locked brief.
-6. Manager surface: triage inbox first, then the kanban. The inbox is the real product and the kanban demos well; building the kanban first is optimising for the demo over the user.
-7. Manager review queue: frozen ordered list, keyboard driven on desktop, stale-row refusal, `review_action` as the log that `asset.review_status` projects from.
-8. Editor surface: search, facets derived from results, the clip sheet, bins, the zero-result ladder ending in "add to next brief".
-9. D2 to D4 retrieval, scoring, the AI query parser producing a filter and ranking spec, and the term-to-taxonomy mapping shown as removable chips with unmapped terms surfaced.
-10. E1 to E5 the loop: gap scan, gap-fed brief generation with `origin_gap_id`, brief lock, the promise versus delivered diff including extras, and gap close detection.
-11. G2 loopback sync adapter and the sync panel, then G3 the Supabase adapter, env-gated and never pointed at anything.
-12. Export and import snapshot, the Data Health panel, the storage panel.
-13. Capacitor config plus the platform notes. No device build.
-14. The two page thinking doc, and a demo script.
+Gap scan from real signals, gap-fed brief generation writing `origin_gap_id`, brief lock, the delivery diff, and gap close detection with a before-and-after count. **Do not leave this to the end by accident.** It looks like a reporting feature and it is the product thesis. If it slips, the submission is a pipeline with AI in it rather than a closed loop.
 
-Do not leave the gap scan to the end by accident. It looks like a reporting feature and it is the product thesis. If it slips, the submission is a pipeline with AI in it rather than a closed loop.
+### 7. The rest
+
+Loopback sync adapter and sync panel, then the env-gated Supabase adapter. Export and import snapshot. Data Health panel counting `ai_run` by provider, which is the direct answer to "is any of this real". Storage panel. Capacitor config and platform notes, no device build. Then the two page thinking doc and a demo script.
+
+Also outstanding: `docs/platform-matrix.md` was commissioned and never delivered, so the platform capability matrix with a source and date per cell still needs writing by `platform-matrix`.
 
 ## Things that will bite, recorded so they only bite once
 
-- `vitest` 2.x pins vite 5, so with vite 6 there are two copies of vite and their plugin types collide. This project uses vitest 4. Do not downgrade.
-- jsdom's `Blob` has no `.text()`. `tests/platform/bytes.spec.ts` has a `readText` helper for this.
-- jsdom has no OPFS at all, so the byte store is tested against an in-memory fake directory in the same file. Reuse it rather than writing another.
-- `ffmpeg-static` ships no ffprobe. `ffprobe-static` is installed separately and both generators use it.
+- `vitest` 2.x pins vite 5; with vite 6 you get two copies of vite and their plugin types collide. This project uses vitest 4. Do not downgrade.
+- jsdom has no `Blob.text()`, no OPFS, no WebCodecs and no real video decode. `tests/platform/bytes.spec.ts` has a `readText` helper and an in-memory OPFS fake; reuse them rather than writing more.
+- `Array.prototype.at` needs the ES2022 lib, already set in `tsconfig.json`.
+- `ffmpeg-static` ships no ffprobe; `ffprobe-static` is installed separately and both generators use it.
 - Fixtures and seed media are committed, so a fresh clone needs no media build and no network.
-- The mission PDF is gitignored. `docs/00-context-brief.md` carries everything it said.
-- `git` remote may contain a personal access token in its URL on the original machine. Nothing in the repo contains one, and none should ever be committed.
+- The seed is generated at runtime, not committed as JSON. See D11 for why.
+- Hydration deliberately bypasses the repository and writes no outbox entries. See D12.
+- IndexedDB cannot index a boolean. Queryable booleans carry an `_i` mirror, written by the repository, and there is a test asserting no index touches a raw boolean.
+- A row a session cannot see reads as absent, not forbidden, because distinguishing the two leaks existence.
 
 ## Definition of done for the submission
 
-1. A working prototype a reviewer can feel, not static screens, opening on a non-empty library within a few seconds with no key and no setup.
-2. A public repo with run instructions that work from a fresh clone.
-3. A thinking doc of at most two pages: the problem, the solution, where AI was used and where it deliberately was not, the decisions, the prioritisation, and the next steps. It links to the reviews rather than compressing them.
+1. A working prototype a reviewer can feel, opening on a non-empty library in a few seconds with no key and no setup.
+2. A public repo whose run instructions work from a fresh clone.
+3. A thinking doc of at most two pages: the problem, the solution, where AI was used and where it deliberately was not, the decisions, the prioritisation, the next steps. It links to the reviews rather than compressing them.
 4. The AI session history, which the account owner exports.
