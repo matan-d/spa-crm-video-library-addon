@@ -112,3 +112,72 @@ The switcher is styled as a labelled demo strip, never as an account menu, so no
 
 The definition of done says the app opens on a non-empty library in a few seconds.
 Landing the manager on a placeholder triage page would fail that deliberately, so `roleHome('manager')` is `/library` for now and flips to `/triage` in the same commit that builds the inbox.
+
+**D16. A mock `ai_run` may record `fixture_id`. The Postgres constraint in C2.A has to widen to match.**
+
+The architecture review's check constraint requires `fixture_id is null` for a mock run.
+That was written before U8 settled that the mock's responses are authored offline by a model looking at the real contact sheets and committed as fixtures.
+Under U8 a mock run genuinely was served from a named committed fixture, and hiding which one removes the only route from a tag back to the answer that produced it, which is exactly the audit trail the rest of this design exists to keep.
+So the local guard enforces the invariant that actually matters, `model_id is null` for mock, plus `simulated_model_id` present and `latency_source = 'simulated'`, and allows `fixture_id`.
+The future `ai_run_provenance_ck` must be widened in the same way, or the first sync of a demo profile would be rejected by the database for telling the truth.
+Recorded in `src/ai/meta.ts` at the guard itself, so nobody re-tightens it without reading why.
+
+**D17. The mock takes no `Rng`. Every varying value is a pure function of `input_hash`.**
+
+The obvious implementation is a seeded `Rng`, and it is wrong here.
+An `Rng` advances with call order, so the same clip analysed second rather than first reports a different simulated think time, and a view that mounts twice produces two different `ai_run` rows for one input.
+Deriving the think time from the input hash instead gives determinism that survives re-ordering, needs no injected state, and still varies enough that the UI is not built against one constant.
+The one deliberate exception is the transient failure counter (a rate limit that clears on retry), which is per provider instance and documented, because "fails once and then succeeds" cannot be expressed as a pure function of the input and the UI has to handle it.
+
+**D18. Mock has two honest paths, and the run row says which one answered.**
+
+`authored-fixture-v1` is a fixture a model wrote while looking at the artefact.
+`synthetic-v1` is output assembled by local code.
+Both are `provider = 'mock'`, and the distinction is recorded in `provider_detail` rather than blurred, because they are different claims.
+Query parsing needs it: the input space is every string an editor can type, and serving an authored parse for an unseen query would produce a filter unrelated to the words on screen, which is worse than no parse at all.
+So the seeded queries get authored parses and everything else gets a synonym table lookup, which is also the warm path the caveats review recommends persisting.
+Gap phrasing needs the same escape for a computed cell nobody authored, and a partly authored batch is recorded as `authored-fixture-v1-partial`.
+A third value, `authored-fixture-v1-reused`, marks an authored answer served for a subject it was not written for: still a real answer in the right register, and honestly not an observation about that particular clip.
+
+**D19. The live adapter ships constructed disabled, and the Netlify function is not in the repository.**
+
+`createLiveProvider` defaults to `enabled: false` and throws `not_configured` before touching the network, so a demo cannot spend money by accident and the provider switch is a deliberate act rather than a consequence of a key existing.
+The function itself is designed in the caveats review and is deliberately absent from this build: with no capture run and no live mode there is nothing to deploy, and a committed serverless function that has never run would be a fourth untested surface pretending to be a tested one.
+The adapter's own error mapping is unit tested against an injected `fetch`, because an error map nobody has ever executed is a set of UI states nobody has ever seen.
+`qa/cases/ai.md` QC-AI-056 and QC-AI-057 record what is therefore untested, blocked on the function and on API spend respectively.
+
+**D20. The placeholder tile is a UI descriptor and never a stored artefact.**
+
+The media charter asks for a generated placeholder tile as the third rung of the extraction chain, so the interface never breaks on an undecodable file.
+The no fabrication rule and `expected_derivatives` in the fixture manifest require that `hevc.mov` has no contact sheet and no poster at all.
+Both hold at once: `ExtractionResult.placeholder` carries a kind, a reason code, a headline, a remedy and the facts we do have, the interface renders that, and `derivative_state` stays `none` with no blob for anything to store.
+A grey tile written into the blob store as a contact sheet would eventually be handed to a model, and a plausible tag on a clip nobody could decode is the least detectable and most damaging failure this product has.
+
+**D21. The pre-flight reason code enumeration is a superset of the manifest's sixteen, and the GPS absence code is an inference.**
+
+The sixteen codes in `manifest.context.reason_codes` are what the sixteen committed fixtures produce.
+Eight more exist in the engine for inputs no committed file can be (an unparseable container, an unmeasurable duration, a runtime that answers "maybe", a brief with no visit date, a branch with no coordinates), because committing deliberately broken bytes is worse than synthesising them in a test.
+A test asserts the manifest's set is a subset of the engine's, so the two cannot drift silently, and section 8.3 of `docs/media-pipeline.md` records that the eight belong in the committed enumeration when the schema owner next touches it.
+
+Separately: the three `no_gps_atom_*` codes cannot be distinguished from the bytes, so the engine infers between them from the only signal available (a still, an all intra professional codec, or anything else).
+They differ only in the sentence a human reads.
+Status is `unknown` and blocking is false in all three, asserted by a test, and nothing in the interface may state which of the three actually happened.
+
+**D22. The visit window is the visit day expanded by the window hours, interpreted in UTC.**
+
+A visit is a day rather than an instant, so `visitWindow()` takes the whole visit day and expands it by `visit_window_hours` on each side, as arithmetic on an instant rather than a string comparison on a date.
+A calendar day match would pass a clip shot at 23:59 on the visit day and fail one shot at 00:05 the next morning, which is the same shoot.
+UTC rather than the branch's timezone, because the branch timezone is not available to the pre-flight layer and the consequence is bounded and stated: 23:00 local in San Jose is 06:00Z the next day, well inside a 24 hour window either way.
+Recorded rather than hidden, with the closing move (pass the branch timezone into the context) written down in `qa/cases/media.md`.
+
+**D23. Media kind is classified from the bytes, never from the extension or the MIME type.**
+
+A PNG named `holiday.mov` with MIME `video/quicktime` is a still, and ingest treats it as one: `kind: 'photo'`, real dimensions from `IHDR`, and no video decode attempted.
+The container walk's refusal is still recorded as its own true fact (`parse_failure: 'not_isobmff'`), because the two are different statements.
+This is stricter than the QA case as originally written, which expected two failures, and the case was updated rather than the code weakened: an iPhone writes `.MOV` for two different codecs and Android writes `.mp4` for both, so a filename is never evidence.
+
+**D24. The two decode adapters that touch the DOM are deliberately not written yet, and the seam is named.**
+
+`DecodeAdapter` is the interface, the chain around it is complete and asserted against fakes (the frame plan, the fallback order, blank detection, tiling, the long edge cap, hashing, the memory discipline), and the `<video>` plus canvas and WebCodecs implementations are absent.
+jsdom has neither video decode nor a canvas rasteriser, so writing them here would produce the least trustworthy code in the pipeline with no automated coverage at all, and the WebCodecs path is the one that claims frame accuracy.
+The consequence is stated everywhere it matters rather than buried: **no contact sheet has been produced by this code yet**, `docs/media-pipeline.md` 7.6 says so, and every affected QA case now reads `Blocked-by: decode adapter` and is listed in `qa/manual-checklist.md`.

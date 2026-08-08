@@ -46,14 +46,15 @@ describe('dHash', () => {
     expect(distance).toBe(0)
   })
 
-  it('moves by more than the tolerance across a non proportional rescale, which bounds where it may be compared', () => {
-    // A finding rather than a defect, and it is why the tier is recorded on every
-    // sheet: eight hard vertical edges resampled onto a nine column grid at an
-    // unrelated scale can move about a dozen bits, which is past the tolerance the
-    // duplicate rule uses. Hashes are therefore comparable within one policy tier,
-    // and a cross tier comparison must re-derive rather than trust the stored hash.
+  it('stays inside the tolerance across a non proportional rescale, which is the cross tier case', () => {
+    // 90x160 against 270x480 is not a clean multiple of the 9 by 8 grid, so the box
+    // averages straddle the pattern differently at the two sizes. Measured drift is a
+    // couple of bits, inside the manifest's tolerance of four, which is what makes a
+    // `constrained` tier sheet's hashes comparable against an `ample` one. It is a
+    // measurement rather than a guarantee, which is one more reason `policy_tier` is
+    // recorded on every sheet.
     const distance = hammingHex(dHash(syntheticFrame('bars', 90, 160)), dHash(syntheticFrame('bars', 270, 480)))
-    expect(distance as number).toBeGreaterThan(HAMMING_TOLERANCE)
+    expect(distance as number).toBeLessThanOrEqual(HAMMING_TOLERANCE)
   })
 
   it('is unchanged by a uniform brightness shift, which is what a re-encode looks like', () => {

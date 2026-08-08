@@ -41,9 +41,21 @@ export async function createBrowserPlatform(deps: BrowserPlatformDeps): Promise<
   // all live in IndexedDB, and originals simply cannot be kept locally. That is
   // the `bytes_absent` state every record reaches anyway once bytes live in object
   // storage, so the render path is shared rather than special-cased.
-  const bytes = report.storage.opfs
-    ? createOpfsByteStore(await openOpfsDirectory(deps.bytesSubdirectory))
-    : createUnavailableByteStore()
+  //
+  // The open itself is also guarded: a probed-yes runtime can still refuse at
+  // open time (private browsing is the documented case), and a refused byte
+  // store must degrade to the same bytes_absent path rather than failing boot.
+  // See docs/platform-matrix.md P-11.
+  let bytes = createUnavailableByteStore()
+  if (report.storage.opfs) {
+    try {
+      bytes = createOpfsByteStore(await openOpfsDirectory(deps.bytesSubdirectory))
+    } catch (error) {
+      report.warnings.push(
+        `opfs probed available but refused to open: ${error instanceof Error ? error.message : String(error)}`,
+      )
+    }
+  }
 
   return {
     report,

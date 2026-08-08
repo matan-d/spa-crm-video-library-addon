@@ -120,6 +120,18 @@ describe('codec probing', () => {
     expect(report.codecs.hevc.decode).toBe('no')
   })
 
+  it('a clean decodingInfo denial is final even when canPlayType says probably', async () => {
+    // The authoritative witness answered. Letting the weaker one overrule it
+    // is docs/platform-matrix.md P-2, and it promoted codecs no decoder backs.
+    const report = await probeCapabilities(
+      desktop({
+        decodingInfo: async () => ({ supported: false, powerEfficient: false }),
+        canPlayType: () => 'probably',
+      }),
+    )
+    expect(report.codecs.hevc.decode).toBe('no')
+  })
+
   it('falls back to canPlayType when decodingInfo rejects', async () => {
     // Some engines reject on a configuration they dislike, which is not evidence
     // of no support, so a rejection must not be recorded as a denial.

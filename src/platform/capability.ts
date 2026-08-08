@@ -199,7 +199,11 @@ async function probeCodec(
         // rejection is not evidence of no support. Fall through to canPlayType.
       }
     }
-    if (sawAnswer && !env.canPlayType) return { decode: 'no', powerEfficient: false }
+    // A clean denial from decodingInfo is authoritative and final. Only a
+    // REJECTION falls through to canPlayType; letting a 'probably' overrule an
+    // explicit "not supported" answered the question with the weaker witness.
+    // See docs/platform-matrix.md P-2.
+    if (sawAnswer) return { decode: 'no', powerEfficient: false }
   }
 
   if (env.canPlayType) {

@@ -147,16 +147,9 @@ export const BRIEF_GEN_SAN_JOSE: AuthoredFixture<BriefGenOutputBody> = {
         feasibility_doubt: null,
         origin_gap_index: null,
       },
-      {
-        instruction: 'Close on water running into the wet room tub, framed so steam is visible against the darker wall.',
-        shot_type: 'closeup',
-        room: 'wet_room',
-        subjects: ['water'],
-        min_takes: 3,
-        why: 'Steam detail is a repeated zero result search and nothing in the library shows moving water.',
-        feasibility_doubt: 'Steam fogs a phone lens within seconds, so this may need several attempts or none will be usable.',
-        origin_gap_index: null,
-      },
+      // Deliberately inside the first ten, so a ten item ask really does arrive with
+      // a redundant pair in it. Pushing the duplicate past the trim point would have
+      // hidden the exact thing the manager is supposed to catch.
       {
         instruction: 'Close on hands smoothing oil down a forearm, shot from directly above the table.',
         shot_type: 'closeup',
@@ -165,6 +158,16 @@ export const BRIEF_GEN_SAN_JOSE: AuthoredFixture<BriefGenOutputBody> = {
         min_takes: 2,
         why: 'A second angle on the most searched subject in the library.',
         feasibility_doubt: null,
+        origin_gap_index: null,
+      },
+      {
+        instruction: 'Close on water running into the wet room tub, framed so steam is visible against the darker wall.',
+        shot_type: 'closeup',
+        room: 'wet_room',
+        subjects: ['water'],
+        min_takes: 3,
+        why: 'Steam detail is a repeated zero result search and nothing in the library shows moving water.',
+        feasibility_doubt: 'Steam fogs a phone lens within seconds, so this may need several attempts or none will be usable.',
         origin_gap_index: null,
       },
       {
@@ -187,7 +190,7 @@ export const BRIEF_GEN_SAN_JOSE: AuthoredFixture<BriefGenOutputBody> = {
     possible_overlaps: [
       {
         a: 2,
-        b: 10,
+        b: 9,
         note: 'Both are hands and oil in the treatment room. Keep one unless the two angles are genuinely wanted.',
       },
     ],

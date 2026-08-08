@@ -60,7 +60,10 @@ export const NUDGE_FIXTURES: readonly NudgeFixture[] = [
     imperfection:
       'Names the shortfall in the first line rather than burying it, and puts the arithmetic doubt in warnings instead of in the message. A manager can delete a warning; they cannot unsend a wrong count.',
     output: {
-      subject_line: 'Thanks for yesterday, and two things still outstanding',
+      // No count in the subject line. "two things still outstanding" would be a
+      // fabrication the moment a delivery is short by three, and the subject is the
+      // part a manager is least likely to re-read before sending.
+      subject_line: 'Thanks for the %CITY% visit, and the shots still outstanding',
       body_text: [
         'Hi %NAME%,',
         '',
@@ -71,7 +74,7 @@ export const NUDGE_FIXTURES: readonly NudgeFixture[] = [
         '',
         'If any of them turned out not to be possible on the day, that is completely fine, just tell us which and we will take them off the list. If you did film them and they have not uploaded, the same link still works.%DEADLINE_LINE%',
         '',
-        'Either way, thank you. The hands and oil takes are already in use.',
+        'Either way, thank you. What did arrive is already being used.',
       ].join('\n'),
       tone: 'friendly',
       mentions_deadline: false,

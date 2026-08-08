@@ -31,21 +31,25 @@ export function promptValuesFor<K extends CapabilityKey>(
   kind: K,
   input: CapabilityIo[K]['input'],
 ): Record<string, unknown> {
+  // The casts go through `unknown` because TypeScript cannot correlate a generic
+  // capability key with its own input type inside a switch. The pairing is enforced
+  // at every call site by `CapabilityIo`, which is where it is checkable.
+  const value = input as unknown
   switch (kind) {
     case 'vet':
-      return vetValues(input as VetInput)
+      return vetValues(value as VetInput)
     case 'brief_gen':
-      return briefGenValues(input as BriefGenInput)
+      return briefGenValues(value as BriefGenInput)
     case 'vision_tag':
-      return visionTagValues(input as VisionTagInput)
+      return visionTagValues(value as VisionTagInput)
     case 'brief_match':
-      return briefMatchValues(input as BriefMatchInput)
+      return briefMatchValues(value as BriefMatchInput)
     case 'search_parse':
-      return searchParseValues(input as SearchParseInput)
+      return searchParseValues(value as SearchParseInput)
     case 'gap_scan':
-      return gapScanValues(input as GapScanInput)
+      return gapScanValues(value as GapScanInput)
     case 'nudge_draft':
-      return nudgeDraftValues(input as NudgeDraftInput)
+      return nudgeDraftValues(value as NudgeDraftInput)
     default:
       throw new Error(`promptValuesFor: no renderer for capability "${String(kind)}"`)
   }

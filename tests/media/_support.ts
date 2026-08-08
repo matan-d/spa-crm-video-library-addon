@@ -225,19 +225,26 @@ export function tierProfile(tier: IngestTier) {
  */
 export function syntheticFrame(content: string, width: number, height: number): RgbaImage {
   const rng = new SeededRng(`frame:${content}`)
-  const bars = 8
+  // An 8 by 8 block pattern rather than 8 vertical bars. Bars alone make every row
+  // identical, which leaves a dHash with only 8 meaningful bits repeated eight
+  // times, and five such frames then collide by birthday. That is a property of the
+  // double rather than of the hasher, and blocks avoid inventing collisions the real
+  // pipeline would not see.
+  const cells = 8
   const palette: number[][] = []
-  for (let i = 0; i < bars; i += 1) {
+  for (let i = 0; i < cells * cells; i += 1) {
     palette.push([Math.floor(rng.next() * 256), Math.floor(rng.next() * 256), Math.floor(rng.next() * 256)])
   }
   const data = new Uint8ClampedArray(width * height * 4)
   for (let y = 0; y < height; y += 1) {
+    const row = Math.min(cells - 1, Math.floor((y / height) * cells))
     for (let x = 0; x < width; x += 1) {
-      const bar = palette[Math.floor((x / width) * bars)] ?? [0, 0, 0]
+      const column = Math.min(cells - 1, Math.floor((x / width) * cells))
+      const cell = palette[row * cells + column] ?? [0, 0, 0]
       const index = (y * width + x) * 4
-      data[index] = bar[0] ?? 0
-      data[index + 1] = bar[1] ?? 0
-      data[index + 2] = bar[2] ?? 0
+      data[index] = cell[0] ?? 0
+      data[index + 1] = cell[1] ?? 0
+      data[index + 2] = cell[2] ?? 0
       data[index + 3] = 255
     }
   }
@@ -266,6 +273,22 @@ export function syntheticHashes(contentKey: string, count: number): string[] {
     out.push(hex)
   }
   return out
+}
+
+/**
+ * Which shot a filename depicts, according to the manifest.
+ *
+ * The double has to be told that `duplicate_of_vertical_ok.mp4` and
+ * `vertical_ok.mp4` are the same shot, because a fake decoder cannot see pixels.
+ * That knowledge comes from `manifest.duplicate_assumption.expected_pairs`, which is
+ * the committed contract, rather than from a mapping typed into a test. Whether the
+ * real frames of those two files actually hash alike is a different claim, needs a
+ * real decoder, and is recorded in `qa/manual-checklist.md`.
+ */
+export function sameShotKey(filename: string): string {
+  const id = filename.replace(/\.[^.]+$/, '')
+  const pair = manifest.duplicate_assumption.expected_pairs.find((entry) => entry.later === id)
+  return pair ? pair.earlier : id
 }
 
 /** The same shot, re-encoded: identical structure with a couple of bits moved. */
@@ -326,7 +349,7 @@ export function fakeExtractionHost(options: FakeHostOptions = {}): FakeHost {
 
   const adapters: DecodeAdapter[] = paths.map((path) => ({
     path,
-    async decode(_input: MediaInput, request: DecodeRequest): Promise<DecodeOutcome> {
+    async decode(input: MediaInput, request: DecodeRequest): Promise<DecodeOutcome> {
       counters.decodeCalls.push({ path, times: [...request.times] })
       const behaviour = options.behaviour?.[path] ?? { kind: 'ok' as const }
 
@@ -355,8 +378,13 @@ export function fakeExtractionHost(options: FakeHostOptions = {}): FakeHost {
         const snap = behaviour.kind === 'ok' ? (behaviour.snapToGopS ?? 0) : 0
         const offset = behaviour.kind === 'ok' ? (behaviour.landOffsetS ?? 0) : 0
         const landed = snap > 0 ? Math.floor(time / snap) * snap : time + offset
+        // Default the content to the shot the manifest says this filename depicts, so
+        // two files of the same shot decode to the same pixels and two different
+        // files do not.
         const content =
-          behaviour.kind === 'ok' ? `${behaviour.contentKey ?? 'fake'}:${index}` : `blank:${index}`
+          behaviour.kind === 'ok'
+            ? `${behaviour.contentKey ?? sameShotKey(input.filename)}:${index}`
+            : `blank:${index}`
         return {
           planned_t_seconds: time,
           actual_t_seconds: Number(landed.toFixed(6)),

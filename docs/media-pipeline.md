@@ -3,8 +3,12 @@
 Owner: `media-pipeline`.
 The question this document answers: given these bytes, is everything we claim to know about them actually true, and is everything we do not know marked as unknown?
 
-Status: **B1 complete.** The fixtures, their ground truth, and the expected verdicts exist.
-The parser, the frame extractor, the pre-flight engine and the perceptual hasher do not exist yet, and their sections below are headings on purpose.
+Status: **B1 and the derivation layer are complete.**
+The fixtures and their ground truth exist (sections 1 to 5), and so do the parser, the still reader, the extraction chain, the perceptual hasher, the four state pre-flight engine and the byte state machine (sections 6 to 9).
+
+One thing is deliberately absent and is the next task in this track: the two decode adapters that touch the DOM.
+The chain, the frame plan, the composition, the caps, the hashing, the blank detection and the fallback logic are built and asserted against fake adapters; the twenty lines that create a `<video>` element or configure a `VideoDecoder` are not written, because jsdom cannot run either and writing them here would produce the least trustworthy code in the pipeline with no automated coverage at all.
+**No contact sheet has been produced by this code yet.** See 7.6.
 
 ---
 
@@ -337,30 +341,318 @@ That boundary is deliberate.
 
 ## 6. The parser
 
-Not built.
-Next task.
+Built. `src/media/atoms.ts` plus `src/media/bytes.ts` and `src/media/still.ts`, asserted by `tests/media/atoms.spec.ts` (48 cases) and `tests/media/still.spec.ts` (9 cases).
 
-This section will carry the field list with a confidence level per field, the atom walk strategy (header only, `File.slice()`, never read `mdat`, capped hops and capped bytes), the 1904 epoch handling, the 64 bit size case, the three GPS atom forms from 4.2, and the rule that `tkhd` holds presentation size rather than coded size.
+`parseContainer(input, options)` never throws.
+A file it cannot understand comes back with `ok: false` and one of four named reasons, because one unparseable file must not take down a forty file batch.
+
+### 6.1 Every field comes back as a `Fact<T>`
+
+```ts
+interface Fact<T> { value: T | null; confidence: Confidence; evidence: string; note?: string }
+type Confidence = 'exact' | 'high' | 'medium' | 'low' | 'none'
+```
+
+`evidence` is an atom path, never free text, so an argument about a number is a lookup rather than a discussion.
+A field with no evidence is `{ value: null, confidence: 'none', evidence: 'none' }`, never a plausible default, because a plausible default is what turns a missing atom into a false statement about somebody's footage.
+
+| field | source | confidence | why not higher |
+|---|---|---|---|
+| `container` | `ftyp` brand | `exact` | brand `qt  ` is mov, anything else is mp4 |
+| `duration_s` | `moov/mvhd` duration over timescale | `high` | a declaration rather than a measurement, and a fragmented file may legally say 0 |
+| `coded` | `stsd` visual sample entry | `exact` | the only correct source, see D8 |
+| `presentation` | `moov/trak/tkhd` | `exact` | exact about the presentation size, which is a different quantity from the coded size |
+| `display` | coded, then `pasp`, then the `tkhd` matrix | `high` | a derivation in three steps, each exact, but doing them in the wrong order produces a plausible wrong answer on anamorphic footage |
+| `display` (fallback) | `tkhd` only | `low` | no readable `stsd`, so this may differ from the coded size. The substitution D8 forbids doing silently, done loudly |
+| `rotation_deg` | `tkhd` matrix a, b, c, d | `high` | reduced from four fixed point words to one of four quarter turns |
+| `sample_aspect` | `stsd/pasp` | `exact` | |
+| `codec_video`, `codec_audio` | `stsd` fourcc | `exact` | never the extension, never the browser MIME type |
+| `codec_string` | `avcC` or `hvcC` payload | `high` | derived from the decoder configuration record, so `VideoDecoder.isConfigSupported` is asked about the profile the file actually contains |
+| `has_audio` | `mdia/hdlr` per track | `exact` | |
+| `captured_at` | `mvhd`, `udta/©day`, or the Apple key | `high` with a UTC offset, `medium` without, `low` when two sources disagree by over a minute | `mvhd` is defined as UTC and cameras routinely write local time into it |
+| `gps` | `udta/loci`, `udta/©xyz`, or the Apple key | `exact` for the string forms, `high` for `loci` | `loci` is 16.16 fixed point, so about 15 microdegrees of quantisation, well inside consumer GPS error |
+| `video_sample_table` | `stsc`, `stsz`, `stco`/`co64`, `stts`, `ctts`, `stss` | exact by construction | only populated when `sampleTables: true`, because only the decode path needs it |
+
+`captured_at_candidates` keeps every source that produced an instant, so a disagreement between two of them is visible rather than resolved silently.
+Precedence is: a source carrying a UTC offset beats one that does not, then Apple key beats `©day` beats `mvhd`.
+The ranking is about ambiguity, not about accuracy: a camera clock with no timezone is evidence of a wall clock reading rather than of an instant.
+
+### 6.2 The walk
+
+Two walks, one budget.
+
+**Top level**, `walkTopLevel`: hops atom headers reading 16 bytes per hop through the `ByteSource` interface, which on a `File` is `File.slice()`.
+`mdat` is never read.
+That is what makes a 4GB file cost nothing to inspect, and it is asserted: `bytes_read` is counted rather than estimated, and every fixture reads under its own file size and under 2MB.
+A trailing `moov` is found by walking rather than by reading a prefix and hoping, which three committed fixtures require.
+
+**Inside `moov`**, `buildAtomTree`: a recursive child walker producing an `AtomNode` tree, so reading a field is a path lookup instead of six nested loops.
+`CONTAINER_ATOMS` is its vocabulary: those atoms hold a child list starting at the body.
+Two irregular atoms are named separately rather than added to that set, because their children do not start at the body offset:
+
+- `meta` is a FullBox in ISO BMFF and a plain box in QuickTime, so the child offset is sniffed rather than assumed. Both forms turn up in both containers, so branching on the brand would be wrong.
+- `stsd` is a FullBox with an entry count, so its children start eight bytes in.
+
+A sample entry (`avc1`, `hvc1`, `mp4a`) is deliberately **not** descended: its extensions begin after a fixed 78 or 28 byte body that differs by media type, and a generic descent would read the wrong four bytes as a box header.
+Those are read by the specialised reader that knows which one it is looking at.
+`facts.atom_paths` records every path reached, in container order, which is how "this file was walked as a tree" is checkable rather than asserted.
+
+Bounds, all shared across both walks so they describe the file rather than a level: 2MB of bytes, 512 atom headers, depth 8.
+`atoms_visited` on the committed set runs 26 to 54.
+
+### 6.3 The five things that produce a confident wrong answer if you get them wrong
+
+1. **Coded dimensions never come from `tkhd`** (D8). `tkhd` holds the aspect corrected presentation size, and the two coincide only at square pixels. Both are kept, under their own names, with their own notes.
+2. **A zero `mvhd` creation field is absence, not 1904.** The epoch conversion applied to zero reports a capture date of 1904-01-01, which is worse than reporting nothing. Two committed fixtures carry a literal zero.
+3. **`size == 1` means a 64 bit largesize follows and the header is 16 bytes.** A walker that hops by 1 byte here loops. `size == 0` means "to the end of the file"; treating it as zero length is the other way the walk becomes infinite.
+4. **`loci` is longitude first.** Reading it latitude first puts the San Jose branch in the Atlantic. It is the form ffmpeg writes into mp4, so it is what ten of the committed fixtures carry.
+5. **ISO 6709 latitude forms are distinguished by integer digit count.** Two digits is degrees, four is degrees and minutes, six is degrees, minutes and seconds. Ignoring that turns `+3720.15` into a coordinate 17 degrees off.
+
+`plausibleCoordinate` also refuses exactly zero on both axes, because that is what every stripped or uninitialised GPS field produces and treating it as a fix would place footage in the Gulf of Guinea and then pass or fail a rule on it.
+
+### 6.4 Named failure outcomes
+
+| reason | when | what the caller does |
+|---|---|---|
+| `empty_file` | zero bytes | answered before anything else, no element, no timeout |
+| `not_isobmff` | the first atom type is not a top level box | try the still reader, then give up. Never throw |
+| `moov_not_found` | the walk ended without one, including a truncated download whose `moov` was at the end | every container rule is `unknown`, and the runtime is asked for duration and size instead |
+| `metadata_unparseable` | absurd or inconsistent atom sizes, or a `moov` that yielded no `mvhd`, no duration and no track | same as above. Reporting `ok` with every field null would hand the caller a container to re-check field by field |
+
+### 6.5 Stills
+
+`parseStill` reads dimensions from the JPEG `SOF` marker, the PNG `IHDR` chunk, the GIF logical screen descriptor, or the WebP `VP8X`, `VP8 ` or `VP8L` chunk.
+Header only, no decoder, which is what lets a jsdom test assert the real dimensions of the real committed fixture.
+
+Two deliberate refusals.
+There is no EXIF parser in this build: `exif_present` records that an APP1 Exif block was seen and nothing reads it, so a still's capture date is `unknown` with the reason `no_exif_parser_for_still_images`.
+HEIF and HEIC are detected and refused by name with the remedy attached, because an iPhone shooting in High Efficiency writes `.HEIC`, Safari renders it and Chromium on Windows does not, and the same Most Compatible camera setting fixes both this and the HEVC video hole.
 
 ## 7. The extraction chain
 
-Not built.
+Partly built. `src/media/extract.ts` and `src/media/phash.ts`, asserted by `tests/media/extract.spec.ts` (77 cases) and `tests/media/phash.spec.ts` (18 cases).
+**The two decode adapters that touch the DOM are not written.** See 7.6, which states exactly what is missing and why it is a seam rather than a stub.
 
-This section will carry the capability chain (WebCodecs `VideoDecoder` plus demux, then `<video>` plus canvas, then a generated placeholder tile), the recorded extractor path and version per sheet, the rotation reconciliation from C4.2.1, the timeouts and enumerated failure reasons from C1.2.2, and the memory discipline.
+### 7.1 The three rungs
+
+| rung | technique | frame accuracy | recorded as |
+|---|---|---|---|
+| 1 | WebCodecs `VideoDecoder` plus the sample table from the parser | frame accurate and deterministic: find the last sync sample at or before the target, feed forward from there | `extractor_path: 'webcodecs'` |
+| 2 | `<video>` plus canvas: muted, `playsInline`, sometimes a `play()` then pause, awaiting `seeked` | approximate: a seek snaps to the preceding keyframe | `extractor_path: 'video-canvas'` |
+| 3 | a described placeholder tile | no pixels at all | `extractor_path: 'placeholder'`, `sheet: null` |
+
+The probe's answer is a ceiling rather than an instruction.
+A runtime reporting `webcodecs` still gets the element path underneath it, because a particular file can fail in the decoder and succeed in the element.
+A runtime reporting `video-canvas` is never handed a WebCodecs adapter, because the probe already established the API is absent.
+A runtime reporting `none` gets rung three without any decode attempt.
+
+**Rung three is a UI descriptor and never a stored artefact, and that reconciles two rules that look like they conflict.**
+The charter asks for a placeholder tile so the interface never breaks on an undecodable file.
+The no fabrication rule and `expected_derivatives` require that `hevc.mov` has no contact sheet and no poster at all.
+Both hold: `PlaceholderTile` carries a `kind`, a `reason`, a headline, a remedy and the facts we do have, the interface renders it, `derivative_state` stays `none`, and there is no blob for anything to store or later hand to a model.
+A grey tile written into the blob store as a contact sheet would eventually be described by a model, and a plausible tag on a clip nobody could decode is the least detectable and most damaging failure this product has.
+
+### 7.2 What is recorded on every sheet
+
+`extractor_path`, `extractor_version`, `policy_tier`, `phash_version`, `layout`, `tile_width`, `tile_height`, `frame_count`, `jpeg_quality`.
+A sheet produced by a different extractor is different evidence, so a cached model run must not be reused across a version change, and a better extractor can re-derive an old sheet because the inputs that shaped it are all on the record.
+`ExtractionResult.attempts` keeps every rung that was tried and why it failed, which is what makes "why is there no preview" answerable after the fact.
+
+### 7.3 Rotation reconciliation, C4.2.1
+
+`reconcileRotation(coded, rotationDeg, reported)` decides from what the element actually reported rather than from a browser name:
+
+| reported size | decision | `rotation_source` |
+|---|---|---|
+| equals the display size | do not rotate, the engine already did | `element_applied` |
+| equals the coded size | rotate by the matrix | `we_applied` |
+| both, because coded is square | do not rotate, and say the question is undecidable | `undecidable` |
+| neither | apply the matrix and record that the result is suspect | `we_applied` with a note |
+| no rotation in the container | nothing to do | `not_needed` |
+
+Sideways text in a tile is the visible signature of a doubled rotation or a missed one, and `rotated_90.mp4` is built with an upright burned in label so a human can see it.
+
+### 7.4 Timeouts and enumerated failures, C1.2.2
+
+Every media wait has a wall clock ceiling: 8s for metadata, 5s per seek, overridable per request.
+Each distinct failure carries its own reason code, because "it failed" is not an outcome: `no_extractor`, `decode_unsupported`, `demux_unavailable`, `zero_duration`, `zero_dimensions`, `blank_frame`, `seek_timeout`, `metadata_timeout`, `no_frames_decoded`, `sheet_encode_failed`, `not_decodable_input`.
+
+A blank frame is caught rather than shipped.
+`isBlankFrame` samples a grid and refuses a frame with no alpha anywhere or no luma variance anywhere.
+Blank frames are dropped with a diagnostic; if a rung produces nothing but blank frames it is treated as a failed rung and the next one is tried.
+The variance floor is deliberately tiny, so a genuinely near black night shot is kept: this catches "the decoder gave us nothing" and never "this shot is dark".
+
+### 7.5 Memory discipline, and why it is a correctness concern
+
+Every decode attempt returns a `release()` that the chain calls in a `finally`, on every path out, including a thrown adapter.
+Frames arrive already downscaled to `policy.frameLongEdge` and already upright, so nothing is ever drawn at native 4K.
+The sheet is composed once at the final tile size rather than assembled large and resampled twice, and the cap on the long edge (D3, 1024px) is applied by shrinking the tile geometry before drawing.
+Concurrency comes from the capability probe (`decodeConcurrency`), never from a device name, and a mid batch downgrade is available through `downgradePolicy` because a static probe cannot see thermal state.
+
+The tests assert the balance rather than watching a memory graph: the fake adapters count allocations and releases, and the counts match across a single file, across a failure and a fallback, and across the whole engineered set.
+
+### 7.6 What is deliberately not built, stated rather than implied
+
+The `DecodeAdapter` interface is the seam, and the two implementations that touch the DOM are missing:
+
+| missing | why it is not a stub | what it needs |
+|---|---|---|
+| the `<video>` plus canvas adapter | the chain, the plan, the composition, the caps, the hashing and the fallback logic are all here and tested. What is absent is the twenty lines that create an element, await `seeked`, draw to a canvas and read back pixels | a browser to run in. jsdom has no video decode and no canvas rasteriser, so writing it here would produce code with no automated coverage at all |
+| the WebCodecs adapter plus demux | the sample table it needs is built and asserted (`stsc` through `stss`, sync sample indexes, composition times) | a real `VideoDecoder`. Written blind it would be the least trustworthy code in the pipeline, and it is the path that claims frame accuracy |
+| `encodeJpeg`, `decodeStill`, `probeMedia` | one canvas call each | the same browser |
+
+Consequence, stated plainly: **no contact sheet has been produced by this code yet.**
+The seed library's committed sheets were produced by `scripts/build-seed-media.mjs` with ffmpeg, which is a different program.
+Everything downstream of the sheet (`ai-contract`) must keep treating a sheet as absent until this is closed, which is exactly what the enqueue guard already does.
+
+### 7.7 The perceptual hash
+
+dHash over a 9 by 8 luma grid, 64 bits, 16 hex characters, most significant bit first.
+Chosen over an average hash or a DCT hash for three reasons that matter here: it keys on horizontal structure rather than absolute brightness so it survives the exposure and quantiser differences a re-encode introduces, it needs no DCT so it is cheap on a phone, and its distances are interpretable, which an eigenvalue based distance is not.
+The manifest's `tolerance.dhash_hamming` of 4 out of 64 is a number a human can reason about.
+
+Two clips are compared position by position rather than by best match, because both plans put frame 3 at the same proportional moment, and a best match across positions would call any two clips duplicates as soon as they share one similar frame.
+The headline number is the median of the per position distances, so one badly timed frame near a cut does not decide the answer either way.
+`findDuplicate` returns the **earliest** match in the comparison set, because the rule's job is to point at the delivery the creator already made.
+
+Measured, not assumed: a proportional rescale leaves the hash bit identical, and a non proportional rescale of a hard edged pattern moves it about two bits, inside the tolerance.
+That is what makes a `constrained` tier sheet comparable against an `ample` one, and it is a measurement rather than a guarantee, which is one more reason `policy_tier` is on every sheet.
 
 ## 8. The pre-flight rules
 
-Not built.
+Built. `src/media/preflight.ts`, asserted by `tests/media/preflight.spec.ts` (74 cases, every fixture against every rule) and by `tests/media/ingest.spec.ts` through the whole path.
 
-The four states, the blocking set, and the reason code enumeration are already fixed in `manifest.context` and asserted by `tests/fixtures/manifest.spec.ts`, so this section will document the pure function rather than invent the contract.
+`evaluatePreflight(subject, context)` is a pure function over three things: the facts derived from the bytes, the locked brief item's thresholds, and the branch.
+No clock, no randomness, no platform read, no I/O.
+The contract is `expected_preflight` in the committed manifest, and this section documents the function rather than inventing the contract.
+
+### 8.1 The seven rules
+
+| rule | decided from | evidence string | blocks |
+|---|---|---|---|
+| `orientation` | display size, which is coded plus `pasp` plus the matrix | `coded_dims+tkhd_matrix`, or `image_dims` for a still | yes |
+| `min_duration` | `mvhd` duration, overridden by a decode measurement when they disagree | `mvhd` or `decode_pass` | yes |
+| `min_resolution` | display size, short edge against 1080 and long edge against 1920 | `tkhd+stsd`, or `image_dims` | yes |
+| `capture_date` | the winning capture candidate against the visit window | the candidate atoms, for example `mvhd+udta_day` | no, advisory |
+| `near_branch` | haversine distance from the GPS fix to the branch | `udta_loci`, `udta_c_xyz`, `apple_quicktime` | never, structurally |
+| `duplicate` | per frame dHash against the priors in the comparison set | `phash_over_delivery` | no, advisory |
+| `codec_playable` | the `stsd` fourcc plus the platform's answer | `stsd+isConfigSupported`, or `image_decode` | no, it routes |
+
+`blocking` is derived in one place, from `status === 'fail' && rule ∈ BLOCKING_RULES`, and never set by a rule.
+That is what makes "an unknown never blocks" one line of code rather than a convention seven functions have to keep.
+
+Two design decisions inside the rules are worth restating because they are what make one defect trip one rule.
+`min_resolution` is evaluated orientation neutrally on edges, so a landscape 1920x1080 clip fails `orientation` alone.
+And both geometry rules are evaluated on the **display** size, so `rotated_90.mp4` reports `1080x1920` on a file whose coded size is `1920x1080`.
+
+### 8.2 The four states, and what each one means to a human
+
+| status | meaning | UI | blocks |
+|---|---|---|---|
+| `pass` | evidence, and it met the requirement | neutral tick, a measured fact | no |
+| `fail` | evidence, and it did not | red for the three blocking rules, amber advisory for the rest | only the three |
+| `unknown` | no evidence. Never a failure | grey dash with one clause of reason | never |
+| `skipped` | the rule could not run at all | not rendered | never |
+
+`unknown` is never rendered as a pass.
+A green tick that silently means "we did not check" is the lie that matters the day somebody asks whether footage was really shot at the branch.
+`skipped` is invisible rather than grey, because a grey dash against a photo's duration is noise: "does not apply" and "we could not tell" read differently.
+
+The row level verdict is `verdictFor(rollup)`: `blocked` when a blocking rule failed, `advisory` when any other rule failed, `unknown` only when nothing at all was verifiable, `ok` otherwise.
+An unknown neither blocks nor downgrades the verdict, or the grey dash would quietly become a soft rejection.
+This matches what `e2e/creator.e2e.mjs` computes from `expected_preflight.rollup`, and a unit test asserts the agreement on all sixteen fixtures.
+
+### 8.3 Reason codes, and the eight the manifest does not enumerate
+
+The sixteen codes in `manifest.context.reason_codes` are what the sixteen committed fixtures produce.
+Eight more exist in `PREFLIGHT_REASON_CODES`, for inputs no committed file can be, because committing deliberately broken bytes is worse than synthesising them in a test.
+A unit test asserts the manifest's enumeration is a subset of the engine's, so the two cannot drift apart silently.
+
+| engine only code | when |
+|---|---|
+| `container_facts_unavailable` | the container did not parse, so a rule that needs it cannot run |
+| `duration_not_derivable` | the container parsed and carried no usable duration, and no decode pass measured one |
+| `dimensions_not_derivable` | the same for dimensions |
+| `display_orientation_mismatch` | a brief that required horizontal, which no fixture does |
+| `codec_not_identifiable` | no readable `stsd` fourcc |
+| `codec_support_unknown_in_this_runtime` | the runtime answered "maybe". Reported as unknown rather than promoted to a pass |
+| `no_visit_date_in_brief` | nothing to compare a capture date against, so the rule is `skipped` |
+| `no_branch_coordinates` | the branch row has no lat and lng, so `near_branch` is `skipped` |
+
+**A finding for whoever owns the schema**, in the same shape as the `near_branch_radius_m` finding in section 3: these eight belong in the committed enumeration next to the other sixteen, and the enumeration belongs somewhere both the fixture generator and the engine read rather than in two places that a test currently keeps in step.
+
+### 8.4 The GPS absence inference, marked as an inference
+
+Three reason codes describe an absent location atom, and the bytes genuinely cannot distinguish "stripped by a re-encode" from "never written".
+The engine picks between them from the only signal available:
+
+| code | inferred from |
+|---|---|
+| `no_gps_atom_not_written_by_encoder` | the file is a still |
+| `no_gps_atom_camera_has_no_receiver` | an all intra professional acquisition codec, so a camera body |
+| `no_gps_atom_metadata_stripped` | anything else, which most often means a re-encode or an export dropped it |
+
+The three differ **only** in the sentence a human reads.
+Status is `unknown` and blocking is false in all three, asserted by a test, and nothing in the interface may state which of the three actually happened.
+The same restraint applies to `capture_date`, where a zero `mvhd` field and a missing one share one code precisely because they are the same fact to a human.
+
+### 8.5 The visit window
+
+`visitWindow(visitDate, hours)` is the visit **day** expanded by `visit_window_hours` on each side, as arithmetic on an instant rather than a string comparison on a date.
+A calendar day match would pass a clip shot at 23:59 on the visit day and fail one shot at 00:05 the next morning, which is the same shoot.
+The window is interpreted in UTC: the branch's own timezone would be more correct, it is not available to this layer, and the consequence is bounded and stated, because 23:00 local in San Jose is 06:00Z the next day and well inside a 24 hour window either way.
+
+A capture date is never presented as verification.
+`captured_at_source` records where the answer came from, every verdict carries a note saying so, and container timestamps are user editable bytes (C5.2.4), which is why this rule is advisory and `offdate_fail.mp4` still uploads.
+`File.lastModified` appears as `fallback: 'file_mtime'` with `fallback_never_promoted: true` and never in the value: `asset.captured_at` stays null and `captured_at_source` stays `unknown`.
+A creator stated date outranks every container source and is recorded as `creator_stated`, because a human who was there beats a byte.
+
+### 8.6 One vocabulary collision, resolved without a rename
+
+`asset.captured_at_source` in `src/data/types.ts` calls the QuickTime `©day` case `udta`, and the fixture manifest plus these rules call it `udta_day`.
+Both are already committed in different files, so `toAssetCapturedAtSource()` is the one place the two vocabularies meet.
+Recorded here as a finding rather than fixed by a rename that would break one of the two.
 
 ## 9. The state machine for bytes
 
-Not built.
+Built. `src/media/state.ts`, asserted by `tests/media/state.spec.ts` (22 cases).
 
-`media_state` and `derivative_state` are orthogonal, which is what makes "real metadata, no pixels, permanently" expressible at all.
-The transport refuses the transition until pre-flight passes and review has moved on, enforced in the state machine rather than trusted to a caller.
-Cases QC-MEDIA-140 through QC-MEDIA-146 are written against it already.
+### 9.1 Two states, orthogonal
+
+`media_state` is where the original bytes are: `bytes_local`, `bytes_remote`, `bytes_absent`.
+`derivative_state` is whether the small derived things exist: `none`, `partial`, `ready`.
+
+The orthogonality is what makes the product's hardest case expressible.
+"Real metadata, no pixels, permanently" is `bytes_local` plus `none`, which is exactly `hevc.mov` on a Windows laptop with no HEVC decoder.
+One combined status would force that asset to read either as broken (it is not: the file is fine and the metadata layer is complete) or as ready (it is not: there is nothing to look at), and the second lie is the dangerous one, because a manager would be asked to approve something nobody can see.
+
+`deriveMediaState` decides from measured facts: a completed write, an available byte store, and the byte budget checked against this file plus what is already held.
+The budget is in bytes and never in clip count, because one ProRes clip is 1.8GB and a budget in clips would let a single file blow a device's quota while reporting two of twenty used.
+`partial` on the derivative side is a real outcome and not a hedge: the sheet encoded and the poster did not, which leaves a reviewable clip with a broken grid tile, and saying so lets the poster be re-derived without redoing the decode.
+
+### 9.2 The transport gate
+
+Bytes are the last thing that moves.
+A contact sheet plus metadata is about 170KB per clip against roughly 150MB of original, so review happens on the sheet and an original moves only when somebody decided it should.
+
+`canTransferOriginal` refuses in five named ways: `no_bytes_to_send`, `preflight_not_run`, `preflight_blocking_fail` (naming the rules), `review_has_not_moved`, `already_transferred`.
+The gate is evaluated **inside** `applyTransfer`, not before it, so a caller cannot queue an original by writing the state directly.
+An illegal transition is refused by name rather than ignored, because a silently dropped transition becomes an upload that never happens and never explains itself.
+
+```
+not_queued --queue(gated)--> queued --start--> in_flight --complete--> transferred
+                                 \                  \
+                                  fail               fail
+                                     \                  \
+                                      failed --requeue(gated)--> queued
+```
+
+One sanctioned exception, and it exists because without it an asset deadlocks: a clip that `needs_transcode` passes the review gate.
+`hevc.mov` has no sheet, so review cannot move until the bytes do, and no sheet can exist until a transcode happens somewhere else.
+It is queued with `upload_priority: 'required_for_transcode'`.
+The exception does not extend to the blocking gate: `prores.mov` also needs a transcode and is still refused, because it is landscape and 1024x576, so it fails the brief anyway and transcoding it would move bytes for footage nobody wants.
+
+`reviewTransferBytes` counts the derivatives rather than estimating them, so the number in the demo is the number the pipeline produced.
 
 ---
 
@@ -375,6 +667,15 @@ Cases QC-MEDIA-140 through QC-MEDIA-146 are written against it already.
 | `public/fixtures/manifest.json` | the committed contract every media test asserts against |
 | `tests/fixtures/manifest.spec.ts` | 80 assertions over the manifest and the bytes, offline, no ffmpeg |
 | `qa/cases/media.md` | 85 cases across the fixtures, the frame count formula, the malformed input set, and the byte state machine |
+| `src/media/bytes.ts` | the range addressed `ByteSource`, so a 4GB file is never materialised to answer a question about its header |
+| `src/media/atoms.ts` | the container parser: the top level walk, the recursive child walker over `CONTAINER_ATOMS`, provenance and the sample tables |
+| `src/media/still.ts` | still image headers, no decoder and no EXIF parser, both stated |
+| `src/media/extract.ts` | the capability chain, the frame plan, rotation reconciliation, tiling, the poster, and the placeholder descriptor |
+| `src/media/phash.ts` | dHash, Hamming, frame set comparison, duplicate search, blank frame detection |
+| `src/media/preflight.ts` | the seven rules, four valued, pure |
+| `src/media/state.ts` | `media_state`, `derivative_state`, and the transport gate |
+| `src/media/ingest.ts` | one file in, facts and artefacts and a verdict out. Writes no rows |
+| `tests/media/` | 262 cases: the parser against the committed bytes, the malformed input set, the chain against fake adapters, every fixture against `expected_preflight`, and the byte state machine |
 
 `peekContainer()` in `scripts/fixtures-lib.mjs` reads a handful of atom headers, and it is a verification tool for the build rather than the application parser.
 The application parser must be written independently in `src/`.

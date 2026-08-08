@@ -49,6 +49,7 @@
 
 import { hashOf } from '@/platform/hash'
 import { modelKeyFor, ResponseCache, type CacheKey } from './cache'
+import { cloneJson } from './clone'
 import {
   BRIEF_GEN_SAN_JOSE,
   BRIEF_MATCH_BY_ITEM,
@@ -536,7 +537,10 @@ export class MockAiProvider implements AiProvider {
     input_hash: string,
   ): AiResult<CapabilityIo[K]['output']> {
     const schema = schemaFor(kind)
-    const result = validate<CapabilityIo[K]['output']>(schema.schema, served.output)
+    // A fresh copy per call. The fixtures are module level objects and the cache
+    // holds what it served, so handing the same object to two callers would let the
+    // first one edit the answer the second receives.
+    const result = validate<CapabilityIo[K]['output']>(schema.schema, cloneJson(served.output))
 
     if (!result.ok) {
       throw new AiError(
@@ -855,12 +859,15 @@ export function synthesiseParse(input: SearchParseInput): SearchParseOutput {
 
   let duration_min_s: number | null = null
   let duration_max_s: number | null = null
-  const under = /(?:under|less than|shorter than)\s+(\d{1,4})\s*(?:s|sec|secs|second|seconds)?/.exec(remaining)
+  // The unit alternation is longest first on purpose: regex alternation takes the
+  // first branch that matches, so `s|seconds` would consume one letter of "seconds"
+  // and leave "econds" behind to be reported as an unmapped vocabulary candidate.
+  const under = /(?:under|less than|shorter than)\s+(\d{1,4})\s*(?:seconds|second|secs|sec|s)?/.exec(remaining)
   if (under) {
     duration_max_s = Number(under[1])
     takeRaw(under[0], 'duration', `max ${duration_max_s}s`, 0.9)
   }
-  const over = /(?:over|longer than|at least)\s+(\d{1,4})\s*(?:s|sec|secs|second|seconds)?/.exec(remaining)
+  const over = /(?:over|longer than|at least)\s+(\d{1,4})\s*(?:seconds|second|secs|sec|s)?/.exec(remaining)
   if (over) {
     duration_min_s = Number(over[1])
     takeRaw(over[0], 'duration', `min ${duration_min_s}s`, 0.9)

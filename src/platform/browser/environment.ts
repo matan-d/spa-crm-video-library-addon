@@ -39,7 +39,16 @@ export function browserProbeEnvironment(): ProbeEnvironment {
     hasOffscreenCanvas: has(() => typeof OffscreenCanvas === 'function'),
     hasCreateImageBitmap: has(() => typeof createImageBitmap === 'function'),
     hasVideoDecoder: has(() => typeof (globalThis as { VideoDecoder?: unknown }).VideoDecoder === 'function'),
-    hasOpfs: has(() => typeof navigator.storage?.getDirectory === 'function'),
+    // Both halves, deliberately: Safari shipped getDirectory in 15.2 but
+    // createWritable only in 26, and a probe that answers from getDirectory
+    // alone builds a byte store whose first put() is a TypeError on nine
+    // Safari versions. See docs/platform-matrix.md P-1.
+    hasOpfs: has(
+      () =>
+        typeof navigator.storage?.getDirectory === 'function' &&
+        typeof FileSystemFileHandle !== 'undefined' &&
+        'createWritable' in FileSystemFileHandle.prototype,
+    ),
     hasFileSystemAccess: has(
       () => typeof (globalThis as { showOpenFilePicker?: unknown }).showOpenFilePicker === 'function',
     ),

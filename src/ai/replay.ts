@@ -33,6 +33,7 @@
  */
 
 import { cacheKeyString, modelKeyFor, type CacheKey } from './cache'
+import { cloneJson } from './clone'
 import { buildMeta, PROVIDER_DETAIL } from './meta'
 import { MODEL_ID, renderPrompt, type RenderedPrompt } from './prompts'
 import { promptValuesFor } from './render'
@@ -273,7 +274,9 @@ export class ReplayAiProvider implements AiProvider {
     throwIfAborted(options.signal, { kind })
 
     const schema = schemaFor(kind)
-    const validated = validate<CapabilityIo[K]['output']>(schema.schema, fixture.output_json)
+    // A fresh copy per read, for the same reason the mock clones: the bundle is a
+    // module level object and a caller that edits a result would edit the fixture.
+    const validated = validate<CapabilityIo[K]['output']>(schema.schema, cloneJson(fixture.output_json))
 
     const meta = buildMeta({
       kind,

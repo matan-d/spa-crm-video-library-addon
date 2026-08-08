@@ -19,8 +19,15 @@ Statuses are four valued: `pass`, `fail`, `unknown`, `skipped`.
 All statuses below are stated for the reference runtime recorded in the manifest (`chromium_desktop_windows_without_hevc_extension`).
 Where a status moves with the runtime the manifest entry carries `runtime_dependent: true`, and the per runtime matrix belongs to `platform-matrix`, not to these cases.
 
-`Blocked-by: none` means runnable today against the committed fixtures.
-`Blocked-by: parser` means the case is written and cannot run until `parseContainer()` exists, which is the next task.
+`Blocked-by: none` means runnable today against the committed fixtures, and the suite that asserts it is named on the same line.
+
+The derivation layer landed after these cases were written (`docs/media-pipeline.md` sections 6 to 9), so the `Blocked-by: parser` lines are resolved.
+What is still blocked is named precisely rather than generically: **`Blocked-by: decode adapter`** means the case needs the `<video>` plus canvas or WebCodecs adapter that touches the DOM, which is not written and cannot run in jsdom (see 7.6).
+Those cases are runnable the moment that adapter exists, and until then they are listed in `qa/manual-checklist.md` rather than silently absent.
+
+One naming note, so nothing reads as missing: these cases were written against `ingestFile()`.
+The implemented entry point is `ingestMedia(file, deps)` in `src/media/ingest.ts`, which returns facts, artefacts and a verdict and writes no database rows.
+`ingestFile()` is the upload surface's wrapper around it, and it owns the delivery, the ids and the outbox.
 
 ---
 
@@ -86,63 +93,63 @@ Where a status moves with the runtime the manifest entry carries `runtime_depend
 - When: pre-flight runs
 - Then: `rules.orientation.status === 'pass'`, `value === 'vertical'`, `evidence === 'coded_dims+tkhd_matrix'`
 - Layer: unit
-- Blocked-by: parser
+- Blocked-by: none. Implemented in `tests/media/preflight.spec.ts` (the per fixture rule table, all 16 fixtures)
 
 ### QC-MEDIA-011 min_duration passes and reports the measured duration
 - Given: `vertical_ok.mp4`
 - When: pre-flight runs
 - Then: `rules.min_duration.status === 'pass'` and `value` is within `tolerance.duration_s` of the manifest value. Both the mvhd derived duration and the decode pass duration must land inside that window, and where they differ the decode pass wins
 - Layer: unit
-- Blocked-by: parser
+- Blocked-by: none. Implemented in `tests/media/preflight.spec.ts`. The decode override is asserted separately: where the two differ beyond tolerance the measurement wins and `evidence` becomes `decode_pass`
 
 ### QC-MEDIA-012 min_resolution passes and is evaluated on edges, not on width and height
 - Given: `vertical_ok.mp4`
 - When: pre-flight runs
 - Then: `rules.min_resolution.status === 'pass'`, `value === '1080x1920'`, and the comparison is short edge against 1080 and long edge against 1920 rather than width against 1080. QC-MEDIA-021 is the case that proves the difference matters
 - Layer: unit
-- Blocked-by: parser
+- Blocked-by: none. Implemented in `tests/media/preflight.spec.ts`
 
 ### QC-MEDIA-013 capture_date passes from mvhd with the 1904 epoch applied
 - Given: `vertical_ok.mp4`
 - When: the container is parsed
 - Then: the mvhd creation field reads `3868683120` and converts to `2026-08-04T10:12:00Z` after subtracting 2082844800 seconds. `rules.capture_date.status === 'pass'`, `captured_at_source === 'mvhd'`
 - Layer: unit
-- Blocked-by: parser
+- Blocked-by: none. Implemented in `tests/media/atoms.spec.ts` (the raw field and the epoch) and `tests/media/preflight.spec.ts` (the verdict and the source)
 
 ### QC-MEDIA-014 near_branch passes with a distance, not a boolean
 - Given: `vertical_ok.mp4` and the San Jose branch at 37.3382, -121.8863
 - When: pre-flight runs
 - Then: `rules.near_branch.status === 'pass'` and `distance_m` is within `tolerance.distance_m` of the manifest value (about 120m). A parser that returns 0m has read the branch coordinate instead of the file's
 - Layer: unit
-- Blocked-by: parser
+- Blocked-by: none. Implemented in `tests/media/preflight.spec.ts`, including the assertion that the distance is greater than zero, which a parser reading the branch coordinate would fail
 
 ### QC-MEDIA-015 GPS is read from the 3GPP `loci` atom, 16.16 fixed point
 - Given: `vertical_ok.mp4`
 - When: `moov/udta/loci` is parsed
 - Then: the fields are read in the order longitude, latitude, altitude, each signed 16.16 fixed point, giving -121.8863 and 37.3382 within a metre. Reading them as latitude first produces a coordinate in the Atlantic and must fail this case
 - Layer: unit
-- Blocked-by: parser
+- Blocked-by: none. Implemented in `tests/media/atoms.spec.ts`, plus the ISO 6709 digit count forms
 
 ### QC-MEDIA-016 codec_playable passes for avc1
 - Given: `vertical_ok.mp4`
 - When: the `stsd` fourcc is read and handed to the platform probe
 - Then: fourcc is `avc1`, `rules.codec_playable.status === 'pass'`. The fourcc comes from `stsd`, never from the file extension or the browser reported MIME type
 - Layer: unit
-- Blocked-by: parser
+- Blocked-by: none. Implemented in `tests/media/preflight.spec.ts`, with the support answer injected from the reference runtime codec table rather than read back from the expectation
 
 ### QC-MEDIA-017 duplicate passes when nothing earlier matches
 - Given: `vertical_ok.mp4` ingested first in the engineered set
 - When: perceptual hashes are compared across the delivery
 - Then: `rules.duplicate.status === 'pass'` and `duplicate_of_asset_id` is null
 - Layer: unit
-- Blocked-by: parser, pHash
+- Blocked-by: none. Implemented in `tests/media/preflight.spec.ts`. The frame hashes are deterministic doubles, because jsdom cannot decode a frame: see QC-MEDIA-070 for the claim that needs real pixels
 
 ### QC-MEDIA-018 the happy path produces a real sheet and a real poster
 - Given: `vertical_ok.mp4`
 - When: extraction runs at the `standard` tier
 - Then: a contact sheet exists with `expected_frames.by_tier.standard.count` tiles (5 for this 6s clip, `layout === '1x5'`), each tile is a distinct frame (no two tiles have an identical dHash, which is assertable here because the planned spacing of about 1s is well above the half second GOP), each frame time is within `tolerance.frame_t_seconds` of the planned time, `derivative_state === 'client_derived'`, and the extractor path used is recorded on the sheet
 - Layer: e2e
-- Blocked-by: parser, extractor
+- Blocked-by: decode adapter. The sheet, the tile count, the layout, the recorded extractor path and the per frame times are implemented in `tests/media/extract.spec.ts` against fake adapters. Tile distinctness from REAL decoded frames needs a browser
 
 ---
 
@@ -153,42 +160,42 @@ Where a status moves with the runtime the manifest entry carries `runtime_depend
 - When: pre-flight runs
 - Then: `rules.orientation.status === 'fail'` with `value === 'horizontal'`, `required === 'vertical'`, `blocking: true`, and `rollup.blocking_fail === 1`. Every other rule passes. Specifically `min_resolution` is `pass`, because 1920x1080 has a 1080 short edge and a 1920 long edge
 - Layer: unit
-- Blocked-by: parser
+- Blocked-by: none. Implemented in `tests/media/preflight.spec.ts`
 
 ### QC-MEDIA-021 `lowres_fail.mp4` fails resolution while still reading as vertical
 - Given: `lowres_fail.mp4`, 480x854
 - When: pre-flight runs
 - Then: `rules.min_resolution.status === 'fail'` with `value === '480x854'` and `blocking: true`, while `rules.orientation.status === 'pass'` with `value === 'vertical'`. A fixture that failed both would not distinguish the two rules
 - Layer: unit
-- Blocked-by: parser
+- Blocked-by: none. Implemented in `tests/media/preflight.spec.ts`
 
 ### QC-MEDIA-022 `short_fail.mp4` fails duration and nothing else
 - Given: `short_fail.mp4`, 1.5s
 - When: pre-flight runs
 - Then: `rules.min_duration.status === 'fail'`, `value` within `tolerance.duration_s` of 1.5, `required === 3`, `blocking: true`. `rollup.pass === 6`
 - Layer: unit
-- Blocked-by: parser
+- Blocked-by: none. Implemented in `tests/media/preflight.spec.ts`
 
 ### QC-MEDIA-023 `offdate_fail.mp4` fails capture_date and does not block
 - Given: `offdate_fail.mp4`, mvhd `2026-08-02T09:40:00Z`, visit date `2026-08-04`
 - When: pre-flight runs
 - Then: `rules.capture_date.status === 'fail'` with `reason === 'capture_date_outside_visit_window'`, and `blocking: false` because the date rule is advisory. `rollup.blocking_fail === 0`, so this clip is still allowed to upload
 - Layer: unit
-- Blocked-by: parser
+- Blocked-by: none. Implemented in `tests/media/preflight.spec.ts`
 
 ### QC-MEDIA-024 The visit window is plus or minus 24 hours, not a calendar day match
 - Given: `vertical_ok.mp4` (inside the window) and `offdate_fail.mp4` (48 hours out)
 - When: both are evaluated against visit date `2026-08-04` with `visit_window_hours: 24`
 - Then: the first passes and the second fails. A window implemented as a string prefix comparison on the date, or as an unbounded window, passes the first and must fail the second
 - Layer: unit
-- Blocked-by: parser
+- Blocked-by: none. Implemented in `tests/media/preflight.spec.ts`, which also asserts the evening before the visit passes, so a calendar prefix comparison fails the case
 
 ### QC-MEDIA-025 A capture date is never presented as verification
 - Given: any fixture with a capture date
 - When: the pre-flight result is rendered to a manager
 - Then: the date is labelled with its source (`captured_at_source`) and shown as a triage hint. Nothing in the UI states or implies that the clip was verified as shot on the visit day, because container timestamps are user editable bytes (C5.2.4)
 - Layer: e2e
-- Blocked-by: parser, review UI
+- Blocked-by: review UI. The data it needs exists: every `capture_date` verdict carries `captured_at_source` and a note saying a container timestamp is a hint rather than verification
 
 ---
 
@@ -201,49 +208,49 @@ Where a status moves with the runtime the manifest entry carries `runtime_depend
 - When: `moov/trak/tkhd` is parsed
 - Then: the nine matrix words equal `declared.tkhd_matrix` exactly, and a,b,c,d reduce to 0, 1, -1, 0, which is 90 degrees clockwise for display. This is byte for byte the matrix a portrait iPhone clip carries
 - Layer: unit
-- Blocked-by: parser
+- Blocked-by: none. Implemented in `tests/media/atoms.spec.ts`, including the four matrix forms and the refusal to read a flip as a rotation
 
 ### QC-MEDIA-031 Display orientation is vertical although coded dimensions are landscape
 - Given: `rotated_90.mp4`
 - When: pre-flight runs
 - Then: `rules.orientation.status === 'pass'`, `value === 'vertical'`, `coded === '1920x1080'`, `display === '1080x1920'`. **A parser that reads coded dimensions and stops fails here, and that failure is the difference between accepting and rejecting a creator's correct footage.**
 - Layer: unit
-- Blocked-by: parser
+- Blocked-by: none. Implemented in `tests/media/preflight.spec.ts` and `tests/media/atoms.spec.ts`
 
 ### QC-MEDIA-032 min_resolution is evaluated on display dimensions
 - Given: `rotated_90.mp4`
 - When: pre-flight runs
 - Then: `rules.min_resolution.value === '1080x1920'` and status `pass`. Evaluating the coded 1920x1080 would also pass here, so this case exists to pin the value string rather than only the verdict
 - Layer: unit
-- Blocked-by: parser
+- Blocked-by: none. Implemented in `tests/media/preflight.spec.ts`
 
 ### QC-MEDIA-033 Every rule passes, so a failure can only be the matrix
 - Given: `rotated_90.mp4`
 - When: pre-flight runs
 - Then: `rollup === { pass: 7, fail: 0, unknown: 0, skipped: 0, blocking_fail: 0 }`
 - Layer: unit
-- Blocked-by: parser
+- Blocked-by: none. Implemented in `tests/media/preflight.spec.ts`
 
 ### QC-MEDIA-034 The browser's own rotation handling is detected rather than guessed
 - Given: `rotated_90.mp4` loaded into a `<video>` element
 - When: `videoWidth` and `videoHeight` are compared against the container's coded dimensions
 - Then: if the element reports 1080x1920 the browser already applied rotation and the canvas must NOT rotate again (`rotation_source: 'element_applied'`); if it reports 1920x1080 the canvas must rotate (`rotation_source: 'we_applied'`). The stored value distinguishes the two, so a later bug is diagnosable (C4.2.1)
 - Layer: e2e
-- Blocked-by: parser, extractor
+- Blocked-by: decode adapter. The decision is a pure function and is implemented in `tests/media/extract.spec.ts` (`reconcileRotation`), including the undecidable square case. What needs a browser is which size an engine actually reports
 
 ### QC-MEDIA-035 The extracted frames are upright
 - Given: `rotated_90.mp4`
 - When: a contact sheet is produced
 - Then: each tile is 1080x1920 shaped (portrait aspect) and the burned in label reads upright. The fixture is built so that the label is only upright when rotation was applied: sideways text is the visible signature of a double rotation or a missed one
 - Layer: visual
-- Blocked-by: parser, extractor
+- Blocked-by: decode adapter. Visual, and it needs real pixels
 
 ### QC-MEDIA-036 A rotated clip on a real iPhone
 - Given: a real portrait clip shot on an iPhone camera app, HEVC or H.264
 - When: it is uploaded through the creator link on iOS Safari
 - Then: pre-flight reports `orientation: pass`, the sheet tiles are upright, and `rotation_source` is recorded. A human needs an iPhone, needs to shoot a portrait clip in the camera app, upload it through the public link, and compare the sheet against what they see in Photos
 - Layer: manual-only
-- Blocked-by: no iOS device in this build. iOS 18 has open reports of browser recorded video carrying no orientation info at all (C4.2.2), which is why the manual rotate control is not optional
+- Blocked-by: no iOS device in this build. iOS 18 has open reports of browser recorded video carrying no orientation info at all (C4.2.2), which is why the manual rotate control is not optional. Listed in `qa/manual-checklist.md`
 
 ---
 
@@ -256,63 +263,63 @@ Where a status moves with the runtime the manifest entry carries `runtime_depend
 - When: the sample description is parsed
 - Then: the fourcc is `hvc1`. The `.mov` extension is not consulted, and the browser reported MIME type is not consulted, because an iPhone writes `.MOV` for both H.264 and HEVC and Android writes `.mp4` for both (C1.2.4)
 - Layer: unit
-- Blocked-by: parser
+- Blocked-by: none. Implemented in `tests/media/atoms.spec.ts`
 
 ### QC-MEDIA-041 codec_playable fails with a routing reason, not a rejection
 - Given: `hevc.mov` on the reference runtime
 - When: `codec_playable` is evaluated from the fourcc plus `VideoDecoder.isConfigSupported` and `canPlayType`
 - Then: `status === 'fail'`, `reason === 'no_decoder_in_shell'`, `blocking: false`, `routes_to: 'transcode'`, `upload_priority: 'required_for_transcode'`. This is the one failure where uploading the original is the only way to make progress
 - Layer: unit
-- Blocked-by: parser, platform probe
+- Blocked-by: none. Implemented in `tests/media/preflight.spec.ts`. The support answer is injected, because whether this runtime has an HEVC decoder is `platform-matrix`'s question and not a derivation
 
 ### QC-MEDIA-042 The metadata layer is complete even with no decoder
 - Given: `hevc.mov`
 - When: pre-flight runs
 - Then: `orientation`, `min_duration`, `min_resolution`, `capture_date` and `near_branch` are all decided from the container and none of them is `unknown`. Atom parsing reads bytes, so only the pixel layer fails
 - Layer: unit
-- Blocked-by: parser
+- Blocked-by: none. Implemented in `tests/media/preflight.spec.ts`
 
 ### QC-MEDIA-043 GPS is read from the QuickTime `©xyz` ISO 6709 atom
 - Given: `hevc.mov`
 - When: `moov/udta/©xyz` (0xA9 'x' 'y' 'z') is parsed
 - Then: the 2 byte length plus 2 byte language header is skipped and the payload `+37.33765-121.88495+021.000/` parses to 37.33765, -121.88495, altitude 21. `distance_m` is within `tolerance.distance_m` of the manifest value (about 134m). This is a different atom from the `loci` in QC-MEDIA-015 and both must work
 - Layer: unit
-- Blocked-by: parser
+- Blocked-by: none. Implemented in `tests/media/atoms.spec.ts`
 
 ### QC-MEDIA-044 `udta/©day` supplies the one unambiguous capture instant in the set
 - Given: `hevc.mov`
 - When: provenance is parsed
 - Then: `©day` reads `2026-08-04T03:12:00-0700`, which is the same instant as the mvhd value, and `captured_at_source === 'udta_day'` because it is the only source carrying a timezone. mvhd is defined as UTC and cameras write local time into it anyway (C5.2.3), so a source that carries an offset outranks one that does not
 - Layer: unit
-- Blocked-by: parser
+- Blocked-by: none. Implemented in `tests/media/atoms.spec.ts` (the atom, the offset and that both sources name the same instant) and `tests/media/preflight.spec.ts` (`captured_at_source`)
 
 ### QC-MEDIA-045 `moov` after `mdat` is found by walking headers, not by reading the file
 - Given: `hevc.mov`, whose top level order is ftyp, free, mdat, moov
 - When: the container is parsed from a `File`
 - Then: `moov` is located and parsed, total bytes read stays under 2MB, and `mdat` is never read. Reading the first N bytes and expecting `moov` must fail this case
 - Layer: unit
-- Blocked-by: parser
+- Blocked-by: none. Implemented in `tests/media/atoms.spec.ts`, which asserts bytes read stays under the budget and under the file size on every fixture
 
 ### QC-MEDIA-046 No sheet, no poster, no fabrication
 - Given: `hevc.mov` on the reference runtime
 - When: ingest completes
 - Then: no contact sheet row, no poster, no `asset_frame` rows, `frame_hashes` and `phash_primary` null, `derivative_state === 'none'`, `derivative_producer` null, and **no `ai_run` row and no `tag` rows with `source='ai'`**. Frame extraction is not attempted at all: a try-and-catch into a black frame is worse than no frame, because a black frame gets tagged
 - Layer: integration
-- Blocked-by: parser, extractor, ai enqueue guard
+- Blocked-by: ai enqueue guard, for the `ai_run` half. The media half is implemented in `tests/media/ingest.spec.ts` and `tests/media/extract.spec.ts`: no sheet, no poster, no frames, no hashes, `derivative_state: none`, and no decode attempted at all
 
 ### QC-MEDIA-047 duplicate is unknown, because dedupe genuinely cannot run
 - Given: `hevc.mov` on the reference runtime
 - When: pre-flight runs
 - Then: `rules.duplicate.status === 'unknown'` with `reason === 'no_frames_no_decoder'`, never `pass`. Coercing this to a pass is how QC becomes a rubber stamp (C1.2.3)
 - Layer: unit
-- Blocked-by: parser
+- Blocked-by: none. Implemented in `tests/media/preflight.spec.ts`
 
 ### QC-MEDIA-048 The manager card is honest and Approve is disabled
 - Given: `hevc.mov` reviewed by a manager on the reference runtime
 - When: the deal drawer renders
 - Then: a grey placeholder tile (not a broken `<video>`, not an endless spinner), the real facts we do have (filename, duration, resolution, orientation, capture date, size, codec), a chip reading "no preview: HEVC, this browser has no decoder" plus one line of what would fix it, placement in the "awaiting derivatives" bucket, Approve disabled with the reason shown, `review_status` still `pending`, and one offered action: request an H.264 version
 - Layer: e2e
-- Blocked-by: review UI
+- Blocked-by: review UI. The card's content exists as data: `ExtractionResult.placeholder` carries the headline, the remedy and the facts we do have
 
 ### QC-MEDIA-049 The Most Compatible instruction is load bearing on the invite page
 - Given: the creator invite page
@@ -326,7 +333,7 @@ Where a status moves with the runtime the manifest entry carries `runtime_depend
 - When: ingest runs
 - Then: `codec_playable` is `pass` and a real sheet is produced, so the same fixture takes a different path per runtime, and `runtime_dependent: true` on the manifest entry is true rather than a hedge. A human needs a Mac or an iPhone, or a Windows machine with the HEVC Video Extension from the Microsoft Store
 - Layer: manual-only
-- Blocked-by: no Safari, no iOS device, and no HEVC extension on the build machine
+- Blocked-by: no Safari, no iOS device, and no HEVC extension on the build machine. Listed in `qa/manual-checklist.md`
 
 ---
 
@@ -339,35 +346,35 @@ Where a status moves with the runtime the manifest entry carries `runtime_depend
 - When: provenance is parsed
 - Then: `rules.capture_date.status === 'unknown'` with `reason === 'mvhd_creation_time_zero'`. **A parser that applies the 1904 epoch to a zero field reports a capture date of 1904-01-01, which is worse than reporting nothing, and must fail this case**
 - Layer: unit
-- Blocked-by: parser
+- Blocked-by: none. Implemented in `tests/media/atoms.spec.ts` and `tests/media/preflight.spec.ts`
 
 ### QC-MEDIA-061 `File.lastModified` is recorded as a fallback and never promoted
 - Given: `no_metadata.mp4` ingested from a `File` with a real `lastModified`
 - When: pre-flight runs
 - Then: `rules.capture_date.fallback === 'file_mtime'`, `fallback_value` is set, `captured_at_source === 'unknown'`, and `asset.captured_at` stays null. The fallback appears in the record and never in the capture date field
 - Layer: unit
-- Blocked-by: parser
+- Blocked-by: none. Implemented in `tests/media/preflight.spec.ts`
 
 ### QC-MEDIA-062 A missing location atom is unknown, never a failure
 - Given: `no_metadata.mp4`
 - When: pre-flight runs
 - Then: `rules.near_branch.status === 'unknown'` with `reason === 'no_gps_atom_metadata_stripped'`, `distance_m` null, `never_blocking: true`
 - Layer: unit
-- Blocked-by: parser
+- Blocked-by: none. Implemented in `tests/media/preflight.spec.ts`
 
 ### QC-MEDIA-063 Absence does not distinguish stripped from never written
 - Given: `no_metadata.mp4` (a re-encode that lost its metadata) and `prores.mov` (a camera that never wrote any)
 - When: both are parsed
 - Then: both produce `capture_date: unknown` with the same reason code `mvhd_creation_time_zero`, and neither the record nor the UI claims which of the two happened. The provenance is not derivable from the bytes, so claiming it would be a fabrication
 - Layer: unit
-- Blocked-by: parser
+- Blocked-by: none. Implemented in `tests/media/preflight.spec.ts`. Note the asymmetry, which is the committed contract rather than an oversight: `capture_date` shares one reason code across both, while `near_branch` has three codes that differ only in the sentence a human reads. See `docs/media-pipeline.md` 8.4
 
 ### QC-MEDIA-064 A clip with no metadata still gets a full sheet
 - Given: `no_metadata.mp4`
 - When: extraction runs
 - Then: a real contact sheet and poster are produced. Container metadata is strictly additive: the pipeline must produce a useful result with zero container metadata, using only the element's duration and dimensions (C5.2.2)
 - Layer: e2e
-- Blocked-by: parser, extractor
+- Blocked-by: decode adapter for the real sheet. The fallback path is implemented in `tests/media/ingest.spec.ts`: with no `moov` at all, the runtime is asked for duration and size, a sheet is produced, and `min_duration.evidence` becomes `decode_pass`
 
 ### QC-MEDIA-065 The creator is prompted only for the unknown they can answer
 - Given: `no_metadata.mp4` delivered by a creator
@@ -385,21 +392,21 @@ Where a status moves with the runtime the manifest entry carries `runtime_depend
 - When: frames are hashed and compared
 - Then: the two sha256 values differ, and the per frame dHash distance between corresponding frames is within `tolerance.dhash_hamming` (4). `rules.duplicate.status === 'fail'` on the later asset with `duplicate_of_fixture_id === 'vertical_ok'`
 - Layer: integration
-- Blocked-by: parser, extractor, pHash
+- Blocked-by: decode adapter. This is the one duplicate claim that needs real pixels, and it is the reason `expected_phash_prefix` is still null. The rule, the tolerance, the median comparison and the earliest match are implemented in `tests/media/phash.spec.ts` and `tests/media/preflight.spec.ts` against deterministic hash doubles keyed on `manifest.duplicate_assumption.expected_pairs`. Listed in `qa/manual-checklist.md`
 
 ### QC-MEDIA-071 A duplicate is advisory, never blocking
 - Given: the duplicate pair
 - When: pre-flight completes
 - Then: `rules.duplicate.blocking === false` and `rollup.blocking_fail === 0` on the duplicate. A creator delivering the same shot twice is a nudge, not a rejection
 - Layer: unit
-- Blocked-by: parser, pHash
+- Blocked-by: none. Implemented in `tests/media/preflight.spec.ts`
 
 ### QC-MEDIA-072 The duplicate verdict names the set it was computed over
 - Given: `duplicate_of_vertical_ok.mp4` ingested ALONE, with no other asset in the delivery
 - When: pre-flight runs
 - Then: `rules.duplicate.status === 'pass'`, because there is nothing to match. This is not a contradiction with QC-MEDIA-070: the rule is set dependent, `comparison_set` records the set, and any test asserting it must state the set
 - Layer: integration
-- Blocked-by: parser, pHash
+- Blocked-by: none. Implemented in `tests/media/preflight.spec.ts` and `tests/media/ingest.spec.ts`, both asserting the recorded `comparison_set`
 
 ---
 
@@ -412,7 +419,7 @@ Where a status moves with the runtime the manifest entry carries `runtime_depend
 - When: pre-flight runs
 - Then: `rules.near_branch.status === 'unknown'` with `reason === 'no_gps_atom_camera_has_no_receiver'`, `never_blocking: true`. **It must never be `fail`. A red cross here fails a creator for using better equipment, which is a product defect and not a strict rule**
 - Layer: unit
-- Blocked-by: parser
+- Blocked-by: none. Implemented in `tests/media/preflight.spec.ts`
 
 ### QC-MEDIA-081 The unknown renders as a grey dash with a reason, never as a red cross or a green check
 - Given: `prores.mov` in the manager review
@@ -426,28 +433,28 @@ Where a status moves with the runtime the manifest entry carries `runtime_depend
 - When: `codec_playable` is evaluated
 - Then: `status === 'fail'`, `reason === 'codec_unsupported_in_every_browser'`, `runtime_dependent: false`. Unlike `hvc1`, this answer does not move with the runtime: no browser decodes ProRes
 - Layer: unit
-- Blocked-by: parser, platform probe
+- Blocked-by: none. Implemented in `tests/media/preflight.spec.ts`
 
 ### QC-MEDIA-083 Three unknowns and two blocking fails coexist without contradiction
 - Given: `prores.mov`
 - When: pre-flight completes
 - Then: `rollup === { pass: 1, fail: 3, unknown: 3, skipped: 0, blocking_fail: 2 }`. The blocking fails are `orientation` and `min_resolution`; `codec_playable` fails without blocking; the three unknowns are `capture_date`, `near_branch` and `duplicate`
 - Layer: unit
-- Blocked-by: parser
+- Blocked-by: none. Implemented in `tests/media/preflight.spec.ts`, which asserts the rollup and the named blocking rules
 
 ### QC-MEDIA-084 A file with no audio track is parsed, not rejected
 - Given: `prores.mov`
 - When: the container is parsed
 - Then: `has_audio === false` is reported as a fact and no rule fails because of it. The track walk must handle a moov with exactly one trak
 - Layer: unit
-- Blocked-by: parser
+- Blocked-by: none. Implemented in `tests/media/atoms.spec.ts`
 
 ### QC-MEDIA-085 The byte budget cannot be exercised by a committed fixture
 - Given: `maxLocalOriginalBytes` at the `standard` tier (1GB)
 - When: a synthesised `File` of 1.8GB (one two minute ProRes clip at 1080p) is ingested
 - Then: the original is not written to OPFS, `media_state === 'bytes_absent'`, and the reason is recorded. The `File` is synthesised in the test from a sparse blob, because a fixture large enough to test this could not be committed. `prores.mov` at 1.6MB is the largest committed fixture and covers the codec and metadata path only
 - Layer: integration
-- Blocked-by: parser, byte store
+- Blocked-by: byte store, for the OPFS write. The budget decision is implemented in `tests/media/state.spec.ts` with a 1.8GB file, and the 4GB header walk in `tests/media/ingest.spec.ts` with a sparse source that serves ranges and would allocate 4GB if the parser ever read linearly
 
 ---
 
@@ -458,21 +465,21 @@ Where a status moves with the runtime the manifest entry carries `runtime_depend
 - When: top level atoms are walked
 - Then: the walker reads the 8 byte largesize, treats the header as 16 bytes rather than 8, and lands exactly on the next atom boundary. A walker that jumps by 1 byte on a `size == 1` header loops or bails, and must fail this case
 - Layer: unit
-- Blocked-by: parser
+- Blocked-by: none. Implemented in `tests/media/atoms.spec.ts`
 
 ### QC-MEDIA-091 The rest of the container still parses through a 64 bit header
 - Given: `largesize_mdat.mp4`
 - When: pre-flight runs
 - Then: coded dimensions, duration, codec, capture date and GPS all parse normally, and the parsed duration is within `tolerance.duration_s` of the manifest value. The fixture is 2s, so `min_duration` legitimately fails, and this case asserts the parsed duration rather than the verdict
 - Layer: unit
-- Blocked-by: parser
+- Blocked-by: none. Implemented in `tests/media/atoms.spec.ts`
 
 ### QC-MEDIA-092 A `size == 0` atom means "to end of file"
 - Given: a synthesised buffer whose last top level atom carries `size == 0`
 - When: the walker runs
 - Then: the atom is treated as extending to the end of the file, not as zero length, and the walk terminates. No committed fixture produces this because ffmpeg does not write it, so the input is synthesised
 - Layer: unit
-- Blocked-by: parser
+- Blocked-by: none. Implemented in `tests/media/atoms.spec.ts` with a synthesised buffer
 
 ---
 
@@ -487,35 +494,35 @@ It reaches these cases only through `expected_frames.by_tier` in the manifest, s
 - When: extraction runs at each tier
 - Then: 7 frames at `ample` with `contact_sheet.layout === '1x7'`, 6 at `standard` with `1x6`, and 3 at `constrained` with `1x3`, each matching `expected_frames.by_tier.<tier>.count` and `.layout`. This is the widest tier spread in the set and the only case where the ceiling rather than the floor decides the answer
 - Layer: integration
-- Blocked-by: extractor
+- Blocked-by: decode adapter for the extracted count. The PLAN is implemented in `tests/media/extract.spec.ts` for all three tiers on every fixture, asserted against `expected_frames.by_tier`, and the sheet layout is asserted from the composed tile count
 
 ### QC-MEDIA-101 A 6s clip gets 5 frames on a capable machine and 3 on a phone
 - Given: `vertical_ok.mp4`, 6s
 - When: extraction runs at all three tiers
 - Then: 5 frames at `ample` and 5 at `standard`, both `layout === '1x5'`, and 3 at `constrained` with `1x3`, each matching `expected_frames.by_tier`. `3 + round(6 / 3)` is 5, which sits inside the `ample` band of 5 to 7 and the `standard` band of 4 to 6, and above the `constrained` ceiling of 3. This is the resolved behaviour from `docs/06-decisions.md` D2, replacing the old `clamp(round(duration_s / 4), 3, tierMax)` that gave this clip 3 frames at every tier and contradicted the C2.D worked example
 - Layer: integration
-- Blocked-by: extractor
+- Blocked-by: decode adapter for the extracted count. The plan is implemented in `tests/media/extract.spec.ts` against `expected_frames.by_tier`, and separately against `frameCountFor()` so the formula is never restated
 
 ### QC-MEDIA-102 The policy tier is recorded on the artifact it shaped
 - Given: any fixture ingested at `constrained`
 - When: the sheet is written
 - Then: `contact_sheet.policy_tier === 'constrained'`, `generator_version` set, and the extractor path recorded. A 3 frame 360px sheet and a 5 frame 480px sheet are different inputs to the vision model, so a cached run must not be reused across them
 - Layer: integration
-- Blocked-by: extractor
+- Blocked-by: none for the recording, decode adapter for real pixels. Implemented in `tests/media/extract.spec.ts`: `policy_tier`, `extractor_path`, `extractor_version` and `phash_version` are all on the sheet
 
 ### QC-MEDIA-103 The tier genuinely changes the answer, on every fixture
 - Given: every video fixture in the manifest that expects frames at all (so not `hevc.mov` and not `prores.mov`)
 - When: `expected_frames.by_tier.constrained.count` is compared against `expected_frames.by_tier.ample.count`
 - Then: they differ on every single one: 3 against 5 for the 1.5s, 2s, 5s and 6s clips, and 3 against 7 for the 20s clip. **This property is the whole point of D2 and must be asserted rather than assumed**, because the previous formula produced identical counts at every tier for every fixture in this set, which made the tier system decorative
 - Layer: unit
-- Blocked-by: none (assertable against the committed manifest today, no extractor needed)
+- Blocked-by: none. Implemented in `tests/media/extract.spec.ts`, asserted against the committed manifest with no extractor needed
 
 ### QC-MEDIA-104 A short clip plans frames closer together than the keyframe interval
 - Given: `short_fail.mp4`, 1.5s, whose `ample` plan is 5 frames a quarter second apart while the GOP on every fixture is half a second
 - When: extraction runs at `ample` on the `<video>` plus canvas path
 - Then: 5 tiles are still produced, because the tier floor is a floor, and every frame time is within `tolerance.frame_t_seconds` of its planned time. Tile distinctness is deliberately NOT asserted here: two planned times can legitimately snap to the same decoded frame, so what is asserted instead is that the sheet records the times it actually reached rather than the times it planned, and that nothing in the UI or in an AI prompt describes near identical tiles as distinct moments. On the WebCodecs path the frames are frame accurate and may well be distinct, and the case must not depend on which path ran
 - Layer: integration
-- Blocked-by: extractor
+- Blocked-by: decode adapter for real keyframe snapping. Implemented in `tests/media/extract.spec.ts` with an adapter double that snaps to a half second GOP: five tiles are still produced, every landed time is inside `tolerance.frame_t_seconds`, and the sheet records the times it reached rather than the times it planned
 
 ---
 
@@ -526,28 +533,28 @@ It reaches these cases only through `expected_frames.by_tier` in the manifest, s
 - When: pre-flight runs
 - Then: `rules.min_duration.status === 'skipped'` with `reason === 'rule_not_applicable_to_kind'`, and the rule is **not rendered at all**. "This does not apply" and "we could not tell" read differently to a human, and a grey dash for a photo's duration would be noise
 - Layer: unit
-- Blocked-by: parser
+- Blocked-by: none. Implemented in `tests/media/preflight.spec.ts`
 
 ### QC-MEDIA-111 A non ISO BMFF file returns a reason instead of throwing
 - Given: `photo_still.jpg` handed to the container parser
 - When: the top level walk runs
 - Then: it returns `{ ok: false, reason: 'not_isobmff' }` and does not throw. One unparseable file must not kill a 40 file batch (C5.2.2)
 - Layer: unit
-- Blocked-by: parser
+- Blocked-by: none. Implemented in `tests/media/atoms.spec.ts` with the real committed JPEG
 
 ### QC-MEDIA-112 A still is its own sheet and dedupe still works
 - Given: `photo_still.jpg`
 - When: derivatives are produced
 - Then: one frame, the sheet is the photo itself, a poster exists, and `rules.duplicate.status === 'pass'` rather than `unknown`, because a still genuinely has a frame to hash
 - Layer: integration
-- Blocked-by: extractor, pHash
+- Blocked-by: decode adapter for real pixels. Implemented in `tests/media/extract.spec.ts` with a still decoder double: one frame, no layout, a poster, and `duplicate` passing rather than unknown
 
 ### QC-MEDIA-113 EXIF is honestly absent rather than silently assumed
 - Given: `photo_still.jpg`, which carries no EXIF
 - When: provenance is parsed
 - Then: `rules.capture_date.status === 'unknown'` with `reason === 'no_exif_parser_for_still_images'`. We ship no EXIF parser, and saying so is better than a stills path that pretends to exist
 - Layer: unit
-- Blocked-by: parser
+- Blocked-by: none. Implemented in `tests/media/preflight.spec.ts` and `tests/media/still.spec.ts`
 
 ---
 
@@ -560,77 +567,77 @@ No committed fixture. Each input is synthesised in the test, because committing 
 - When: `ingestFile()` runs
 - Then: it returns `{ ok: false, reason: 'empty_file' }` within one tick, no `<video>` element is created, no timeout is waited on, and the batch continues. `media_state` is not set and no asset row is written
 - Layer: unit
-- Blocked-by: parser
+- Blocked-by: none. Implemented in `tests/media/ingest.spec.ts`, which also asserts no decode adapter was called
 
 ### QC-MEDIA-121 A `.mov` that is not a movie
 - Given: a `File` named `holiday.mov` with MIME `video/quicktime` whose bytes are a PNG
 - When: ingest runs
 - Then: `reason: 'not_isobmff'` from the container walk, and the decode attempt fails with its own enumerated reason (`decode_unsupported`), not with a generic error. The extension and the MIME type are never trusted (C1.2.4), and the two failures are recorded separately because they are two different facts
 - Layer: unit
-- Blocked-by: parser
+- Blocked-by: none. Implemented in `tests/media/ingest.spec.ts`, with one change from the case as written: the file is classified from its bytes, so a PNG named `.mov` becomes `kind: photo` and the video decode is never attempted. Both facts are recorded, `parse_failure: not_isobmff` and a real still result, which is strictly more honest than two failures. Bytes that are neither a movie nor a readable still get `reason: not_media`
 
 ### QC-MEDIA-122 A truncated download
 - Given: `vertical_ok.mp4` sliced to the first 40% of its bytes, so `moov` (which sits at the front) parses but `mdat` is short
 - When: ingest runs
 - Then: the container facts parse and are kept, the decode pass fails with `reason: 'seek_timeout'` or `'zero_duration'` within the wall clock timeout, `rules.duplicate` becomes `unknown` with `no_frames_no_decoder`, and the container derived rules still produce verdicts. Partial evidence is used, not discarded
 - Layer: unit
-- Blocked-by: parser, extractor
+- Blocked-by: none. Implemented in `tests/media/ingest.spec.ts` and `tests/media/atoms.spec.ts`
 
 ### QC-MEDIA-123 A truncated download where `moov` was at the end
 - Given: `hevc.mov` (moov last) sliced to the first 40% of its bytes
 - When: ingest runs
 - Then: the walk reaches the end of the buffer without finding `moov` and returns `reason: 'moov_not_found'`. Every container rule is `unknown` and a container level `fail` is escalated. Nothing is guessed from the filename
 - Layer: unit
-- Blocked-by: parser
+- Blocked-by: none. Implemented in `tests/media/ingest.spec.ts` and `tests/media/atoms.spec.ts`. Every container rule is `container_facts_unavailable` and the row verdict is `unknown`
 
 ### QC-MEDIA-124 No `moov` atom at all
 - Given: a synthesised file with a valid `ftyp` and a single `mdat`, no `moov`
 - When: the walk runs
 - Then: `reason: 'moov_not_found'`, and the pipeline falls back to the `<video>` element for duration and dimensions. Container metadata is an enhancement, never a dependency (C5.2.2)
 - Layer: unit
-- Blocked-by: parser
+- Blocked-by: none. Implemented in `tests/media/ingest.spec.ts`
 
 ### QC-MEDIA-125 Atoms in an unexpected order
 - Given: a synthesised file ordered `mdat`, `free`, `ftyp`, `moov`, with `ftyp` not first
 - When: the walk runs
 - Then: `moov` is still found by walking headers, and the missing leading `ftyp` is recorded as a warning rather than a rejection. Committed coverage of moov-after-mdat already exists on `hevc.mov`, `no_metadata.mp4` and `prores.mov`
 - Layer: unit
-- Blocked-by: parser
+- Blocked-by: none. Implemented in `tests/media/atoms.spec.ts`
 
 ### QC-MEDIA-126 A recursive or absurd atom size
 - Given: a synthesised file whose `moov` declares a size larger than the file, and another whose child atom declares size 0 inside a parent
 - When: the walk runs
 - Then: the walk bails with `reason: 'metadata_unparseable'` rather than looping, having read under 2MB of headers and made under 512 hops. A parser without a hop cap and a byte cap hangs here
 - Layer: unit
-- Blocked-by: parser
+- Blocked-by: none. Implemented in `tests/media/atoms.spec.ts`: the oversized `moov` case, the child smaller than its own header case, and the hop cap
 
 ### QC-MEDIA-127 A 4GB file
 - Given: a synthesised `File` of 4GB (a sparse blob, never materialised in memory)
 - When: ingest runs
 - Then: the header walk reads only `File.slice()` ranges, total bytes read stays under 2MB, `mdat` is never read, and memory usage does not track file size. `maxLocalOriginalBytes` refuses the OPFS write and `media_state === 'bytes_absent'`
 - Layer: integration
-- Blocked-by: parser, byte store
+- Blocked-by: byte store, for the OPFS refusal. The header walk is implemented in `tests/media/ingest.spec.ts` and `tests/media/atoms.spec.ts` with a sparse source
 
 ### QC-MEDIA-128 Variable frame rate
 - Given: a synthesised VFR clip (no committed fixture: every fixture in the set is CFR, which is a recorded gap)
 - When: duration and frame times are derived
 - Then: duration comes from mvhd over timescale and is cross checked against the decode pass, `fps` is recorded as nominal rather than as a guarantee, and frame extraction still lands within `tolerance.frame_t_seconds`
 - Layer: unit
-- Blocked-by: parser, extractor, and a VFR fixture that this generator does not produce
+- Blocked-by: decode adapter, and a VFR fixture this generator does not produce. `nominal_fps` is already recorded as nominal rather than as a guarantee, and the decode measurement already outranks the container declaration for duration
 
 ### QC-MEDIA-129 Nothing waits forever
 - Given: each malformed input above
 - When: ingest runs
 - Then: every media wait has a wall clock timeout (8s for metadata, 5s per seek) and each distinct failure carries its own enumerated reason code from `decode_unsupported`, `zero_duration`, `zero_dimensions`, `blank_frame`, `seek_timeout`, `metadata_timeout`. A single file must never stall a 40 file batch, which is the single most likely way this pipeline dies in the field (C1.2.2)
 - Layer: integration
-- Blocked-by: extractor
+- Blocked-by: decode adapter. The ceilings are enumerated in `DEFAULT_TIMEOUTS`, passed through to every adapter, and asserted as passed through in `tests/media/extract.spec.ts`. Each failure reason is enumerated and asserted. What needs a browser is that a real element honours them
 
 ### QC-MEDIA-130 A blank frame is detected rather than shipped
 - Given: any input whose decode produces a fully black or fully transparent canvas
 - When: a frame is drawn
 - Then: a pixel grid sample finds zero variance or zero alpha, the draw is treated as failed with `reason: 'blank_frame'`, and no sheet is written. A black frame that becomes a contact sheet is worse than no sheet, because it will be tagged
 - Layer: unit
-- Blocked-by: extractor
+- Blocked-by: none. Implemented in `tests/media/phash.spec.ts` (`isBlankFrame`, including that a dark but real frame is kept) and `tests/media/extract.spec.ts` (an all blank rung fails and the chain moves on, and no sheet is encoded when every rung is blank)
 
 ---
 
@@ -641,49 +648,154 @@ No committed fixture. Each input is synthesised in the test, because committing 
 - When: an upload of the original is requested
 - Then: the transition is refused by the state machine, not by a caller side check, and the refusal names the blocking rule
 - Layer: integration
-- Blocked-by: transport
+- Blocked-by: none. Implemented in `tests/media/state.spec.ts`: the gate is evaluated inside `applyTransfer`, and the refusal names the blocking rules
 
 ### QC-MEDIA-141 An unknown does not refuse the transition
 - Given: `prores.mov` with `orientation` and `min_resolution` forced to pass and only the three unknowns remaining
 - When: an upload is requested
 - Then: the transition is allowed. `unknown` never blocks, so a legitimate camera delivery from the VIP location is not refused by a rule about a GPS chip that does not exist
 - Layer: integration
-- Blocked-by: transport
+- Blocked-by: none. Implemented in `tests/media/state.spec.ts`
 
 ### QC-MEDIA-142 `codec_playable: fail` raises upload priority instead of blocking
 - Given: `hevc.mov`
 - When: pre-flight completes
 - Then: the original is queued with `upload_priority: 'required_for_transcode'`, because shipping the original is the only path forward
 - Layer: integration
-- Blocked-by: transport
+- Blocked-by: none. Implemented in `tests/media/state.spec.ts`, including that the transcode route does NOT bypass the blocking gate, so `prores.mov` is still refused
 
 ### QC-MEDIA-143 Review happens on the sheet, and originals move only on demand
 - Given: the engineered set ingested as one delivery
 - When: the manager reviews it
 - Then: total bytes transferred for review is the sum of the sheets and posters (about 170KB per clip), not the originals. An original moves only after a manager action, and the transition is enforced by the state machine
 - Layer: e2e
-- Blocked-by: transport, review UI
+- Blocked-by: review UI for the end to end run. `reviewTransferBytes` counts the derivatives rather than estimating them, asserted in `tests/media/state.spec.ts`
 
 ### QC-MEDIA-144 Memory is released across a batch
 - Given: the full engineered set ingested in one batch on a constrained tier
 - When: extraction completes
 - Then: every `ImageBitmap` is closed, every object URL is revoked, no canvas is retained, and no frame is ever drawn at native resolution. Asserted by counting live object URLs and bitmaps rather than by watching a memory graph
 - Layer: integration
-- Blocked-by: extractor
+- Blocked-by: none for the accounting, decode adapter for real bitmaps. Implemented in `tests/media/extract.spec.ts` and `tests/media/ingest.spec.ts`: the fake adapters count allocations and releases and the counts match across a file, across a failure and fallback, and across the whole set
 
 ### QC-MEDIA-145 A mid batch downgrade is measured, not guessed
 - Given: a batch whose first clip takes longer than the extraction budget (about 2.5s for five frames)
 - When: the batch continues
 - Then: the tier drops by one for the remainder of the batch, the new tier is recorded on the artifacts it shaped, and no upward re-evaluation happens until the next batch boundary. A static probe cannot see thermal throttling, so the downgrade must come from a measurement
 - Layer: integration
-- Blocked-by: extractor, capability probe
+- Blocked-by: decode adapter, for the measurement that triggers it. `downgradePolicy` exists and is asserted in `tests/platform/capability.spec.ts`, and it is downgrade only
 
 ### QC-MEDIA-146 Thermal throttling on a real phone
 - Given: a real phone ingesting 20 clips in one batch
 - When: the device heats up partway through
 - Then: the tier downgrade fires from the measured extraction time, the batch completes, and no clip is dropped. A human needs a real Android or iOS device, needs 20 clips of 10 to 30 seconds, and needs to watch the recorded `policy_tier` per sheet change mid batch
 - Layer: manual-only
-- Blocked-by: no device in this build
+- Blocked-by: no device in this build. Listed in `qa/manual-checklist.md`
+
+---
+
+## Group 13: the derivation layer itself, added when it was built
+
+These cases did not exist when Groups 0 to 12 were written, because they are about code rather than about a fixture.
+Each one guards a rule that would otherwise be a convention rather than an assertion.
+
+### QC-MEDIA-150 The recursive walker descends only its own vocabulary
+- Given: any committed fixture, parsed with `sampleTables: true`
+- When: `facts.atom_paths` is walked
+- Then: every path's parent is in `CONTAINER_ATOMS`, or is `meta` or `stsd`, which are named separately because their children do not start at the body offset. No path descends into a sample entry (`avc1/...`), because a visual sample entry holds a fixed 78 byte body before its extensions and a generic descent would read the wrong four bytes as a box header
+- Layer: unit
+- Blocked-by: none. Implemented in `tests/media/atoms.spec.ts`
+
+### QC-MEDIA-151 Repeated siblings are distinguishable and single children stay readable
+- Given: `vertical_ok.mp4`, which has two `trak` boxes and one `mvhd`
+- When: the atom paths are read
+- Then: `moov/trak[0]` and `moov/trak[1]` are both present and `moov/mvhd[0]` is not. A path is diagnostics, and an unreadable one does not get read
+- Layer: unit
+- Blocked-by: none. Implemented in `tests/media/atoms.spec.ts`
+
+### QC-MEDIA-152 The Apple keys plus ilst form is parsed, and is marked as written blind
+- Given: a hand built `moov/meta` carrying a `keys` table and an `ilst` whose child box type is the 1 based index into it
+- When: provenance is parsed
+- Then: `com.apple.quicktime.creationdate` and `com.apple.quicktime.location.ISO6709` are both read, `captured_at_source === 'apple_quicktime'`, and `gps_atom === 'apple_quicktime_iso6709'`. ffmpeg cannot write this form, so this is the only coverage it has and it has never seen a real iPhone file
+- Layer: unit
+- Blocked-by: none for the synthesised block. Blocked-by a real iPhone clip for the claim that a real file matches this structure, which is the gap already recorded in `docs/media-pipeline.md` 4.2
+
+### QC-MEDIA-153 A HEIC still is refused by name with the remedy attached
+- Given: a file whose `ftyp` brand is `heic`
+- When: it is ingested
+- Then: `format === 'heif'`, `reason === 'no_heif_parser'`, no dimensions are invented from an `ispe` box we do not read, and the message names the Most Compatible camera setting. iPhone stills default to HEIC, Safari renders them and Chromium on Windows does not, so the same instruction fixes this and the HEVC video hole
+- Layer: unit
+- Blocked-by: none. Implemented in `tests/media/still.spec.ts`
+
+### QC-MEDIA-154 The placeholder is a descriptor and never a stored artefact
+- Given: `hevc.mov` on the reference runtime
+- When: extraction returns
+- Then: `sheet === null`, `poster === null`, `derivative_state === 'none'`, and `placeholder` carries a `kind`, a `reason`, a headline, a remedy and the facts we do have, with no blob anywhere in it. A grey tile stored as a contact sheet would eventually be described by a model
+- Layer: unit
+- Blocked-by: none. Implemented in `tests/media/extract.spec.ts` and `tests/media/state.spec.ts`
+
+### QC-MEDIA-155 The engine's reason codes are a superset of the manifest's
+- Given: `manifest.context.reason_codes` and `PREFLIGHT_REASON_CODES`
+- When: the two are compared
+- Then: every manifest code exists in the engine. The engine has eight more, for inputs no committed file can be, each listed in `docs/media-pipeline.md` 8.3 with a finding that they belong in the committed enumeration
+- Layer: unit
+- Blocked-by: none. Implemented in `tests/media/preflight.spec.ts`
+
+### QC-MEDIA-156 A runtime that answers "maybe" produces unknown, never a pass
+- Given: any decodable fixture with the platform's codec answer forced to `unknown`
+- When: pre-flight runs
+- Then: `codec_playable.status === 'unknown'` with `reason === 'codec_support_unknown_in_this_runtime'`, and it does not block. `canPlayType` returning `maybe` genuinely means maybe, and promoting it is how a black frame reaches a manager
+- Layer: unit
+- Blocked-by: none. Implemented in `tests/media/preflight.spec.ts`
+
+### QC-MEDIA-157 A rule with nothing to compare against is skipped, not passed
+- Given: a delivery with no visit date, and a branch row with no coordinates
+- When: pre-flight runs
+- Then: `capture_date` is `skipped` with `no_visit_date_in_brief`, and `near_branch` is `skipped` with `no_branch_coordinates`. Neither is a pass, because nothing was checked, and neither is a failure, because the file did nothing wrong
+- Layer: unit
+- Blocked-by: none. Implemented in `tests/media/preflight.spec.ts`
+
+### QC-MEDIA-158 near_branch can fail, and still does not block
+- Given: `vertical_ok.mp4` evaluated against a branch 8km away, which no committed fixture covers
+- When: pre-flight runs
+- Then: `status === 'fail'` with `gps_outside_branch_radius`, `blocking === false`, `never_blocking === true`, and `rollup.blocking_fail === 0`. Without this case the radius is only ever tested from the passing side and an accidentally infinite radius passes every test
+- Layer: unit
+- Blocked-by: none. Implemented in `tests/media/preflight.spec.ts`
+
+### QC-MEDIA-159 The row verdict matches what the e2e harness computes
+- Given: every fixture's `expected_preflight.rollup`
+- When: `verdictFor()` runs on the engine's own rollup
+- Then: it agrees with `blocking_fail > 0 ? 'blocked' : fail > 0 ? 'advisory' : 'ok'` on all sixteen, so the unit layer and `e2e/creator.e2e.mjs` cannot disagree about what a row says. An unknown neither blocks nor downgrades, or the grey dash becomes a soft rejection
+- Layer: unit
+- Blocked-by: none. Implemented in `tests/media/preflight.spec.ts`
+
+### QC-MEDIA-160 The stored pre-flight row keeps only the four declared fields
+- Given: any pre-flight result
+- When: it is projected with `toStoredPreflight()`
+- Then: each rule holds exactly `status`, `evidence`, `reason`, `blocking` and `value`, and `evidence: 'none'` becomes null. A rule gaining a UI field cannot silently change the database column
+- Layer: unit
+- Blocked-by: none. Implemented in `tests/media/preflight.spec.ts`
+
+### QC-MEDIA-161 The two capture source vocabularies meet in exactly one place
+- Given: `asset.captured_at_source` in the schema, which calls the `©day` case `udta`, and the manifest, which calls it `udta_day`
+- When: `toAssetCapturedAtSource()` maps between them
+- Then: `udta_day` becomes `udta` and every other value passes through. Both names are already committed in different files, so this is a mapping rather than a rename, and it is recorded as a finding in `docs/media-pipeline.md` 8.6
+- Layer: unit
+- Blocked-by: none. Implemented in `tests/media/preflight.spec.ts`
+
+### QC-MEDIA-162 The same inputs produce the same verdict, twice
+- Given: the same fixture bytes, the same context and the same priors
+- When: pre-flight is evaluated twice
+- Then: the serialised results are identical. The engine takes no clock and no randomness, and a verdict shown to a creator must not depend on when it ran
+- Layer: unit
+- Blocked-by: none. Implemented in `tests/media/preflight.spec.ts`
+
+### QC-MEDIA-163 A file the container walk refuses is classified from its bytes
+- Given: a PNG named `holiday.mov` with MIME `video/quicktime`, and separately 64 bytes of noise named `mystery.mov`
+- When: ingest runs
+- Then: the PNG becomes `kind: 'photo'` with real dimensions from `IHDR`, `parse_failure: 'not_isobmff'` is recorded as a separate true fact, and no video decode is attempted. The noise gets `reason: 'not_media'` and the batch continues. The extension and the MIME type are never consulted
+- Layer: unit
+- Blocked-by: none. Implemented in `tests/media/ingest.spec.ts`. This supersedes the second half of QC-MEDIA-121
 
 ---
 
@@ -700,3 +812,12 @@ Each is a named gap in `docs/media-pipeline.md`, not a silence.
 | non square pixels | every fixture is pinned to SAR 1:1 so a failing orientation test means the matrix was misread rather than the pixel aspect ratio | a dedicated anamorphic fixture, if anamorphic footage is ever in scope |
 | a genuinely 4GB file and the byte budget | cannot be committed | QC-MEDIA-127 and QC-MEDIA-085 with synthesised `File` objects |
 | 180 and 270 degree rotation | only 0 and 90 are in the set | two more remux variants, cheap to add if the reduction table is ever wrong |
+
+### Gaps added by the derivation layer
+
+| gap | why | what would close it |
+|---|---|---|
+| no contact sheet has been produced from real pixels by this code | the `<video>` plus canvas and WebCodecs adapters are not written, and jsdom can run neither. The chain around them is built and asserted against fakes | writing the two adapters and running the creator e2e run in a real browser. `docs/media-pipeline.md` 7.6 |
+| the real perceptual match between `vertical_ok.mp4` and `duplicate_of_vertical_ok.mp4` | needs decoded frames. The rule, the tolerance and the comparison are asserted against hash doubles | QC-MEDIA-070 in a browser, which is also what lets `expected_phash_prefix` stop being null |
+| whether a real engine reports the coded or the display size for a rotated clip | `reconcileRotation` handles both and records which happened, and only a browser can say which one occurs where | QC-MEDIA-034, and `platform-matrix` owns the per runtime answer |
+| the visit window is interpreted in UTC rather than in the branch's timezone | the branch timezone is not available to the pre-flight layer, and the consequence is bounded: 23:00 local in San Jose is 06:00Z, well inside a 24 hour window | passing the branch timezone into the context and using `Intl.DateTimeFormat` with a `timeZone`, if a tighter window is ever wanted |

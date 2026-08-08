@@ -158,7 +158,8 @@ export class LiveAiProvider implements AiProvider {
   private readonly clock: Clock
   private readonly enabled: boolean
   private readonly endpoint: string
-  private readonly fetchImpl: typeof fetch
+  /** Undefined in a runtime with no fetch, which is a `not_configured` rather than a crash. */
+  private readonly fetchImpl: typeof fetch | undefined
   private readonly timeoutMs: number
   private readonly credential: () => string | null
   private readonly sheetCeiling: number
@@ -236,7 +237,9 @@ export class LiveAiProvider implements AiProvider {
         { meta: { kind, provider: 'live', status: 'error', error_code: 'not_configured' } },
       )
     }
-    if (!this.fetchImpl) {
+    // Read into a local so the narrowing survives into the closure below.
+    const fetchImpl = this.fetchImpl
+    if (!fetchImpl) {
       throw new AiError('not_configured', 'No fetch implementation is available in this runtime.')
     }
 
@@ -260,34 +263,37 @@ export class LiveAiProvider implements AiProvider {
     options.signal?.addEventListener('abort', onCallerAbort, { once: true })
 
     const startedAt = this.clock.now()
-    let response: Response
-    try {
-      response = await this.fetchImpl(this.endpoint, {
-        method: 'POST',
-        headers: this.headers(),
-        // No prompt, no model, no max_tokens, no filename. The function owns every
-        // model parameter and renders the prompt from its own copy of the registry.
-        body: JSON.stringify({ capability: kind, prompt_version: prompt.prompt_version, input }),
-        signal: controller.signal,
-      })
-    } catch (cause) {
-      clearTimeout(timer)
-      options.signal?.removeEventListener('abort', onCallerAbort)
-      if (options.signal?.aborted) {
-        throw new AiError('cancelled', 'The caller aborted this request.', { cause })
+    const send = async (): Promise<Response> => {
+      try {
+        return await fetchImpl(this.endpoint, {
+          method: 'POST',
+          headers: this.headers(),
+          // No prompt, no model, no max_tokens, no filename. The function owns every
+          // model parameter and renders the prompt from its own copy of the registry.
+          body: JSON.stringify({ capability: kind, prompt_version: prompt.prompt_version, input }),
+          signal: controller.signal,
+        })
+      } catch (cause) {
+        // A caller abort and our own timeout both arrive here as the same rejection,
+        // and they are different things to tell a human, so they are separated by
+        // which signal fired rather than by the error's text.
+        if (options.signal?.aborted) {
+          throw new AiError('cancelled', 'The caller aborted this request.', { cause })
+        }
+        throw new AiError(
+          controller.signal.aborted ? 'timeout' : 'network',
+          controller.signal.aborted
+            ? `No response inside ${this.timeoutMs}ms.`
+            : 'The request never reached the function. This includes being offline.',
+          { cause },
+        )
+      } finally {
+        clearTimeout(timer)
+        options.signal?.removeEventListener('abort', onCallerAbort)
       }
-      throw new AiError(
-        controller.signal.aborted ? 'timeout' : 'network',
-        controller.signal.aborted
-          ? `No response inside ${this.timeoutMs}ms.`
-          : 'The request never reached the function. This includes being offline.',
-        { cause },
-      )
-    } finally {
-      clearTimeout(timer)
-      options.signal?.removeEventListener('abort', onCallerAbort)
     }
 
+    const response = await send()
     const latency_ms = this.clock.now() - startedAt
 
     if (!response.ok) {
