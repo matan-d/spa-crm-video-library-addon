@@ -165,6 +165,27 @@ function makeJunkFolder() {
   return { dir, files: files.map((f) => join(dir, f)) }
 }
 
+
+/**
+ * Waits for a file row to reach a settled state.
+ *
+ * A row appears as soon as a file is picked and only gets a verdict once the
+ * bytes have been parsed and, where possible, decoded. Reading before that is
+ * the one flake this run has produced twice, and it passes on a fast desktop
+ * profile while failing on the throttled mobile one, which is the worst possible
+ * combination to leave in place.
+ */
+async function waitForSettledRow(page, rowSelector, timeout = 120_000) {
+  await page.waitForFunction(
+    ([selector]) => {
+      const state = document.querySelector(selector)?.getAttribute('data-upload-state')
+      return state === 'stored' || state === 'blocked' || state === 'failed'
+    },
+    [rowSelector],
+    { timeout },
+  )
+}
+
 async function readRuleStatuses(page, fileName) {
   return page.evaluate(
     ([rowSel, ruleSel, ruleAttr, statusAttr]) => {
@@ -242,19 +263,7 @@ async function consentAndIngest(browser, deviceProfile) {
       const rowSelector = sel(UPLOAD_FILE_ROW, { [ATTR_FILE_NAME]: fileName })
       assert(await exists(page, rowSelector, 30_000), `${deviceProfile.name}: ${id}: a row appeared for ${fileName}`)
 
-      // Pre-flight parses bytes and may decode frames, so a row appears before
-      // it has a verdict. Waiting on the settled state rather than on a sleep
-      // keeps the run correct on a slow machine and on the throttled mobile
-      // profile, where reading too early is what made these assertions flake.
-      await page.waitForFunction(
-        ([selector]) => {
-          const row = document.querySelector(selector)
-          const state = row?.getAttribute('data-upload-state')
-          return state === 'stored' || state === 'blocked' || state === 'failed'
-        },
-        [rowSelector],
-        { timeout: 120_000 },
-      )
+      await waitForSettledRow(page, rowSelector)
 
       const expected = entry.expected_preflight
       const statuses = await readRuleStatuses(page, fileName)
@@ -438,11 +447,15 @@ async function junkFolderIsFiltered(browser) {
         `desktop: ${name} produced no file row`,
       )
     }
+    const realRow = sel(UPLOAD_FILE_ROW, { [ATTR_FILE_NAME]: 'vertical_ok.mp4' })
     assertEqual(
-      await page.locator(sel(UPLOAD_FILE_ROW, { [ATTR_FILE_NAME]: 'vertical_ok.mp4' })).count(),
+      await page.locator(realRow).count(),
       1,
       'desktop: the one real clip in the folder still ingested',
     )
+    // Let it settle before the context closes, so the run never tears down mid
+    // decode and reports the abort as a failure of the next spec.
+    await waitForSettledRow(page, realRow)
   } finally {
     await context.close()
   }
@@ -458,6 +471,7 @@ async function blockedClipExplainsItself(browser) {
     await page.setInputFiles(testid(UPLOAD_FILE_INPUT), [fixturePath('horizontal_fail')])
     const row = sel(UPLOAD_FILE_ROW, { [ATTR_FILE_NAME]: 'horizontal_fail.mp4' })
     assert(await exists(page, row, 30_000), 'mobile: the blocked clip is still listed rather than dropped')
+    await waitForSettledRow(page, row)
     assertEqual(
       await page.locator(`${row} ${testid(UPLOAD_FILE_VERDICT)}`).getAttribute(ATTR_VERDICT),
       'blocked',

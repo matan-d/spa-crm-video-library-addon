@@ -12,8 +12,9 @@
 //   the row refreshed, never silently applied to data the reviewer did not see.
 import { computed, onBeforeUnmount, onMounted, ref, shallowRef } from 'vue'
 import { useRoute } from 'vue-router'
-import type { Asset, BriefItem, Delivery } from '@/data/types'
+import type { Asset, Branch, BriefItem, Delivery } from '@/data/types'
 import { useAppStore } from '../store'
+import { tagAsset, type TaggingOutcome } from '../manager/tagging'
 
 const store = useAppStore()
 const route = useRoute()
@@ -38,6 +39,10 @@ const staleRefusal = ref<string | null>(null)
 const pendingAdditions = ref<string[]>([])
 const publishConfirmation = ref<{ assetIds: string[] } | null>(null)
 const loaded = ref(false)
+const branch = shallowRef<Branch | null>(null)
+
+/** Per asset: the last tagging attempt, so a refusal is visible not silent. */
+const tagging = ref<Map<string, TaggingOutcome | 'running'>>(new Map())
 
 /** The brief item the reviewer says the current clip covers. */
 const confirmItemId = ref<string | 'none'>('none')
@@ -55,6 +60,8 @@ onMounted(async () => {
     where: (row) => row.delivery_id === deliveryId,
   })
   assetsById.value = new Map(assets.map((asset) => [asset.id, asset]))
+  const branchId = assets[0]?.branch_id
+  if (branchId) branch.value = (await repo.get<Branch>('branch', branchId)) ?? null
 
   const briefs = await repo.list<{ id: string; collab_id: string; status: string }>('brief', {
     where: (row) => row.collab_id === delivery.value!.collab_id,
@@ -100,6 +107,31 @@ const current = computed<Asset | undefined>(() => {
 })
 
 const decidedCount = computed(() => queue.value.filter((row) => row.decision != null).length)
+
+/**
+ * The refusal or failure text for the clip under the cursor.
+ *
+ * A refusal is shown, never swallowed: "we did not analyse this, and here is
+ * why" is the sentence that keeps a manager from assuming an empty AI band means
+ * the model found nothing interesting.
+ */
+const taggingRefusal = computed<string | null>(() => {
+  const asset = current.value
+  if (!asset) return null
+  const outcome = tagging.value.get(asset.id)
+  if (!outcome || outcome === 'running') return null
+  if (outcome.status === 'refused') return outcome.reason
+  if (outcome.status === 'failed') return `The analysis did not complete. ${outcome.reason}`
+  return null
+})
+
+const taggingRefusalReason = computed<string | undefined>(() => {
+  const asset = current.value
+  if (!asset) return undefined
+  const outcome = tagging.value.get(asset.id)
+  if (!outcome || outcome === 'running') return undefined
+  return outcome.status === 'tagged' ? undefined : outcome.status
+})
 
 function syncConfirmDefault() {
   // The AI's proposed match is the default the human corrects, shown amber in
@@ -225,6 +257,37 @@ async function undo() {
     row.rev = updated.rev ?? 0
   }
   syncConfirmDefault()
+}
+
+/**
+ * Runs the vision tagger on the clip under the cursor.
+ *
+ * This is the only place the running app calls a model, and in this build the
+ * provider is always the deterministic mock (U7). The button is deliberately an
+ * explicit action rather than something that happens on ingest: a manager
+ * choosing to ask is what makes the amber output theirs to accept or correct,
+ * and it keeps the "no model has spoken yet" state real and visible.
+ */
+async function runTagger() {
+  const repo = store.repo
+  const ctx = store.ctx
+  const asset = current.value
+  if (!repo || !ctx || !asset) return
+
+  tagging.value = new Map(tagging.value).set(asset.id, 'running')
+  const outcome = await tagAsset({ repo, port: ctx.platform.port }, asset, branch.value)
+  tagging.value = new Map(tagging.value).set(asset.id, outcome)
+
+  // Re-read the row so the projected AI fields and the provenance the badge
+  // reads are the stored ones rather than anything this component assembled.
+  const refreshed = await repo.get<Asset>('asset', asset.id)
+  if (refreshed) {
+    assetsById.value.set(refreshed.id, refreshed)
+    assetsById.value = new Map(assetsById.value)
+    const row = queue.value[cursor.value]
+    if (row) row.rev = refreshed.rev ?? row.rev
+    syncConfirmDefault()
+  }
 }
 
 // ---- reject dialog --------------------------------------------------------
@@ -417,13 +480,56 @@ function onKey(event: KeyboardEvent) {
         <h2 class="filename">
           {{ current.filename }}
         </h2>
-        <p
+        <!-- The AI band. Amber throughout, because a model produced it, and it
+             says which provider did so it cannot imply a live call. -->
+        <div
           v-if="current.ai_description"
-          class="ai-line"
+          class="ai-block"
         >
-          <span class="mono ai-mark">model</span>
-          {{ current.ai_description }}
-        </p>
+          <p class="ai-line">
+            <span class="mono ai-mark">model</span>
+            <span
+              v-if="current.ai_provenance === 'mock'"
+              data-testid="simulated-badge"
+              class="mono ai-mark"
+              :data-provenance="current.ai_provenance"
+            >simulated</span>
+            {{ current.ai_description }}
+          </p>
+          <p class="ai-meta mono">
+            {{ current.ai_shot_type ?? 'no shot type' }}
+            &middot; {{ current.ai_room ?? 'no room' }}
+            <template v-if="current.ai_confidence != null">
+              &middot; confidence {{ current.ai_confidence.toFixed(2) }}
+            </template>
+          </p>
+        </div>
+
+        <div
+          v-else
+          class="ai-absent"
+        >
+          <p class="ai-absent-line">
+            No model has looked at this clip yet.
+          </p>
+          <button
+            type="button"
+            data-testid="run-vision-tagger"
+            class="small ai-run"
+            :disabled="tagging.get(current.id) === 'running'"
+            @click="runTagger"
+          >
+            {{ tagging.get(current.id) === 'running' ? 'Analysing the contact sheet...' : 'Analyse the contact sheet' }}
+          </button>
+          <p
+            v-if="taggingRefusal"
+            data-testid="tagger-refusal"
+            class="ai-refusal"
+            :data-reason="taggingRefusalReason"
+          >
+            {{ taggingRefusal }}
+          </p>
+        </div>
 
         <label class="confirm">
           <span>Covers brief item</span>
@@ -712,6 +818,44 @@ h1 {
   margin: 0;
   color: var(--ai);
   font-size: 0.85rem;
+}
+
+.ai-block {
+  display: grid;
+  gap: 2px;
+}
+
+.ai-meta {
+  margin: 0;
+  font-size: 0.7rem;
+  color: var(--ai);
+}
+
+.ai-absent {
+  display: grid;
+  gap: var(--space-2);
+  justify-items: start;
+  border: 1px dashed var(--line);
+  border-radius: var(--radius);
+  padding: var(--space-2) var(--space-3);
+}
+
+.ai-absent-line {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.ai-run {
+  border-color: var(--ai-line);
+  background: var(--ai-soft);
+  color: var(--ai);
+}
+
+.ai-refusal {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--muted);
 }
 
 .ai-mark {
