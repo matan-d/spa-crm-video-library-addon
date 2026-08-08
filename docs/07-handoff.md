@@ -2,8 +2,8 @@
 
 Read `CLAUDE.md` first. This file is the ordered task list, so the sequence cannot be mistaken.
 
-Last pushed commit: the app shell (see git log).
-Gates at that commit: 285 tests passing, clean typecheck, clean lint, 16 fixtures verified, boot e2e 44 passed with 0 pending.
+Last pushed commit: both specialist tracks complete, the platform matrix, and the editor and manager e2e runs (see git log).
+Gates at that commit: 740 tests passing twice, clean typecheck, clean lint, 16 fixtures verified, e2e 54 plus 14 plus 44 with zero pending.
 
 ## Resume in one line
 
@@ -23,15 +23,12 @@ Gates at that commit: 285 tests passing, clean typecheck, clean lint, 16 fixture
 | Seed data | The demo dataset, generated at runtime, deterministic, with 10 deliberate imperfections each covered by a test | `src/data/{seed,hydrate}.ts` |
 | App shell | Bootstrap, Pinia store, router, role switcher, creator token resolution, and the first honest library grid | `src/app/`, `src/App.vue`. The load-bearing test: a role switch remounts the view tree (element identity changes), and the token route can only construct a `creatorTokenSession`. Boot e2e: 44 passed, 0 pending |
 
-## Possibly in flight, check before starting
+## The specialist tracks, now complete
 
-Three specialist agents were working when this was written. Their output may or may not be in the commit you are reading. **Check `git log` and the tree before assuming any of it is missing or present:**
-
-- `src/ai/**`: provider interface, the seven JSON schemas, the shared validator, the deterministic mock, the `replay` reader, the unexercised `live` adapter, and the `ai_run` writer whose enqueue guard refuses vision tagging without a `sheet_key`.
-- `src/media/**`: the MP4 and MOV atom parser, the extraction capability chain, and the four-state pre-flight rule engine.
-- `e2e/**`: the browser harness on the 432 Player convention, plus `e2e/_support/testids.mjs`, which is the selector contract the UI must implement.
-
-If any of those directories is missing, that track was not finished and is yours to complete. The briefs are in this file's task list below.
+- `src/ai/**` is finished: fixtures authored against the committed sheets (sha256 asserted), the deterministic mock, replay, the disabled live adapter, and the writer whose enqueue guard refuses vision without a sheet. See D16 to D19 and `qa/cases/ai.md`.
+- `src/media/**` is finished except one named seam: the two DOM-touching decode adapters (D24). All seven pre-flight rules are asserted per fixture against `expected_preflight`. See `docs/media-pipeline.md` and `qa/cases/media.md`.
+- `docs/platform-matrix.md` exists with a source and date per cell; its top findings P-1, P-2 and P-11 are fixed in the probe and the platform assembly.
+- `e2e/`: boot, editor and manager runs are green at both viewports. The creator run stays PENDING until the upload page lands; the loop run is not written yet.
 
 ## The task list, in dependency order
 
@@ -42,35 +39,38 @@ The remount-on-role-switch rule is enforced by keying the router view on `store.
 The seeded token hashes are now the real sha256 of `DEMO_CREATOR_TOKEN` and `DEMO_EXPIRED_TOKEN` (see D13), so `/#/c/demo-creator-token` resolves through the production lookup.
 Staff roles land on `/library` until the triage inbox is real (D15).
 
-### 2. NEXT: the editor surface, the most demoable one
+### 2. DONE: the editor surface
 
-Library grid reading published assets through the repository, with real posters from `/seed/posters/`. One search box as the primary interaction, facets as results-derived chips with counts (never a taxonomy tree), a clip sheet, bins, and the zero-result ladder ending in "add to next brief" which writes a `gap` row.
+Search with visible term mapping (`src/app/editor/search.ts`), facet chips derived from results, the zero-result ladder writing gap rows, the bin with `rank_at_event`, and the clip sheet with the amber and green tag split.
+An unmapped term never filters: a vocabulary gap must not masquerade as a content gap.
 
-Desktop is a three pane layout, mobile is search plus grid plus sheet. Use the testids from `e2e/_support/testids.mjs`.
+### 3. DONE: the manager surface
 
-### 3. The manager surface
+Triage inbox bucketed by actionability, the three-bucket diff whose provisional AI matches stop counting the moment a human decides (the seeded over-claim renders struck through), the frozen keyboard review queue with stale-row refusal and append-only additions, publish as an explicit step, and the read-only kanban.
+`src/app/manager/{triage,health}.ts` hold the pure logic.
 
-Triage inbox FIRST, then the kanban. The inbox is the real product and the kanban demos well, so building the kanban first is optimising for the demo over the user. Then the review queue: a frozen ordered list, keyboard driven on desktop, stale-row refusal, and `review_action` as the log that `asset.review_status` projects from.
+### 4. PARTIAL: the creator surface
 
-The promise-versus-delivered diff must show the extras bucket, and it must show the AI over-claim the seed contains: the model matches a clip to an eighth brief item nothing covers, and the human correction reveals the true seven of ten.
+Invite page and the consent flow are done (immutable, versioned, snapshotted; see the creator spec).
+NEXT: the upload page running `src/media` ingest and pre-flight locally with the per-file four-valued verdict, the live checklist against the locked brief, resume on reopen, and the visibly degraded HEVC path.
+The media pipeline it needs is built; only the DOM decode adapters are absent (D24), so sheets do not derive in-browser yet and the upload page must degrade exactly like the HEVC case until they land.
 
-### 4. The creator surface
+### 5. DONE where it matters: the loop, E1 to E5
 
-Invite page with the brief as a checklist and consent acceptance (immutable, versioned, terms snapshotted). Upload page running local pre-flight before anything transfers, with a per-file verdict in plain language, and the live checklist against the locked brief. The HEVC case must degrade visibly: no sheet, no AI, approval disabled with a stated reason.
+`src/app/loop/loop.ts`: the scan (zero-result clusters plus coverage targets, dismissals by signature, vocabulary gaps to insights), gap-fed brief generation writing `origin_gap_id`, the lock, invite token minting, and close detection with before and after counts.
+The flagship test replays the chain from ids alone.
 
-### 5. Search: D1 to D4
+### 6. Search D1 to D4
 
-Index writers and the `reindex_queue` with an incremental worker, then retrieval and ranking, then the AI query parser producing a filter and ranking spec. The model's job is term-to-taxonomy mapping shown as removable chips (`golden hour` to `warm_light`), with unmapped terms surfaced explicitly. An unmapped term is a vocabulary gap and must never be counted as a content gap.
-
-### 6. The loop: E1 to E5
-
-Gap scan from real signals, gap-fed brief generation writing `origin_gap_id`, brief lock, the delivery diff, and gap close detection with a before-and-after count. **Do not leave this to the end by accident.** It looks like a reporting feature and it is the product thesis. If it slips, the submission is a pipeline with AI in it rather than a closed loop.
+Still to build: the persistent index (`search_token`, `asset_facet`, `reindex_queue` with the incremental worker) and the AI query parser wired through `src/ai` search_parse.
+The deterministic in-memory search in `src/app/editor/search.ts` is the floor it replaces; keep its two rules.
 
 ### 7. The rest
 
-Loopback sync adapter and sync panel, then the env-gated Supabase adapter. Export and import snapshot. Data Health panel counting `ai_run` by provider, which is the direct answer to "is any of this real". Storage panel. Capacitor config and platform notes, no device build. Then the two page thinking doc and a demo script.
-
-Also outstanding: `docs/platform-matrix.md` was commissioned and never delivered, so the platform capability matrix with a source and date per cell still needs writing by `platform-matrix`.
+Data health and storage panels are done, with snapshot export and import.
+Still to build: the loopback sync adapter and sync panel, the env-gated Supabase adapter, Capacitor config and platform notes, the two page thinking doc, the demo script, and the DOM decode adapters when a real browser context exists to test them in.
+Also: the creator e2e run un-pends with the upload page, and the loop e2e run is unwritten.
+Findings filed by the tracks and not yet actioned: the seed vocabulary drift (manifest meta terms versus `src/ai/taxonomy.ts`), `ai_run.input_ref` missing from the local schema, seeded AI tags carrying `ai_run_id: null`, and the eligibility gate before vetting (QC-AI-061).
 
 ## Things that will bite, recorded so they only bite once
 
