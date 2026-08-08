@@ -32,6 +32,8 @@
  * `platform-matrix`, not here.
  */
 
+import { readFileSync } from 'node:fs'
+
 /** Bumped whenever a recipe changes, because every committed hash depends on it. */
 export const GENERATOR_VERSION = 1
 
@@ -160,18 +162,50 @@ const TOLERANCE = {
 }
 
 /**
- * Contact sheet frame count, from E.4a:
- *   frameCount = clamp(round(duration_s / 4), 3, tierMax)
- * with tierMax 3 for `constrained` and 5 for `standard` and `ample`.
+ * Contact sheet frame count.
  *
- * FINDING, recorded here because it is a spec contradiction rather than a bug:
- * under that formula every clip shorter than about 14s gets 3 frames at every
- * tier, so C2.D's worked example of 5 frames for a 6s clip cannot both be right.
- * `long_ok.mp4` exists so the 1x5 layout and the tier difference have a fixture
- * at all. See docs/media-pipeline.md.
+ * THE SINGLE SOURCE OF TRUTH IS `frameCountFor(durationSeconds, tier)` IN
+ * `src/platform/capability.ts`, and the decision behind it is docs/06-decisions.md
+ * D2: capability sets the ceiling, duration sets the count within it. A weak phone
+ * does exactly three frames whatever the clip length, because a long clip does not
+ * make a phone stronger.
+ *
+ *   frameCount = clamp(3 + round(duration_s / 3), tier.frameFloor, tier.frameCeiling)
+ *
+ * This is a restatement, not a second decision. It exists because this generator is
+ * plain Node ESM on Node 20, which cannot import a TypeScript module, so the numbers
+ * cannot be read out of `capability.ts` at build time. Two copies of a formula that
+ * can drift is the exact failure this comment is trying to prevent, so
+ * `assertFrameFormulaMatchesSource()` below reads `capability.ts` as text and fails
+ * the build if the bounds or the duration term ever stop matching. That turns silent
+ * drift into a named build failure, which is the only version of duplication worth
+ * shipping.
  */
-export function frameCountFor(durationSeconds, tierMax) {
-  return Math.min(Math.max(Math.round(durationSeconds / 4), 3), tierMax)
+export const FRAME_COUNT = {
+  formula: 'clamp(3 + round(duration_s / 3), tier.frameFloor, tier.frameCeiling)',
+  source: 'src/platform/capability.ts frameCountFor(durationSeconds, tier)',
+  decision: 'docs/06-decisions.md D2',
+  tiers: {
+    ample: { floor: 5, ceiling: 7 },
+    standard: { floor: 4, ceiling: 6 },
+    constrained: { floor: 3, ceiling: 3 },
+  },
+}
+
+/** Tier order used wherever a per tier plan is written, weakest first. */
+export const TIER_NAMES = ['constrained', 'standard', 'ample']
+
+export function frameCountFor(durationSeconds, tier) {
+  const bounds = FRAME_COUNT.tiers[tier]
+  if (!bounds) throw new Error(`unknown ingest tier: ${tier}`)
+  // A duration we could not read still gets a sheet, at the tier floor.
+  if (!Number.isFinite(durationSeconds) || durationSeconds <= 0) return bounds.floor
+  return Math.min(bounds.ceiling, Math.max(bounds.floor, 3 + Math.round(durationSeconds / 3)))
+}
+
+/** Mirrors `layoutFor()` in capability.ts. The enum is `1x3` through `1x7`. */
+export function layoutFor(frameCount) {
+  return `1x${Math.min(7, Math.max(3, frameCount))}`
 }
 
 /** Evenly spaced, skipping the first and last moments where a clip has least to show. */
@@ -179,6 +213,59 @@ export function frameTimesFor(durationSeconds, count) {
   return Array.from({ length: count }, (_, i) =>
     Number((((i + 1) * durationSeconds) / (count + 1)).toFixed(3)),
   )
+}
+
+export const FRAME_TIME_SPACING =
+  'evenly spaced, skipping the first and last moments: t_i = (i + 1) * duration_s / (count + 1)'
+
+const CAPABILITY_SOURCE = new URL('../src/platform/capability.ts', import.meta.url)
+
+/**
+ * Cross checks the restatement above against the real source of truth.
+ *
+ * Deliberately narrow: it checks the three floor and ceiling pairs and the duration
+ * term, which are the only things a drift would change silently. It reads the file
+ * as text rather than importing it, because Node 20 cannot import TypeScript, and it
+ * throws rather than warning, because a manifest built from a stale formula is a
+ * manifest that quietly redefines what every extraction test means.
+ */
+export function assertFrameFormulaMatchesSource() {
+  let source
+  try {
+    source = readFileSync(CAPABILITY_SOURCE, 'utf8')
+  } catch (error) {
+    throw new Error(
+      `cannot read src/platform/capability.ts, which owns the frame count formula this generator restates: ${error.message}`,
+    )
+  }
+
+  const problems = []
+  if (!/3\s*\+\s*Math\.round\(\s*durationSeconds\s*\/\s*3\s*\)/.test(source)) {
+    problems.push(
+      'the duration term `3 + Math.round(durationSeconds / 3)` is no longer in capability.ts, so the formula changed',
+    )
+  }
+  for (const [tier, bounds] of Object.entries(FRAME_COUNT.tiers)) {
+    const found = new RegExp(`${tier}:\\s*\\{[^}]*?frameFloor:\\s*(\\d+),[^}]*?frameCeiling:\\s*(\\d+),`).exec(source)
+    if (!found) {
+      problems.push(`no frameFloor and frameCeiling pair found for the ${tier} tier in capability.ts`)
+      continue
+    }
+    const floor = Number(found[1])
+    const ceiling = Number(found[2])
+    if (floor !== bounds.floor || ceiling !== bounds.ceiling) {
+      problems.push(
+        `${tier}: this file says ${bounds.floor} to ${bounds.ceiling}, capability.ts says ${floor} to ${ceiling}`,
+      )
+    }
+  }
+
+  if (problems.length > 0) {
+    throw new Error(
+      `the frame count formula restated in scripts/fixtures.config.mjs has drifted from src/platform/capability.ts:\n  - ${problems.join('\n  - ')}\n` +
+        'capability.ts is the source of truth. Update this file to match it, then re-run `npm run fixtures` so the manifest agrees with the code.',
+    )
+  }
 }
 
 /**
@@ -531,7 +618,7 @@ export const FIXTURES = [
     group: 'engineered',
     added_beyond_c2d: true,
     proves:
-      'The only fixture long enough for the frame count formula to produce 5 frames, so the 1x5 sheet layout and the constrained versus standard tier difference have a fixture at all. Under E.4a every clip below about 14s gets 3 frames at every tier, which means the rest of this set cannot exercise the layout the contact sheet spec is written around.',
+      'The tier CEILING case, which no shorter fixture reaches. At 20s the duration term saturates every tier, so this is the only fixture producing 7 frames at `ample` and 6 at `standard` while a phone still does exactly 3, which is the property that makes the ceiling real rather than theoretical (D2). The 6s fixtures already cover the 5 frame layout, so this one exists for the top of the range and for the widest tier spread in the set.',
     recipe: { width: 1080, height: 1920, duration_s: 20, crf: 32 },
     rules: allPassRules(),
   },

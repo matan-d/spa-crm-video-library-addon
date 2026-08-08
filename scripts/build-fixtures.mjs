@@ -50,8 +50,13 @@ import {
   GPS_NEAR_BRANCH_EXPECT_M,
   GPS_NEAR_BRANCH_ALT,
   GPS_NEAR_BRANCH_ALT_EXPECT_M,
+  FRAME_COUNT,
+  FRAME_TIME_SPACING,
+  TIER_NAMES,
+  assertFrameFormulaMatchesSource,
   frameCountFor,
   frameTimesFor,
+  layoutFor,
 } from './fixtures.config.mjs'
 import {
   byteLength,
@@ -103,6 +108,9 @@ const GPS_EXPECTATIONS = new Map([
 
 async function main() {
   ffmpegBinary()
+  // Before anything is encoded: the frame count formula this generator restates
+  // must still match src/platform/capability.ts, which owns it.
+  assertFrameFormulaMatchesSource()
   const ffprobeAvailable = Boolean(ffprobeBinary())
   const font = resolveFont()
 
@@ -177,6 +185,15 @@ async function main() {
       reason_codes: Object.values(REASON_CODES).sort(),
       blocking_rules: [...BLOCKING_RULES],
       preflight_version: 2,
+      // The frame count contract, recorded once here so no test hardcodes a bound.
+      frame_count: {
+        formula: FRAME_COUNT.formula,
+        source: FRAME_COUNT.source,
+        decision: FRAME_COUNT.decision,
+        tiers: FRAME_COUNT.tiers,
+        spacing: FRAME_TIME_SPACING,
+        note: 'Capability sets the ceiling, duration sets the count within it. The verdict in expected_preflight is tier invariant; only expected_frames varies by tier.',
+      },
     },
     duplicate_assumption: DUPLICATE_ASSUMPTION,
     notes: [
@@ -184,6 +201,7 @@ async function main() {
       '`expected_preflight` is what our own client code must independently derive from the bytes. That is the only interesting assertion.',
       '`expected_phash_prefix` is null on every entry because no perceptual hasher exists yet. A value invented now would be asserted against forever.',
       'Statuses assume the runtime in `reference_runtime`. Rules whose answer moves with the runtime carry `runtime_dependent: true`, and platform-matrix owns that matrix.',
+      '`expected_frames` is stated per tier, because capability sets the ceiling and duration sets the count within it (D2). The formula belongs to src/platform/capability.ts and is restated once in the generator with a build time check that fails if the two drift.',
       'Every status is one of pass, fail, unknown, skipped. `unknown` never blocks and is never rendered as a pass.',
     ],
     fixtures: entries,
@@ -830,41 +848,50 @@ function rollupOf(rules) {
   return counts
 }
 
+/**
+ * The per tier frame plan.
+ *
+ * Per tier rather than a single number, because a test that asserts extraction at a
+ * given tier needs the expected count FOR that tier, and the whole point of D2 is
+ * that the tier changes the answer. `layout` is carried alongside the count so the
+ * sheet layout enum is asserted from data rather than re-derived in a test.
+ */
 function expectedFrames(fixture, durationSeconds) {
+  const flat = (count, layout) =>
+    Object.fromEntries(TIER_NAMES.map((tier) => [tier, { count, layout, t_seconds: [] }]))
+
   if (fixture.kind === 'photo') {
     return {
-      by_tier: {
-        constrained: { count: 1, t_seconds: [] },
-        standard: { count: 1, t_seconds: [] },
-        ample: { count: 1, t_seconds: [] },
-      },
-      formula: 'a still is its own single frame',
+      by_tier: flat(1, null),
+      formula: 'a still is its own single frame, so neither the duration term nor the tier applies',
+      formula_source: FRAME_COUNT.source,
       approximate: false,
       reason: null,
     }
   }
   if (fixture.derivatives && fixture.derivatives.contact_sheet === false) {
     return {
-      by_tier: {
-        constrained: { count: 0, t_seconds: [] },
-        standard: { count: 0, t_seconds: [] },
-        ample: { count: 0, t_seconds: [] },
-      },
+      by_tier: flat(0, null),
       formula: null,
+      formula_source: FRAME_COUNT.source,
       approximate: false,
       reason: fixture.derivatives.reason,
       note: 'Extraction is NOT attempted. A try-and-catch into a black frame is worse than no frame, because a black frame gets tagged.',
     }
   }
-  const tiers = { constrained: 3, standard: 5, ample: 5 }
+
+  const measured = Number(durationSeconds.toFixed(3))
   const byTier = {}
-  for (const [tier, max] of Object.entries(tiers)) {
-    const count = frameCountFor(durationSeconds, max)
-    byTier[tier] = { count, t_seconds: frameTimesFor(Number(durationSeconds.toFixed(3)), count) }
+  for (const tier of TIER_NAMES) {
+    const count = frameCountFor(measured, tier)
+    byTier[tier] = { count, layout: layoutFor(count), t_seconds: frameTimesFor(measured, count) }
   }
   return {
     by_tier: byTier,
-    formula: 'clamp(round(duration_s / 4), 3, tier_max), tier_max 3 constrained and 5 otherwise (E.4a)',
+    formula: FRAME_COUNT.formula,
+    formula_source: FRAME_COUNT.source,
+    decision: FRAME_COUNT.decision,
+    spacing: FRAME_TIME_SPACING,
     approximate: true,
     reason:
       'The `<video>` plus canvas path snaps to the preceding keyframe, so t_seconds is a target rather than a guarantee. GOP is half a second, which is what bounds tolerance.frame_t_seconds.',
@@ -927,6 +954,13 @@ function report({ entries, built, skipped, drift, ffprobeAvailable }) {
   log(`committed      ${kb(total)} total`)
   log(`declared facts ${ffprobeAvailable ? 'read back with ffprobe and a header peek, build fails on disagreement' : 'NOT VERIFIED, no ffprobe binary'}`)
   log(`rule statuses  ${statuses.pass} pass, ${statuses.fail} fail, ${statuses.unknown} unknown, ${statuses.skipped} skipped (engineered only)`)
+  log(`frame counts   ${FRAME_COUNT.formula}, checked against ${FRAME_COUNT.source}`)
+  log(
+    `               per tier: ${entries
+      .filter((e) => e.kind === 'video' && e.expected_frames.by_tier.ample.count > 0)
+      .map((e) => `${e.fixture_id} ${TIER_NAMES.map((t) => e.expected_frames.by_tier[t].count).join('/')}`)
+      .join(', ')} (constrained/standard/ample)`,
+  )
   log(`no sheet       ${entries.filter((e) => e.expected_derivatives.contact_sheet === false).map((e) => e.fixture_id).join(', ') || 'none'}`)
   log(`hash drift     ${drift.length === 0 ? 'none' : `${drift.length} CHANGED`}`)
   for (const line of drift) log(`  ! ${line}`)

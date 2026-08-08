@@ -3,7 +3,7 @@
   "generator_version": 1,
   "generator": "scripts/build-fixtures.mjs",
   "spec": "scripts/fixtures.config.mjs",
-  "built_at": "2026-08-07T03:25:25.374Z",
+  "built_at": "2026-08-08T11:19:59.462Z",
   "ffmpeg": {
     "binary": "ffmpeg-static",
     "version": "6.1.1-essentials_build-www.gyan.dev",
@@ -62,7 +62,28 @@
       "min_duration",
       "min_resolution"
     ],
-    "preflight_version": 2
+    "preflight_version": 2,
+    "frame_count": {
+      "formula": "clamp(3 + round(duration_s / 3), tier.frameFloor, tier.frameCeiling)",
+      "source": "src/platform/capability.ts frameCountFor(durationSeconds, tier)",
+      "decision": "docs/06-decisions.md D2",
+      "tiers": {
+        "ample": {
+          "floor": 5,
+          "ceiling": 7
+        },
+        "standard": {
+          "floor": 4,
+          "ceiling": 6
+        },
+        "constrained": {
+          "floor": 3,
+          "ceiling": 3
+        }
+      },
+      "spacing": "evenly spaced, skipping the first and last moments: t_i = (i + 1) * duration_s / (count + 1)",
+      "note": "Capability sets the ceiling, duration sets the count within it. The verdict in expected_preflight is tier invariant; only expected_frames varies by tier."
+    }
   },
   "duplicate_assumption": {
     "comparison_set": "all fixtures with group == \"engineered\", ingested as one delivery in manifest order",
@@ -79,6 +100,7 @@
     "`expected_preflight` is what our own client code must independently derive from the bytes. That is the only interesting assertion.",
     "`expected_phash_prefix` is null on every entry because no perceptual hasher exists yet. A value invented now would be asserted against forever.",
     "Statuses assume the runtime in `reference_runtime`. Rules whose answer moves with the runtime carry `runtime_dependent: true`, and platform-matrix owns that matrix.",
+    "`expected_frames` is stated per tier, because capability sets the ceiling and duration sets the count within it (D2). The formula belongs to src/platform/capability.ts and is restated once in the generator with a build time check that fails if the two drift.",
     "Every status is one of pass, fail, unknown, skipped. `unknown` never blocks and is never rendered as a pass."
   ],
   "fixtures": [
@@ -323,6 +345,7 @@
         "by_tier": {
           "constrained": {
             "count": 3,
+            "layout": "1x3",
             "t_seconds": [
               1.5,
               3,
@@ -330,23 +353,32 @@
             ]
           },
           "standard": {
-            "count": 3,
+            "count": 5,
+            "layout": "1x5",
             "t_seconds": [
-              1.5,
+              1,
+              2,
               3,
-              4.5
+              4,
+              5
             ]
           },
           "ample": {
-            "count": 3,
+            "count": 5,
+            "layout": "1x5",
             "t_seconds": [
-              1.5,
+              1,
+              2,
               3,
-              4.5
+              4,
+              5
             ]
           }
         },
-        "formula": "clamp(round(duration_s / 4), 3, tier_max), tier_max 3 constrained and 5 otherwise (E.4a)",
+        "formula": "clamp(3 + round(duration_s / 3), tier.frameFloor, tier.frameCeiling)",
+        "formula_source": "src/platform/capability.ts frameCountFor(durationSeconds, tier)",
+        "decision": "docs/06-decisions.md D2",
+        "spacing": "evenly spaced, skipping the first and last moments: t_i = (i + 1) * duration_s / (count + 1)",
         "approximate": true,
         "reason": "The `<video>` plus canvas path snaps to the preceding keyframe, so t_seconds is a target rather than a guarantee. GOP is half a second, which is what bounds tolerance.frame_t_seconds."
       },
@@ -609,6 +641,7 @@
         "by_tier": {
           "constrained": {
             "count": 3,
+            "layout": "1x3",
             "t_seconds": [
               1.5,
               3,
@@ -616,23 +649,32 @@
             ]
           },
           "standard": {
-            "count": 3,
+            "count": 5,
+            "layout": "1x5",
             "t_seconds": [
-              1.5,
+              1,
+              2,
               3,
-              4.5
+              4,
+              5
             ]
           },
           "ample": {
-            "count": 3,
+            "count": 5,
+            "layout": "1x5",
             "t_seconds": [
-              1.5,
+              1,
+              2,
               3,
-              4.5
+              4,
+              5
             ]
           }
         },
-        "formula": "clamp(round(duration_s / 4), 3, tier_max), tier_max 3 constrained and 5 otherwise (E.4a)",
+        "formula": "clamp(3 + round(duration_s / 3), tier.frameFloor, tier.frameCeiling)",
+        "formula_source": "src/platform/capability.ts frameCountFor(durationSeconds, tier)",
+        "decision": "docs/06-decisions.md D2",
+        "spacing": "evenly spaced, skipping the first and last moments: t_i = (i + 1) * duration_s / (count + 1)",
         "approximate": true,
         "reason": "The `<video>` plus canvas path snaps to the preceding keyframe, so t_seconds is a target rather than a guarantee. GOP is half a second, which is what bounds tolerance.frame_t_seconds."
       },
@@ -895,6 +937,7 @@
         "by_tier": {
           "constrained": {
             "count": 3,
+            "layout": "1x3",
             "t_seconds": [
               0.375,
               0.75,
@@ -902,23 +945,31 @@
             ]
           },
           "standard": {
-            "count": 3,
+            "count": 4,
+            "layout": "1x4",
             "t_seconds": [
-              0.375,
-              0.75,
-              1.125
+              0.3,
+              0.6,
+              0.9,
+              1.2
             ]
           },
           "ample": {
-            "count": 3,
+            "count": 5,
+            "layout": "1x5",
             "t_seconds": [
-              0.375,
+              0.25,
+              0.5,
               0.75,
-              1.125
+              1,
+              1.25
             ]
           }
         },
-        "formula": "clamp(round(duration_s / 4), 3, tier_max), tier_max 3 constrained and 5 otherwise (E.4a)",
+        "formula": "clamp(3 + round(duration_s / 3), tier.frameFloor, tier.frameCeiling)",
+        "formula_source": "src/platform/capability.ts frameCountFor(durationSeconds, tier)",
+        "decision": "docs/06-decisions.md D2",
+        "spacing": "evenly spaced, skipping the first and last moments: t_i = (i + 1) * duration_s / (count + 1)",
         "approximate": true,
         "reason": "The `<video>` plus canvas path snaps to the preceding keyframe, so t_seconds is a target rather than a guarantee. GOP is half a second, which is what bounds tolerance.frame_t_seconds."
       },
@@ -1181,6 +1232,7 @@
         "by_tier": {
           "constrained": {
             "count": 3,
+            "layout": "1x3",
             "t_seconds": [
               1.5,
               3,
@@ -1188,23 +1240,32 @@
             ]
           },
           "standard": {
-            "count": 3,
+            "count": 5,
+            "layout": "1x5",
             "t_seconds": [
-              1.5,
+              1,
+              2,
               3,
-              4.5
+              4,
+              5
             ]
           },
           "ample": {
-            "count": 3,
+            "count": 5,
+            "layout": "1x5",
             "t_seconds": [
-              1.5,
+              1,
+              2,
               3,
-              4.5
+              4,
+              5
             ]
           }
         },
-        "formula": "clamp(round(duration_s / 4), 3, tier_max), tier_max 3 constrained and 5 otherwise (E.4a)",
+        "formula": "clamp(3 + round(duration_s / 3), tier.frameFloor, tier.frameCeiling)",
+        "formula_source": "src/platform/capability.ts frameCountFor(durationSeconds, tier)",
+        "decision": "docs/06-decisions.md D2",
+        "spacing": "evenly spaced, skipping the first and last moments: t_i = (i + 1) * duration_s / (count + 1)",
         "approximate": true,
         "reason": "The `<video>` plus canvas path snaps to the preceding keyframe, so t_seconds is a target rather than a guarantee. GOP is half a second, which is what bounds tolerance.frame_t_seconds."
       },
@@ -1468,6 +1529,7 @@
         "by_tier": {
           "constrained": {
             "count": 3,
+            "layout": "1x3",
             "t_seconds": [
               1.5,
               3,
@@ -1475,23 +1537,32 @@
             ]
           },
           "standard": {
-            "count": 3,
+            "count": 5,
+            "layout": "1x5",
             "t_seconds": [
-              1.5,
+              1,
+              2,
               3,
-              4.5
+              4,
+              5
             ]
           },
           "ample": {
-            "count": 3,
+            "count": 5,
+            "layout": "1x5",
             "t_seconds": [
-              1.5,
+              1,
+              2,
               3,
-              4.5
+              4,
+              5
             ]
           }
         },
-        "formula": "clamp(round(duration_s / 4), 3, tier_max), tier_max 3 constrained and 5 otherwise (E.4a)",
+        "formula": "clamp(3 + round(duration_s / 3), tier.frameFloor, tier.frameCeiling)",
+        "formula_source": "src/platform/capability.ts frameCountFor(durationSeconds, tier)",
+        "decision": "docs/06-decisions.md D2",
+        "spacing": "evenly spaced, skipping the first and last moments: t_i = (i + 1) * duration_s / (count + 1)",
         "approximate": true,
         "reason": "The `<video>` plus canvas path snaps to the preceding keyframe, so t_seconds is a target rather than a guarantee. GOP is half a second, which is what bounds tolerance.frame_t_seconds."
       },
@@ -1753,6 +1824,7 @@
         "by_tier": {
           "constrained": {
             "count": 3,
+            "layout": "1x3",
             "t_seconds": [
               1.5,
               3,
@@ -1760,23 +1832,32 @@
             ]
           },
           "standard": {
-            "count": 3,
+            "count": 5,
+            "layout": "1x5",
             "t_seconds": [
-              1.5,
+              1,
+              2,
               3,
-              4.5
+              4,
+              5
             ]
           },
           "ample": {
-            "count": 3,
+            "count": 5,
+            "layout": "1x5",
             "t_seconds": [
-              1.5,
+              1,
+              2,
               3,
-              4.5
+              4,
+              5
             ]
           }
         },
-        "formula": "clamp(round(duration_s / 4), 3, tier_max), tier_max 3 constrained and 5 otherwise (E.4a)",
+        "formula": "clamp(3 + round(duration_s / 3), tier.frameFloor, tier.frameCeiling)",
+        "formula_source": "src/platform/capability.ts frameCountFor(durationSeconds, tier)",
+        "decision": "docs/06-decisions.md D2",
+        "spacing": "evenly spaced, skipping the first and last moments: t_i = (i + 1) * duration_s / (count + 1)",
         "approximate": true,
         "reason": "The `<video>` plus canvas path snaps to the preceding keyframe, so t_seconds is a target rather than a guarantee. GOP is half a second, which is what bounds tolerance.frame_t_seconds."
       },
@@ -2047,18 +2128,22 @@
         "by_tier": {
           "constrained": {
             "count": 0,
+            "layout": null,
             "t_seconds": []
           },
           "standard": {
             "count": 0,
+            "layout": null,
             "t_seconds": []
           },
           "ample": {
             "count": 0,
+            "layout": null,
             "t_seconds": []
           }
         },
         "formula": null,
+        "formula_source": "src/platform/capability.ts frameCountFor(durationSeconds, tier)",
         "approximate": false,
         "reason": "no_decoder_in_shell",
         "note": "Extraction is NOT attempted. A try-and-catch into a black frame is worse than no frame, because a black frame gets tagged."
@@ -2308,6 +2393,7 @@
         "by_tier": {
           "constrained": {
             "count": 3,
+            "layout": "1x3",
             "t_seconds": [
               1.5,
               3,
@@ -2315,23 +2401,32 @@
             ]
           },
           "standard": {
-            "count": 3,
+            "count": 5,
+            "layout": "1x5",
             "t_seconds": [
-              1.5,
+              1,
+              2,
               3,
-              4.5
+              4,
+              5
             ]
           },
           "ample": {
-            "count": 3,
+            "count": 5,
+            "layout": "1x5",
             "t_seconds": [
-              1.5,
+              1,
+              2,
               3,
-              4.5
+              4,
+              5
             ]
           }
         },
-        "formula": "clamp(round(duration_s / 4), 3, tier_max), tier_max 3 constrained and 5 otherwise (E.4a)",
+        "formula": "clamp(3 + round(duration_s / 3), tier.frameFloor, tier.frameCeiling)",
+        "formula_source": "src/platform/capability.ts frameCountFor(durationSeconds, tier)",
+        "decision": "docs/06-decisions.md D2",
+        "spacing": "evenly spaced, skipping the first and last moments: t_i = (i + 1) * duration_s / (count + 1)",
         "approximate": true,
         "reason": "The `<video>` plus canvas path snaps to the preceding keyframe, so t_seconds is a target rather than a guarantee. GOP is half a second, which is what bounds tolerance.frame_t_seconds."
       },
@@ -2576,6 +2671,7 @@
         "by_tier": {
           "constrained": {
             "count": 3,
+            "layout": "1x3",
             "t_seconds": [
               1.504,
               3.008,
@@ -2583,23 +2679,32 @@
             ]
           },
           "standard": {
-            "count": 3,
+            "count": 5,
+            "layout": "1x5",
             "t_seconds": [
-              1.504,
+              1.003,
+              2.005,
               3.008,
-              4.512
+              4.011,
+              5.013
             ]
           },
           "ample": {
-            "count": 3,
+            "count": 5,
+            "layout": "1x5",
             "t_seconds": [
-              1.504,
+              1.003,
+              2.005,
               3.008,
-              4.512
+              4.011,
+              5.013
             ]
           }
         },
-        "formula": "clamp(round(duration_s / 4), 3, tier_max), tier_max 3 constrained and 5 otherwise (E.4a)",
+        "formula": "clamp(3 + round(duration_s / 3), tier.frameFloor, tier.frameCeiling)",
+        "formula_source": "src/platform/capability.ts frameCountFor(durationSeconds, tier)",
+        "decision": "docs/06-decisions.md D2",
+        "spacing": "evenly spaced, skipping the first and last moments: t_i = (i + 1) * duration_s / (count + 1)",
         "approximate": true,
         "reason": "The `<video>` plus canvas path snaps to the preceding keyframe, so t_seconds is a target rather than a guarantee. GOP is half a second, which is what bounds tolerance.frame_t_seconds."
       },
@@ -2828,18 +2933,22 @@
         "by_tier": {
           "constrained": {
             "count": 0,
+            "layout": null,
             "t_seconds": []
           },
           "standard": {
             "count": 0,
+            "layout": null,
             "t_seconds": []
           },
           "ample": {
             "count": 0,
+            "layout": null,
             "t_seconds": []
           }
         },
         "formula": null,
+        "formula_source": "src/platform/capability.ts frameCountFor(durationSeconds, tier)",
         "approximate": false,
         "reason": "codec_unsupported_in_every_browser",
         "note": "Extraction is NOT attempted. A try-and-catch into a black frame is worse than no frame, because a black frame gets tagged."
@@ -3109,6 +3218,7 @@
         "by_tier": {
           "constrained": {
             "count": 3,
+            "layout": "1x3",
             "t_seconds": [
               0.5,
               1,
@@ -3116,23 +3226,31 @@
             ]
           },
           "standard": {
-            "count": 3,
+            "count": 4,
+            "layout": "1x4",
             "t_seconds": [
-              0.5,
-              1,
-              1.5
+              0.4,
+              0.8,
+              1.2,
+              1.6
             ]
           },
           "ample": {
-            "count": 3,
+            "count": 5,
+            "layout": "1x5",
             "t_seconds": [
-              0.5,
+              0.333,
+              0.667,
               1,
-              1.5
+              1.333,
+              1.667
             ]
           }
         },
-        "formula": "clamp(round(duration_s / 4), 3, tier_max), tier_max 3 constrained and 5 otherwise (E.4a)",
+        "formula": "clamp(3 + round(duration_s / 3), tier.frameFloor, tier.frameCeiling)",
+        "formula_source": "src/platform/capability.ts frameCountFor(durationSeconds, tier)",
+        "decision": "docs/06-decisions.md D2",
+        "spacing": "evenly spaced, skipping the first and last moments: t_i = (i + 1) * duration_s / (count + 1)",
         "approximate": true,
         "reason": "The `<video>` plus canvas path snaps to the preceding keyframe, so t_seconds is a target rather than a guarantee. GOP is half a second, which is what bounds tolerance.frame_t_seconds."
       },
@@ -3158,7 +3276,7 @@
       "path": "/fixtures/long_ok.mp4",
       "group": "engineered",
       "kind": "video",
-      "proves": "The only fixture long enough for the frame count formula to produce 5 frames, so the 1x5 sheet layout and the constrained versus standard tier difference have a fixture at all. Under E.4a every clip below about 14s gets 3 frames at every tier, which means the rest of this set cannot exercise the layout the contact sheet spec is written around.",
+      "proves": "The tier CEILING case, which no shorter fixture reaches. At 20s the duration term saturates every tier, so this is the only fixture producing 7 frames at `ample` and 6 at `standard` while a phone still does exactly 3, which is the property that makes the ceiling real rather than theoretical (D2). The 6s fixtures already cover the 5 frame layout, so this one exists for the top of the range and for the widest tier spread in the set.",
       "added_beyond_c2d": true,
       "bytes": 595165,
       "sha256": "37a3dbc987c2fdc37c1ca9446166ac0e99fb9d38bc9e75597c5673c3c466d9f3",
@@ -3394,6 +3512,7 @@
         "by_tier": {
           "constrained": {
             "count": 3,
+            "layout": "1x3",
             "t_seconds": [
               5,
               10,
@@ -3401,27 +3520,35 @@
             ]
           },
           "standard": {
-            "count": 5,
+            "count": 6,
+            "layout": "1x6",
             "t_seconds": [
-              3.333,
-              6.667,
-              10,
-              13.333,
-              16.667
+              2.857,
+              5.714,
+              8.571,
+              11.429,
+              14.286,
+              17.143
             ]
           },
           "ample": {
-            "count": 5,
+            "count": 7,
+            "layout": "1x7",
             "t_seconds": [
-              3.333,
-              6.667,
+              2.5,
+              5,
+              7.5,
               10,
-              13.333,
-              16.667
+              12.5,
+              15,
+              17.5
             ]
           }
         },
-        "formula": "clamp(round(duration_s / 4), 3, tier_max), tier_max 3 constrained and 5 otherwise (E.4a)",
+        "formula": "clamp(3 + round(duration_s / 3), tier.frameFloor, tier.frameCeiling)",
+        "formula_source": "src/platform/capability.ts frameCountFor(durationSeconds, tier)",
+        "decision": "docs/06-decisions.md D2",
+        "spacing": "evenly spaced, skipping the first and last moments: t_i = (i + 1) * duration_s / (count + 1)",
         "approximate": true,
         "reason": "The `<video>` plus canvas path snaps to the preceding keyframe, so t_seconds is a target rather than a guarantee. GOP is half a second, which is what bounds tolerance.frame_t_seconds."
       },
@@ -3611,18 +3738,22 @@
         "by_tier": {
           "constrained": {
             "count": 1,
+            "layout": null,
             "t_seconds": []
           },
           "standard": {
             "count": 1,
+            "layout": null,
             "t_seconds": []
           },
           "ample": {
             "count": 1,
+            "layout": null,
             "t_seconds": []
           }
         },
-        "formula": "a still is its own single frame",
+        "formula": "a still is its own single frame, so neither the duration term nor the tier applies",
+        "formula_source": "src/platform/capability.ts frameCountFor(durationSeconds, tier)",
         "approximate": false,
         "reason": null
       },
@@ -3884,6 +4015,7 @@
         "by_tier": {
           "constrained": {
             "count": 3,
+            "layout": "1x3",
             "t_seconds": [
               1.25,
               2.5,
@@ -3891,23 +4023,32 @@
             ]
           },
           "standard": {
-            "count": 3,
+            "count": 5,
+            "layout": "1x5",
             "t_seconds": [
-              1.25,
+              0.833,
+              1.667,
               2.5,
-              3.75
+              3.333,
+              4.167
             ]
           },
           "ample": {
-            "count": 3,
+            "count": 5,
+            "layout": "1x5",
             "t_seconds": [
-              1.25,
+              0.833,
+              1.667,
               2.5,
-              3.75
+              3.333,
+              4.167
             ]
           }
         },
-        "formula": "clamp(round(duration_s / 4), 3, tier_max), tier_max 3 constrained and 5 otherwise (E.4a)",
+        "formula": "clamp(3 + round(duration_s / 3), tier.frameFloor, tier.frameCeiling)",
+        "formula_source": "src/platform/capability.ts frameCountFor(durationSeconds, tier)",
+        "decision": "docs/06-decisions.md D2",
+        "spacing": "evenly spaced, skipping the first and last moments: t_i = (i + 1) * duration_s / (count + 1)",
         "approximate": true,
         "reason": "The `<video>` plus canvas path snaps to the preceding keyframe, so t_seconds is a target rather than a guarantee. GOP is half a second, which is what bounds tolerance.frame_t_seconds."
       },
@@ -4169,6 +4310,7 @@
         "by_tier": {
           "constrained": {
             "count": 3,
+            "layout": "1x3",
             "t_seconds": [
               1.25,
               2.5,
@@ -4176,23 +4318,32 @@
             ]
           },
           "standard": {
-            "count": 3,
+            "count": 5,
+            "layout": "1x5",
             "t_seconds": [
-              1.25,
+              0.833,
+              1.667,
               2.5,
-              3.75
+              3.333,
+              4.167
             ]
           },
           "ample": {
-            "count": 3,
+            "count": 5,
+            "layout": "1x5",
             "t_seconds": [
-              1.25,
+              0.833,
+              1.667,
               2.5,
-              3.75
+              3.333,
+              4.167
             ]
           }
         },
-        "formula": "clamp(round(duration_s / 4), 3, tier_max), tier_max 3 constrained and 5 otherwise (E.4a)",
+        "formula": "clamp(3 + round(duration_s / 3), tier.frameFloor, tier.frameCeiling)",
+        "formula_source": "src/platform/capability.ts frameCountFor(durationSeconds, tier)",
+        "decision": "docs/06-decisions.md D2",
+        "spacing": "evenly spaced, skipping the first and last moments: t_i = (i + 1) * duration_s / (count + 1)",
         "approximate": true,
         "reason": "The `<video>` plus canvas path snaps to the preceding keyframe, so t_seconds is a target rather than a guarantee. GOP is half a second, which is what bounds tolerance.frame_t_seconds."
       },
@@ -4454,6 +4605,7 @@
         "by_tier": {
           "constrained": {
             "count": 3,
+            "layout": "1x3",
             "t_seconds": [
               1.25,
               2.5,
@@ -4461,23 +4613,32 @@
             ]
           },
           "standard": {
-            "count": 3,
+            "count": 5,
+            "layout": "1x5",
             "t_seconds": [
-              1.25,
+              0.833,
+              1.667,
               2.5,
-              3.75
+              3.333,
+              4.167
             ]
           },
           "ample": {
-            "count": 3,
+            "count": 5,
+            "layout": "1x5",
             "t_seconds": [
-              1.25,
+              0.833,
+              1.667,
               2.5,
-              3.75
+              3.333,
+              4.167
             ]
           }
         },
-        "formula": "clamp(round(duration_s / 4), 3, tier_max), tier_max 3 constrained and 5 otherwise (E.4a)",
+        "formula": "clamp(3 + round(duration_s / 3), tier.frameFloor, tier.frameCeiling)",
+        "formula_source": "src/platform/capability.ts frameCountFor(durationSeconds, tier)",
+        "decision": "docs/06-decisions.md D2",
+        "spacing": "evenly spaced, skipping the first and last moments: t_i = (i + 1) * duration_s / (count + 1)",
         "approximate": true,
         "reason": "The `<video>` plus canvas path snaps to the preceding keyframe, so t_seconds is a target rather than a guarantee. GOP is half a second, which is what bounds tolerance.frame_t_seconds."
       },

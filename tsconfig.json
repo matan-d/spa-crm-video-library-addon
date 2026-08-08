@@ -1,6 +1,12 @@
 {
   "extends": "@vue/tsconfig/tsconfig.dom.json",
   "compilerOptions": {
+    // ES2022 rather than the preset's default, so Array.prototype.at and
+    // Object.hasOwn are available. This product already requires OPFS and
+    // WebCodecs-era browsers, so nothing here is reachable by an engine that
+    // lacks ES2022.
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "strict": true,
     "noUncheckedIndexedAccess": false,
     "noImplicitOverride": true,

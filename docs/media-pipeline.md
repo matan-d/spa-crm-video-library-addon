@@ -135,7 +135,9 @@ Real files only take that form above 4GB, which cannot be committed, so the buil
 The mdat payload keeps its absolute offset, so every `stco` entry stays valid and the file still decodes, which `ffprobe` confirms.
 The clip is 2s to keep it small, so it legitimately fails `min_duration`; the QA case asserts the parsed duration rather than the verdict.
 
-**`long_ok.mp4`** is the only fixture long enough for the frame count formula to produce 5 frames, so the `1x5` sheet layout and the constrained versus standard tier difference have a fixture at all.
+**`long_ok.mp4`** is the tier ceiling case, and no shorter fixture reaches it.
+Under the resolved formula (4.5) a 6 second clip already produces 5 frames at `ample`, so the `1x5` layout is covered several times over.
+What only a 20 second clip covers is the top of the range: the duration term saturates, so this is the one fixture producing a `1x7` sheet at `ample` and a `1x6` at `standard` while a phone still does exactly 3, which is the widest tier spread in the set and the only place the ceiling itself is exercised.
 
 **`photo_still.jpg`** is the only fixture where a rule is `skipped` rather than `unknown`.
 A photo has no duration to check, and "this does not apply" reads differently to a human than "we could not tell".
@@ -150,7 +152,7 @@ Each is flagged `added_beyond_c2d: true` in the manifest and asserted as such in
 |---|---|
 | `offdate_fail.mp4` | `capture_date: fail` has no fixture anywhere, so the visit window is only tested from the passing side |
 | `largesize_mdat.mp4` | the 64 bit atom size branch the charter explicitly requires has nothing to assert against at any size |
-| `long_ok.mp4` | no fixture reaches 5 frames, so the `1x5` layout the contact sheet spec is written around is untested, and the ingest tier never changes an answer |
+| `long_ok.mp4` | no fixture saturates the duration term, so the tier ceilings are never reached: `1x7` at `ample` and `1x6` at `standard` have nothing to assert against, and the widest tier spread in the set (3 against 7) does not exist |
 | `photo_still.jpg` | `skipped` never appears, so the fourth state is legal but not real, and its render path ships untested |
 
 ---
@@ -170,6 +172,7 @@ Recorded in `manifest.context` so no test hardcodes them.
 | `near_branch_radius_m` | **500** | new, see below |
 | blocking rules | `orientation`, `min_duration`, `min_resolution` | A.19 |
 | preflight version | 2 | A.19 |
+| frame count | `clamp(3 + round(duration_s / 3), floor, ceiling)`, bounds 5 to 7 `ample`, 4 to 6 `standard`, 3 to 3 `constrained` | D2, and the code that owns it is `src/platform/capability.ts`. See 4.5 |
 
 **One finding for whoever owns the schema.** `near_branch` needs a radius and no existing document sets one.
 500m is wide enough for a multi building wellness site plus consumer GPS error and narrow enough that "8km from the branch" still fails.
@@ -255,17 +258,54 @@ And the manifest records `tkhd_width`, `tkhd_height` and `sar` as separate decla
 
 The parser inherits the rule: **do not read coded dimensions out of `tkhd`.**
 
-### 4.5 A spec contradiction the fixtures surfaced, needing a decision
+### 4.5 A spec contradiction the fixtures surfaced, now closed by D2
 
-C2.D's worked example shows `expected_frames: { count: 5, t_seconds: [0.5, 1.6, 3.0, 4.4, 5.5] }` for a 6 second clip.
-E.4a specifies `frameCount = clamp(round(duration_s / 4), 3, tierMax)`, which gives **3** frames for a 6 second clip at every tier, and only reaches 5 above about 14 seconds.
+The fixtures surfaced a contradiction between two documents, and it is settled rather than open.
+C2.D's worked example showed `expected_frames: { count: 5, t_seconds: [0.5, 1.6, 3.0, 4.4, 5.5] }` for a 6 second clip.
+E.4a specified `frameCount = clamp(round(duration_s / 4), 3, tierMax)`, which gives **3** frames for a 6 second clip at every tier and only reaches 5 above about 14 seconds.
+Both could not be right, and the manifest was following E.4a.
 
-Both cannot be right.
-The manifest follows E.4a, records the per tier plan under `expected_frames.by_tier`, and `long_ok.mp4` exists so the 5 frame layout has a fixture at all.
-QC-MEDIA-101 asserts the 3 frame outcome and names the contradiction, so whichever way it is resolved the manifest and the code have to move together.
+**The resolution, recorded in `docs/06-decisions.md` D2: capability sets the ceiling, duration sets the count within it.**
 
-The product consequence, which is why this is not a detail: at 5 to 30 second b-roll lengths, the E.4a formula means almost every real clip gets a 3 tile sheet, the ingest tier almost never changes the answer, and the authored AI fixtures are written against 3 tiles rather than 5.
-If 5 tiles is what the vision layer wants, the formula needs a higher floor, not a longer fixture.
+```
+frameCount = clamp(3 + round(duration_s / 3), tier.frameFloor, tier.frameCeiling)
+```
+
+| tier | floor | ceiling | a 1.5s clip | a 6s clip | a 20s clip |
+|---|---|---|---|---|---|
+| `ample` | 5 | 7 | 5 | **5** | 7 |
+| `standard` | 4 | 6 | 4 | **5** | 6 |
+| `constrained` | 3 | 3 | 3 | **3** | 3 |
+
+It closes the contradiction in favour of the C2.D worked example, and it does that while keeping duration scaling and while making the tier actually change the answer, which the old formula did not for anything under about 14 seconds.
+Three frames is thin evidence for judging a clip against a brief item; five gives beginning, middle, end and two intermediates.
+And a weak phone does exactly three frames whatever the clip length, because capability is a ceiling on work rather than a floor, and a long clip does not make a phone stronger.
+
+**The single source of truth is `frameCountFor(durationSeconds, tier)` exported from `src/platform/capability.ts`, alongside `layoutFor()` and `TIER_PROFILES`.**
+Nothing else in this build decides that number.
+The fixture generator restates the formula exactly once, in `scripts/fixtures.config.mjs`, because it is plain Node ESM on Node 20 and cannot import a TypeScript module.
+That restatement is not trusted: `assertFrameFormulaMatchesSource()` reads `capability.ts` as text before anything is encoded and fails the build with a named diff if the three floor and ceiling pairs or the duration term ever stop matching.
+Two copies of this formula that can drift is exactly the failure being avoided, so the duplication is tolerable only because the build breaks the moment it becomes real.
+
+What the manifest records now:
+
+| field | content |
+|---|---|
+| `expected_frames.by_tier.<tier>` | `count`, `layout` and `t_seconds` for all three tiers on every fixture, because a test asserting extraction at a given tier needs the count for that tier |
+| `expected_frames.formula` and `formula_source` | the formula and the module that owns it, so a reader of the manifest is pointed at the code rather than at a number |
+| `manifest.context.frame_count` | the formula, the source, the D2 reference, the three tier bounds and the frame time spacing, recorded once so no test hardcodes a bound |
+| `t_seconds` | recomputed from the new count and the measured duration, evenly spaced and skipping the first and last moments: `t_i = (i + 1) * duration_s / (count + 1)` |
+
+`layout` is `null` rather than a made up value where there is no tiled sheet: on `photo_still.jpg`, which is its own single frame, and on `hevc.mov` and `prores.mov`, which have no frames at all.
+
+Two consequences worth stating plainly.
+
+`long_ok.mp4` is now the tier **ceiling** fixture rather than the only 5 frame fixture.
+At 20s it is the only clip in the set whose duration term saturates every tier, so it is the only source of a `1x7` sheet at `ample` and a `1x6` at `standard`, and the only fixture whose tier spread is 3 against 7.
+
+A short clip now plans frames closer together than the keyframe interval.
+`short_fail.mp4` at 1.5s plans 5 frames a quarter second apart at `ample`, while the GOP on every fixture is half a second, so on the `<video>` plus canvas path two tiles can legitimately land on the same decoded frame.
+That is a property of the extractor, not a licence to fabricate: the sheet records the frames it actually got, tile distinctness is only assertable where the planned spacing exceeds the GOP (QC-MEDIA-104), and near identical tiles must never be described as five distinct moments.
 
 ### 4.6 Content is synthetic, and the reason it is allowed to be here
 
@@ -334,7 +374,7 @@ Cases QC-MEDIA-140 through QC-MEDIA-146 are written against it already.
 | `scripts/verify-fixtures.mjs` | re-reads the committed bytes and checks them against the committed manifest |
 | `public/fixtures/manifest.json` | the committed contract every media test asserts against |
 | `tests/fixtures/manifest.spec.ts` | 80 assertions over the manifest and the bytes, offline, no ffmpeg |
-| `qa/cases/media.md` | 60 cases across the fixtures, the malformed input set, and the byte state machine |
+| `qa/cases/media.md` | 85 cases across the fixtures, the frame count formula, the malformed input set, and the byte state machine |
 
 `peekContainer()` in `scripts/fixtures-lib.mjs` reads a handful of atom headers, and it is a verification tool for the build rather than the application parser.
 The application parser must be written independently in `src/`.

@@ -410,7 +410,7 @@ describe('expected_frames and tolerances', () => {
     const fiveFrame = fixtures.filter((f) => f.expected_frames.by_tier.standard.count === 5)
     expect(
       fiveFrame.length,
-      'under the E.4a formula every clip below about 14s gets 3 frames, so without a longer fixture the 1x5 sheet layout has nothing to assert against',
+      'the 1x5 sheet layout needs at least one fixture that reaches 5 frames at the standard tier, or the layout has nothing to assert against',
     ).toBeGreaterThan(0)
     expect(fiveFrame.some((f) => f.expected_frames.by_tier.constrained.count === 3)).toBe(true)
   })

@@ -27,13 +27,11 @@ Two things inside F6 worth knowing before you touch anything media related:
 
 ## The task list, in dependency order
 
-### 1. NEXT: align the fixture manifest to the resolved frame count formula
+### 1. DONE: the fixture manifest is aligned to the resolved frame count formula
 
-`public/fixtures/manifest.json` carries `expected_frames` computed with the old formula (`clamp(round(duration / 4), 3, tierMax)`), which is now wrong. `docs/media-pipeline.md` section 4.5 still describes the contradiction as open, and `qa/cases/media.md` QC-MEDIA-101 still asserts the old behaviour.
+`public/fixtures/manifest.json` now carries `expected_frames.by_tier` for all three tiers, recomputed from `frameCountFor()`. `scripts/fixtures.config.mjs` restates the formula (Node cannot import a TypeScript module) and `assertFrameFormulaMatchesSource()` reads `src/platform/capability.ts` as text on every build, failing with a named diff if the two ever drift. `docs/media-pipeline.md` 4.5 records the resolution, and QC-MEDIA-100, 101, 103 and 104 assert it.
 
-Do: recompute `expected_frames` per tier from `frameCountFor()` in `src/platform/capability.ts`, which is the single source of truth. Update 4.5 to record the resolution rather than the question, and update QC-MEDIA-101. The formula must not be duplicated in the manifest generator: import it or restate it once with a pointer.
-
-Owner: `media-pipeline`.
+One consequence worth carrying forward into A2: at the `ample` floor of 5 frames, a 1.5 second clip plans frames a quarter second apart while every fixture has a half second GOP. On the `<video>` plus canvas path two planned times can legitimately snap to the same decoded frame, so the extractor must record the times it actually reached rather than the times it planned, and must not present near identical tiles as five distinct moments. See QC-MEDIA-104.
 
 ### 2. F3 plus F4, together, and this ordering matters more than any other in the build
 

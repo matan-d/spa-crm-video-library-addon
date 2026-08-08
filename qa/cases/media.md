@@ -11,6 +11,10 @@ The manifest carries `declared` (what ffmpeg was instructed to produce, ground t
 **A case that asserts `declared` is testing ffmpeg and is not worth writing.**
 Every numeric comparison uses the `tolerance` block on the same entry: `duration_s` 0.05, `distance_m` 30, `dhash_hamming` 4, `frame_t_seconds` 0.5.
 
+Frame counts are never typed into a case either.
+They come from `expected_frames.by_tier.<tier>.count`, which the generator computes from the formula owned by `frameCountFor()` in `src/platform/capability.ts` and recorded in `manifest.context.frame_count` (`clamp(3 + round(duration_s / 3), tier.frameFloor, tier.frameCeiling)`, decided in `docs/06-decisions.md` D2).
+The numbers quoted in Group 9 are there so a human can read the case, and the assertion is against the manifest.
+
 Statuses are four valued: `pass`, `fail`, `unknown`, `skipped`.
 All statuses below are stated for the reference runtime recorded in the manifest (`chromium_desktop_windows_without_hevc_extension`).
 Where a status moves with the runtime the manifest entry carries `runtime_dependent: true`, and the per runtime matrix belongs to `platform-matrix`, not to these cases.
@@ -136,7 +140,7 @@ Where a status moves with the runtime the manifest entry carries `runtime_depend
 ### QC-MEDIA-018 the happy path produces a real sheet and a real poster
 - Given: `vertical_ok.mp4`
 - When: extraction runs at the `standard` tier
-- Then: a contact sheet exists with `expected_frames.by_tier.standard.count` tiles (3 for a 6s clip under the E.4a formula), each tile is a distinct frame (no two tiles have an identical dHash), each frame time is within `tolerance.frame_t_seconds` of the planned time, `derivative_state === 'client_derived'`, and the extractor path used is recorded on the sheet
+- Then: a contact sheet exists with `expected_frames.by_tier.standard.count` tiles (5 for this 6s clip, `layout === '1x5'`), each tile is a distinct frame (no two tiles have an identical dHash, which is assertable here because the planned spacing of about 1s is well above the half second GOP), each frame time is within `tolerance.frame_t_seconds` of the planned time, `derivative_state === 'client_derived'`, and the extractor path used is recorded on the sheet
 - Layer: e2e
 - Blocked-by: parser, extractor
 
@@ -472,26 +476,44 @@ Where a status moves with the runtime the manifest entry carries `runtime_depend
 
 ---
 
-## Group 9: `long_ok.mp4` and the frame count formula
+## Group 9: the frame count formula, as resolved in D2
 
-### QC-MEDIA-100 Frame count scales with duration and is capped by tier
-- Given: `long_ok.mp4`, 20s
+`frameCount = clamp(3 + round(duration_s / 3), tier.frameFloor, tier.frameCeiling)`, with bounds 5 to 7 at `ample`, 4 to 6 at `standard`, and 3 to 3 at `constrained`.
+The formula itself belongs to `frameCountFor()` in `src/platform/capability.ts` and is asserted directly by `tests/platform/capability.spec.ts`.
+It reaches these cases only through `expected_frames.by_tier` in the manifest, so what Group 9 asserts is that the extractor produces what the manifest plans, which is a different claim from the formula being right.
+
+### QC-MEDIA-100 `long_ok.mp4` reaches the tier ceiling, which no shorter fixture does
+- Given: `long_ok.mp4`, 20s, the only fixture whose duration term saturates every tier
 - When: extraction runs at each tier
-- Then: 5 frames at `standard` and `ample`, 3 at `constrained`, matching `expected_frames.by_tier`, and `contact_sheet.layout` is `1x5` or `1x3` accordingly. This is the only fixture where the tier changes the answer
+- Then: 7 frames at `ample` with `contact_sheet.layout === '1x7'`, 6 at `standard` with `1x6`, and 3 at `constrained` with `1x3`, each matching `expected_frames.by_tier.<tier>.count` and `.layout`. This is the widest tier spread in the set and the only case where the ceiling rather than the floor decides the answer
 - Layer: integration
 - Blocked-by: extractor
 
-### QC-MEDIA-101 A 6s clip gets 3 frames at every tier
+### QC-MEDIA-101 A 6s clip gets 5 frames on a capable machine and 3 on a phone
 - Given: `vertical_ok.mp4`, 6s
 - When: extraction runs at all three tiers
-- Then: 3 frames at every tier, because `clamp(round(6 / 4), 3, tier_max)` is 3. **This contradicts the worked example in C2.D, which shows 5 frames for a 6s clip.** The manifest follows the E.4a formula and records the contradiction; whichever way it is resolved, the manifest and the code must agree
+- Then: 5 frames at `ample` and 5 at `standard`, both `layout === '1x5'`, and 3 at `constrained` with `1x3`, each matching `expected_frames.by_tier`. `3 + round(6 / 3)` is 5, which sits inside the `ample` band of 5 to 7 and the `standard` band of 4 to 6, and above the `constrained` ceiling of 3. This is the resolved behaviour from `docs/06-decisions.md` D2, replacing the old `clamp(round(duration_s / 4), 3, tierMax)` that gave this clip 3 frames at every tier and contradicted the C2.D worked example
 - Layer: integration
-- Blocked-by: extractor. Also a spec decision, recorded in `docs/media-pipeline.md`
+- Blocked-by: extractor
 
 ### QC-MEDIA-102 The policy tier is recorded on the artifact it shaped
 - Given: any fixture ingested at `constrained`
 - When: the sheet is written
 - Then: `contact_sheet.policy_tier === 'constrained'`, `generator_version` set, and the extractor path recorded. A 3 frame 360px sheet and a 5 frame 480px sheet are different inputs to the vision model, so a cached run must not be reused across them
+- Layer: integration
+- Blocked-by: extractor
+
+### QC-MEDIA-103 The tier genuinely changes the answer, on every fixture
+- Given: every video fixture in the manifest that expects frames at all (so not `hevc.mov` and not `prores.mov`)
+- When: `expected_frames.by_tier.constrained.count` is compared against `expected_frames.by_tier.ample.count`
+- Then: they differ on every single one: 3 against 5 for the 1.5s, 2s, 5s and 6s clips, and 3 against 7 for the 20s clip. **This property is the whole point of D2 and must be asserted rather than assumed**, because the previous formula produced identical counts at every tier for every fixture in this set, which made the tier system decorative
+- Layer: unit
+- Blocked-by: none (assertable against the committed manifest today, no extractor needed)
+
+### QC-MEDIA-104 A short clip plans frames closer together than the keyframe interval
+- Given: `short_fail.mp4`, 1.5s, whose `ample` plan is 5 frames a quarter second apart while the GOP on every fixture is half a second
+- When: extraction runs at `ample` on the `<video>` plus canvas path
+- Then: 5 tiles are still produced, because the tier floor is a floor, and every frame time is within `tolerance.frame_t_seconds` of its planned time. Tile distinctness is deliberately NOT asserted here: two planned times can legitimately snap to the same decoded frame, so what is asserted instead is that the sheet records the times it actually reached rather than the times it planned, and that nothing in the UI or in an AI prompt describes near identical tiles as distinct moments. On the WebCodecs path the frames are frame accurate and may well be distinct, and the case must not depend on which path ran
 - Layer: integration
 - Blocked-by: extractor
 
