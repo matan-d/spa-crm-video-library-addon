@@ -82,3 +82,13 @@ That is the conversation itself, so exporting it belongs to the account owner. N
 - Demo and live are separate databases, so fabricated data cannot reach a real backend.
 - Soft delete only. A sync bug should cost a UI glitch, never footage.
 - No index on a raw boolean, because IndexedDB silently returns nothing for one.
+
+**D11. The seeded dataset is generated at runtime in TypeScript, not committed as JSON.**
+
+The architecture review proposed committing the artefact so a reviewer sees byte-identical data to the README. That reasoning is sound, and this deviates for a stronger one: Node cannot import a TypeScript module, so a build time generator needs its own copy of the seeded PRNG, and two copies of a PRNG that can silently drift from the one the tests assert against is a worse problem than one second of boot time. The fixture generator hit exactly this and solved it with a text-comparison drift guard, which works for one small formula and would not scale to a whole dataset builder.
+
+Determinism is unaffected, and is asserted: same seed, byte-identical rows every run. `tests/data/seed.spec.ts` compares two independent builds for equality.
+
+**D12. Hydration is the one sanctioned bypass of the scoped repository.**
+
+Seeded rows represent history, not work somebody did in this session, so they are written directly with `server_updated_at` already set and no outbox entries. Writing them through the repository would append about two thousand outbox entries and the app would open showing a large pending queue implying unsynced work that never happened. There is a test asserting the outbox is empty after hydration. Every write after boot goes through the repository.
