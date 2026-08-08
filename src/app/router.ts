@@ -26,6 +26,9 @@ import type { StaffRole } from './session'
 import LibraryView from './views/LibraryView.vue'
 import CreatorInviteView from './views/CreatorInviteView.vue'
 import SurfacePlaceholderView from './views/SurfacePlaceholderView.vue'
+import TriageView from './views/TriageView.vue'
+import DealsView from './views/DealsView.vue'
+import ReviewQueueView from './views/ReviewQueueView.vue'
 
 /** Where each role lands. Also the redirect target when a route is refused. */
 export function roleHome(role: ActiveRole, creatorToken?: string | null): string {
@@ -72,18 +75,21 @@ export const routes: RouteRecordRaw[] = [
     component: LibraryView,
     meta: { roles: ['editor', 'manager'], title: 'Library' } satisfies SurfaceMeta,
   },
-  placeholder(
-    '/triage',
-    ['manager'],
-    'Triage inbox',
-    'Deliveries grouped by what is actionable. Lands with the manager surface.',
-  ),
-  placeholder(
-    '/deals',
-    ['manager'],
-    'Deals',
-    'The collab kanban. Lands with the manager surface, after the inbox.',
-  ),
+  {
+    path: '/triage',
+    component: TriageView,
+    meta: { roles: ['manager'], title: 'Triage' } satisfies SurfaceMeta,
+  },
+  {
+    path: '/review/:deliveryId',
+    component: ReviewQueueView,
+    meta: { roles: ['manager'], title: 'Review' } satisfies SurfaceMeta,
+  },
+  {
+    path: '/deals',
+    component: DealsView,
+    meta: { roles: ['manager'], title: 'Deals' } satisfies SurfaceMeta,
+  },
   placeholder(
     '/briefs',
     ['manager'],

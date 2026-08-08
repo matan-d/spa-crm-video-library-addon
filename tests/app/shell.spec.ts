@@ -4,97 +4,15 @@ import { createPinia, setActivePinia } from 'pinia'
 import { createMemoryHistory } from 'vue-router'
 import { mount } from '@vue/test-utils'
 import App from '@/App.vue'
-import { bootApp, repoForSession, type AppContext, type BootDeps } from '@/app/bootstrap'
+import { bootApp, repoForSession, type AppContext } from '@/app/bootstrap'
 import { createAppRouter, roleHome } from '@/app/router'
 import { resolveCreatorToken, sessionForRole } from '@/app/session'
 import { useAppStore } from '@/app/store'
-import { createBrowserPlatform } from '@/platform/browser'
-import { probeCapabilities, type ProbeEnvironment } from '@/platform/capability'
-import { SeededClock, SEED_EPOCH_MS } from '@/platform/clock'
-import { SeededRng, SEED_STRING } from '@/platform/rng'
-import { createIdFactory } from '@/platform/id'
 import { sha256Hex } from '@/platform/hash'
 import { ScopeError } from '@/data/scope'
-import {
-  DEMO_CREATOR_TOKEN,
-  DEMO_CREATOR_TOKEN_HASH,
-  DEMO_EXPIRED_TOKEN,
-  type MediaManifest,
-} from '@/data/seed'
+import { DEMO_CREATOR_TOKEN, DEMO_CREATOR_TOKEN_HASH, DEMO_EXPIRED_TOKEN } from '@/data/seed'
+import { testDeps } from './helpers'
 
-// ---------------------------------------------------------------------------
-// deps every test boots with: fake indexeddb, an injected manifest, a platform
-// assembled from a synthetic probe rather than jsdom's half-runtime
-// ---------------------------------------------------------------------------
-
-function manifest(count = 27): MediaManifest {
-  return {
-    items: Array.from({ length: count }, (_, i) => ({
-      slug: `item-${i + 1}`,
-      orientation: 'vertical',
-      meta: {
-        shot_type: ['closeup', 'macro', 'wide', 'medium'][i % 4]!,
-        room: ['treatment_room', 'reception', 'sauna', 'studio'][i % 4]!,
-        subjects: ['hands', 'oil'],
-        vibe: 'calm',
-        light: 'soft_indoor',
-      },
-      derived_clip: {
-        width: 1080,
-        height: 1920,
-        duration_s: 6,
-        committed: i < 3,
-        path: i < 3 ? `/seed/clips/item-${i + 1}.mp4` : null,
-        bytes: 400_000,
-      },
-      poster: { path: `/seed/posters/item-${i + 1}.jpg`, bytes: 10_000 },
-      contact_sheet: { path: `/seed/sheets/item-${i + 1}.jpg`, bytes: 34_000, frames: 5, layout: '1x5' },
-    })),
-  }
-}
-
-/** jsdom has no real media stack, so the probe environment is synthetic and OPFS is off. */
-function probeEnv(): ProbeEnvironment {
-  return {
-    shell: 'browser',
-    engineHint: 'blink',
-    loadScheme: 'https:',
-    hardwareConcurrency: 8,
-    deviceMemoryGb: 8,
-    pointerCoarse: false,
-    hasWorker: true,
-    hasOffscreenCanvas: false,
-    hasCreateImageBitmap: false,
-    hasVideoDecoder: false,
-    hasOpfs: false,
-    hasFileSystemAccess: false,
-    hasStorageEstimate: false,
-    hasStoragePersist: false,
-    hasBroadcastChannel: false,
-    hasWebLocks: false,
-    hasDirectoryDrop: false,
-    decodingInfo: null,
-    canPlayType: () => '',
-  }
-}
-
-function testDeps(factory: IDBFactory): BootDeps {
-  const clock = new SeededClock({ startMs: SEED_EPOCH_MS, autoAdvanceMs: 1 })
-  return {
-    profile: 'demo',
-    indexedDbFactory: factory,
-    clock,
-    newId: createIdFactory(clock, new SeededRng(SEED_STRING)),
-    loadMediaManifest: async () => manifest(),
-    platform: async (db, subdirectory, now) =>
-      createBrowserPlatform({
-        db,
-        bytesSubdirectory: subdirectory,
-        now,
-        report: await probeCapabilities(probeEnv()),
-      }),
-  }
-}
 
 let factory: IDBFactory
 
