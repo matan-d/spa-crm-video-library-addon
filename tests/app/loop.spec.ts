@@ -222,6 +222,205 @@ describe('the flagship chain: gap to brief to asset to closed gap, by ids alone'
   })
 })
 
+describe('closure by human confirmation', () => {
+  it('a gap closes when a manager confirms a published clip covers the item that gap produced', async () => {
+    const repo = manager()
+
+    // A gap whose cell nothing in the library matches, so facet matching alone
+    // could never close it. Only the paper trail can.
+    const facets = { room: 'exterior', shot_type: 'wide' }
+    const gapId = await repo.create('gap', {
+      gap_scan_id: null,
+      branch_id: null,
+      cell_signature: signatureOf(facets),
+      facets,
+      score: 0.9,
+      severity: 'critical',
+      status: 'open',
+      signals: [{ source: 'editor_request', weight: 1, detail: 'exterior wide' }],
+      closing_asset_ids: [],
+    })
+
+    const briefId = await repo.create('brief', {
+      collab_id: 'collab-brief',
+      status: 'locked',
+      version: 1,
+      locked_at: ctx.clock.now(),
+      gap_scan_id: null,
+      tech_specs_key: 'tech-v1',
+      usage_terms_key: 'terms-v1',
+      edited_fields: [],
+    })
+    const itemId = await repo.create('brief_item', {
+      brief_id: briefId,
+      seq: 1,
+      instruction: 'wide of the exterior',
+      shot_type: 'wide',
+      room: 'exterior',
+      min_takes: 1,
+      origin_gap_id: gapId,
+    })
+
+    // A published clip a human confirmed against that item. Its AI room is
+    // deliberately WRONG for the cell, so if this closes it closed on the
+    // human's confirmation rather than on a tag.
+    const assetId = await repo.create('asset', {
+      kind: 'video',
+      delivery_id: 'delivery-hero',
+      collab_id: 'collab-brief',
+      branch_id: 'branch-san-jose',
+      filename: 'exterior-wide-01.mp4',
+      bytes: 1000,
+      duration_s: 6,
+      coded_width: 1080,
+      coded_height: 1920,
+      rotation_deg: 0,
+      codec_video: 'avc1',
+      has_audio: false,
+      captured_at: ctx.clock.now(),
+      captured_at_source: 'mvhd',
+      gps: null,
+      client_decodable: true,
+      needs_transcode: false,
+      probe_result: null,
+      preflight_version: 2,
+      preflight: {},
+      ai_description: 'a corridor, which is not the exterior',
+      ai_shot_type: 'medium',
+      ai_room: 'corridor',
+      ai_subjects: [],
+      ai_quality_score: 0.7,
+      ai_framing_score: 0.7,
+      ai_confidence: 0.7,
+      ai_brand_safety: 'clear',
+      ai_matched_brief_item_id: null,
+      ai_provenance: 'mock',
+      review_status: 'approved',
+      is_published: true,
+      confirmed_brief_item_id: itemId,
+      creator_claimed_brief_item_id: itemId,
+      is_hero: false,
+      reject_reason_text: null,
+      creator_facing_note: null,
+      is_exemplar: false,
+      exemplar_note: null,
+      media_state: 'bytes_absent',
+      derivative_state: 'ready',
+      bytes_key: null,
+      poster_key: null,
+      sheet_key: '/seed/sheets/item-1.jpg',
+      phash_primary: null,
+      frame_hashes: [],
+      used_count: 0,
+      download_count: 0,
+      creator_credit: 'Test Creator',
+      usage_scope: null,
+    })
+
+    const closures = await detectClosures(repo)
+    const closure = closures.find((entry) => entry.gapId === gapId)
+    expect(closure).toBeDefined()
+    expect(closure!.via).toBe('confirmed_brief_item')
+    expect(closure!.closingAssetIds).toContain(assetId)
+
+    const closed = await repo.get<Gap>('gap', gapId)
+    expect(closed!.status).toBe('closed')
+  })
+
+  it('an unconfirmed clip against the same item does not close the gap', async () => {
+    const repo = manager()
+    const facets = { room: 'parking', shot_type: 'wide' }
+    const gapId = await repo.create('gap', {
+      gap_scan_id: null,
+      branch_id: null,
+      cell_signature: signatureOf(facets),
+      facets,
+      score: 0.5,
+      severity: 'medium',
+      status: 'open',
+      signals: [{ source: 'editor_request', weight: 1 }],
+      closing_asset_ids: [],
+    })
+    const briefId = await repo.create('brief', {
+      collab_id: 'collab-brief',
+      status: 'locked',
+      version: 1,
+      locked_at: ctx.clock.now(),
+      gap_scan_id: null,
+      tech_specs_key: 'tech-v1',
+      usage_terms_key: 'terms-v1',
+      edited_fields: [],
+    })
+    const itemId = await repo.create('brief_item', {
+      brief_id: briefId,
+      seq: 1,
+      instruction: 'wide of the parking',
+      shot_type: 'wide',
+      room: 'parking',
+      min_takes: 1,
+      origin_gap_id: gapId,
+    })
+    // The model proposed the match and nobody confirmed it, and it is not
+    // published either. A gap must not close on a proposal.
+    await repo.create('asset', {
+      kind: 'video',
+      delivery_id: 'delivery-hero',
+      collab_id: 'collab-brief',
+      branch_id: 'branch-san-jose',
+      filename: 'parking-maybe.mp4',
+      bytes: 1000,
+      duration_s: 6,
+      coded_width: 1080,
+      coded_height: 1920,
+      rotation_deg: 0,
+      codec_video: 'avc1',
+      has_audio: false,
+      captured_at: ctx.clock.now(),
+      captured_at_source: 'mvhd',
+      gps: null,
+      client_decodable: true,
+      needs_transcode: false,
+      probe_result: null,
+      preflight_version: 2,
+      preflight: {},
+      ai_description: null,
+      ai_shot_type: null,
+      ai_room: null,
+      ai_subjects: [],
+      ai_quality_score: null,
+      ai_framing_score: null,
+      ai_confidence: null,
+      ai_brand_safety: null,
+      ai_matched_brief_item_id: itemId,
+      ai_provenance: 'none',
+      review_status: 'pending',
+      is_published: false,
+      confirmed_brief_item_id: null,
+      creator_claimed_brief_item_id: null,
+      is_hero: false,
+      reject_reason_text: null,
+      creator_facing_note: null,
+      is_exemplar: false,
+      exemplar_note: null,
+      media_state: 'bytes_absent',
+      derivative_state: 'none',
+      bytes_key: null,
+      poster_key: null,
+      sheet_key: null,
+      phash_primary: null,
+      frame_hashes: [],
+      used_count: 0,
+      download_count: 0,
+      creator_credit: 'Test Creator',
+      usage_scope: null,
+    })
+
+    await detectClosures(repo)
+    const still = await repo.get<Gap>('gap', gapId)
+    expect(still!.status).toBe('open')
+  })
+})
+
 describe('detectClosures thresholds', () => {
   it('a coverage-target gap does not close below its target', async () => {
     const repo = manager()

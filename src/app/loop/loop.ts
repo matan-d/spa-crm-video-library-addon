@@ -19,7 +19,7 @@
 
 import type { ScopedRepo } from '@/data/repo'
 import { signatureOf } from '@/data/seed'
-import type { Asset, Branch, Gap, Tag } from '@/data/types'
+import type { Asset, Branch, BriefItem, Gap, Tag } from '@/data/types'
 import { parseQuery, tagIndex, type VocabularyEntry } from '../editor/search'
 
 interface QueryLogRow {
@@ -255,9 +255,27 @@ export async function generateBriefFromGaps(input: {
   const { repo, collabId } = input
   const maxItems = input.maxItems ?? 10
 
-  const gaps = (await repo.list<Gap>('gap', { where: (row) => row.status === 'open' }))
-    .sort((a, b) => b.score - a.score || a.id.localeCompare(b.id))
-    .slice(0, maxItems)
+  const open = await repo.list<Gap>('gap', { where: (row) => row.status === 'open' })
+
+  /**
+   * Explicit requests come first, then inferred gaps fill the remaining slots.
+   *
+   * A top-N cut over one score list is how a named editor's request gets
+   * silently dropped underneath gaps a scan merely inferred, and a request that
+   * vanishes without trace is worse than no request feature at all: the editor
+   * asked, nothing happened, and nobody can see why. So a gap carrying an
+   * `editor_request` signal is never displaced by a scored one. Within each
+   * group the order is score then id, which keeps it deterministic.
+   */
+  const byScore = (a: Gap, b: Gap) => b.score - a.score || a.id.localeCompare(b.id)
+  const requested = open
+    .filter((gap) => gap.signals.some((signal) => signal.source === 'editor_request'))
+    .sort(byScore)
+  const inferred = open
+    .filter((gap) => !gap.signals.some((signal) => signal.source === 'editor_request'))
+    .sort(byScore)
+
+  const gaps = [...requested, ...inferred].slice(0, Math.max(maxItems, requested.length))
 
   const briefId = await repo.create('brief', {
     collab_id: collabId,
@@ -318,6 +336,16 @@ export interface ClosureResult {
   before: number
   after: number
   closingAssetIds: string[]
+  /**
+   * How the closure was established.
+   *
+   * `confirmed_brief_item` means a human confirmed that a published clip covers
+   * the brief item this gap produced, which is the traceable path and the
+   * stronger claim. `facet_match` means published footage now matches the cell
+   * even though nothing was briefed for it, which is a real way for a gap to
+   * close and a weaker claim, because it rests on tags a model proposed.
+   */
+  via: 'confirmed_brief_item' | 'facet_match'
 }
 
 /**
@@ -326,18 +354,59 @@ export interface ClosureResult {
  * `after` is what the library holds now, and the delta is the loop's receipt.
  */
 export async function detectClosures(repo: ScopedRepo): Promise<ClosureResult[]> {
-  const [gaps, assets, tags] = await Promise.all([
+  const [gaps, assets, tags, briefItems] = await Promise.all([
     repo.list<Gap>('gap', { where: (row) => row.status === 'open' }),
     repo.list<Asset>('asset'),
     repo.list<Tag>('tag'),
+    repo.list<BriefItem>('brief_item'),
   ])
   const byAsset = tagIndex(tags)
   const published = assets.filter(
     (asset) => asset.is_published === true && asset.review_status === 'approved',
   )
 
+  /**
+   * Brief items that exist because of a gap, grouped by that gap.
+   *
+   * This is the loop's own paper trail: a manager fed a gap into a brief, a
+   * creator shot it, and a manager confirmed the result covers that item. When
+   * that chain is complete the gap is closed by human confirmation, and no tag
+   * needs to agree for it to be true. Relying on facet matching alone would
+   * leave the flagship claim resting on model output, which is exactly the
+   * dependency this product is built to avoid.
+   */
+  const itemsByGap = new Map<string, string[]>()
+  for (const item of briefItems) {
+    if (!item.origin_gap_id) continue
+    const list = itemsByGap.get(item.origin_gap_id) ?? []
+    list.push(item.id)
+    itemsByGap.set(item.origin_gap_id, list)
+  }
+
   const closures: ClosureResult[] = []
   for (const gap of gaps) {
+    const briefedItems = itemsByGap.get(gap.id) ?? []
+    const confirmed = published.filter(
+      (asset) =>
+        asset.confirmed_brief_item_id != null &&
+        briefedItems.includes(asset.confirmed_brief_item_id),
+    )
+
+    if (confirmed.length > 0) {
+      const closingAssetIds = confirmed.map((asset) => asset.id).sort()
+      const coverageSignal = gap.signals.find((signal) => signal.source === 'coverage_target')
+      const match = coverageSignal?.detail ? /^(\d+) of (\d+)/.exec(coverageSignal.detail) : null
+      await repo.patch('gap', gap.id, { status: 'closed', closing_asset_ids: closingAssetIds })
+      closures.push({
+        gapId: gap.id,
+        before: match ? Number(match[1]) : 0,
+        after: confirmed.length,
+        closingAssetIds,
+        via: 'confirmed_brief_item',
+      })
+      continue
+    }
+
     const covering = published.filter((asset) =>
       assetCoversCell(asset, gap.facets, byAsset.get(asset.id)),
     )
@@ -358,7 +427,13 @@ export async function detectClosures(repo: ScopedRepo): Promise<ClosureResult[]>
       status: 'closed',
       closing_asset_ids: closingAssetIds,
     })
-    closures.push({ gapId: gap.id, before, after: covering.length, closingAssetIds })
+    closures.push({
+      gapId: gap.id,
+      before,
+      after: covering.length,
+      closingAssetIds,
+      via: 'facet_match',
+    })
   }
   return closures
 }

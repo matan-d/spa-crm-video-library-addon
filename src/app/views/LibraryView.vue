@@ -203,8 +203,17 @@ async function requestShot() {
     branch_id: null,
     cell_signature: signature,
     facets: facetsForGap,
-    score: 0,
-    severity: 'medium',
+    // An explicit request outranks an inferred one.
+    //
+    // This was 0, which buried a named editor asking for a specific shot
+    // underneath every gap the scan had merely guessed at, so brief generation
+    // dropped it. A person who searched, found nothing, and took the trouble to
+    // ask is the strongest demand signal this system can receive: it is a real
+    // person's real intent rather than a statistical shadow of one. It is not 1,
+    // because a scan seeing sustained demand across many editors plus a coverage
+    // deficit should still be able to outrank one request.
+    score: 0.75,
+    severity: 'high',
     status: 'open',
     signals: [
       {

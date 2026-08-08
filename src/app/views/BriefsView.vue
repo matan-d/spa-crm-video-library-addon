@@ -24,6 +24,11 @@ const loaded = ref(false)
 async function reload() {
   const repo = store.repo
   if (!repo) return
+  // A manager-only surface. On a role switch the tree remounts before the
+  // router's redirect settles, so for one tick this view can hold a session
+  // that may not read these stores. Asking anyway throws a ScopeError out of
+  // onMounted, which is the scope layer working and the caller misbehaving.
+  if (store.session?.kind !== 'manager') return
   briefs.value = (await repo.list<Brief>('brief')).sort((a, b) => b.id.localeCompare(a.id))
   const allItems = await repo.list<BriefItem>('brief_item')
   const grouped = new Map<string, BriefItem[]>()
@@ -142,10 +147,14 @@ async function copyInvite(brief: Brief) {
           </option>
         </select>
       </label>
+      <!-- Disabled until there is actually a collab to generate for. A button
+           that silently does nothing because the page had not finished loading
+           is indistinguishable from a broken feature. -->
       <button
         type="button"
         data-testid="brief-generate-from-gaps"
         class="action primary"
+        :disabled="!loaded || !selectedCollabId"
         @click="generate"
       >
         Generate from gaps
@@ -370,6 +379,13 @@ select {
   background: var(--human);
   border-color: var(--human);
   color: var(--surface);
+}
+
+.action:disabled {
+  background: var(--surface-2);
+  border-color: var(--line);
+  color: var(--muted);
+  cursor: not-allowed;
 }
 
 .action.quiet {

@@ -22,6 +22,11 @@ const importReport = ref<string | null>(null)
 async function reload() {
   const repo = store.repo
   if (!repo) return
+  // A manager-only surface. On a role switch the tree remounts before the
+  // router's redirect settles, so for one tick this view can hold a session
+  // that may not read these stores. Asking anyway throws a ScopeError out of
+  // onMounted, which is the scope layer working and the caller misbehaving.
+  if (store.session?.kind !== 'manager') return
   const [assets, runs] = await Promise.all([
     repo.list<Asset>('asset'),
     repo.list<AiRun>('ai_run'),

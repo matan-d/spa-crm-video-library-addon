@@ -27,6 +27,11 @@ const loaded = ref(false)
 async function reload() {
   const repo = store.repo
   if (!repo) return
+  // A manager-only surface. On a role switch the tree remounts before the
+  // router's redirect settles, so for one tick this view can hold a session
+  // that may not read these stores. Asking anyway throws a ScopeError out of
+  // onMounted, which is the scope layer working and the caller misbehaving.
+  if (store.session?.kind !== 'manager') return
   gaps.value = (await repo.list<Gap>('gap')).sort(
     (a, b) => b.score - a.score || a.id.localeCompare(b.id),
   )

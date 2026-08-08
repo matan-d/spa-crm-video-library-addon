@@ -28,6 +28,11 @@ const loaded = ref(false)
 onMounted(async () => {
   const repo = store.repo
   if (!repo) return
+  // A manager-only surface. On a role switch the tree remounts before the
+  // router's redirect settles, so for one tick this view can hold a session
+  // that may not read these stores. Asking anyway throws a ScopeError out of
+  // onMounted, which is the scope layer working and the caller misbehaving.
+  if (store.session?.kind !== 'manager') return
   deliveries.value = await repo.list<Delivery>('delivery')
   assets.value = await repo.list<Asset>('asset')
   collabs.value = new Map((await repo.list<Collab>('collab')).map((row) => [row.id, row]))

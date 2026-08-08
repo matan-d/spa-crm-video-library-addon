@@ -37,6 +37,9 @@ const SPECS = [
   'decode.e2e.mjs',
   'ai.e2e.mjs',
   'creator.e2e.mjs',
+  // Last, and the one that matters most: it depends on every surface above
+  // working, so running it first would only ever report someone else's failure.
+  'loop.e2e.mjs',
 ]
 
 function runSpec(file) {
