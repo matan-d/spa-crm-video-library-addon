@@ -65,8 +65,33 @@ export interface SeedResult {
   }
 }
 
-const ORG_ID = 'org-astolia'
+export const SEED_ORG_ID = 'org-astolia'
+const ORG_ID = SEED_ORG_ID
 const DAY = 86_400_000
+
+/** The seeded accounts the demo role switcher signs in as. */
+export const SEED_USERS = {
+  manager: 'user-manager',
+  editor: 'user-editor',
+} as const
+
+/**
+ * The raw demo tokens, exported because the demo must be able to render an
+ * invite link a reviewer can actually open.
+ * In the real product a raw token is minted once, shown once and never stored;
+ * only its sha256 lands in `access_token.token_hash`.
+ * The seed is the one place that rule bends, because seeded history has no
+ * "shown once" moment, and a demo whose token link cannot be opened
+ * demonstrates nothing.
+ * The stored hashes below are the genuine sha256 of these strings, so the
+ * resolver exercises the same lookup the Supabase RPC would.
+ */
+export const DEMO_CREATOR_TOKEN = 'demo-creator-token'
+export const DEMO_EXPIRED_TOKEN = 'demo-expired-token'
+export const DEMO_CREATOR_TOKEN_HASH =
+  '3ebfee4e56c29a9540239c97f9aef640d891c54f12fb04405fc1a2f6acb4274b'
+export const DEMO_EXPIRED_TOKEN_HASH =
+  '6c2a0e6e5e66c501069679f7ced40c949951b3fb3d237303c7c0178ef248cd76'
 
 const BRANCHES = [
   {
@@ -746,7 +771,7 @@ export function buildSeed(deps: {
   push('access_token', {
     id: 'token-visit',
     collab_id: collabIds.visit,
-    token_hash: 'hash-visit-live',
+    token_hash: DEMO_CREATOR_TOKEN_HASH,
     purpose: 'upload',
     expires_at: t0 + 14 * DAY,
     revoked_at: null,
@@ -754,7 +779,7 @@ export function buildSeed(deps: {
   push('access_token', {
     id: 'token-expired',
     collab_id: collabIds.library,
-    token_hash: 'hash-expired',
+    token_hash: DEMO_EXPIRED_TOKEN_HASH,
     purpose: 'upload',
     expires_at: t0 - 3 * DAY,
     revoked_at: null,

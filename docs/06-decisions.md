@@ -92,3 +92,23 @@ Determinism is unaffected, and is asserted: same seed, byte-identical rows every
 **D12. Hydration is the one sanctioned bypass of the scoped repository.**
 
 Seeded rows represent history, not work somebody did in this session, so they are written directly with `server_updated_at` already set and no outbox entries. Writing them through the repository would append about two thousand outbox entries and the app would open showing a large pending queue implying unsynced work that never happened. There is a test asserting the outbox is empty after hydration. Every write after boot goes through the repository.
+
+**D13. The seeded access tokens store the real sha256 of two exported demo tokens.**
+
+The rule is that a raw token is minted once, shown once and never stored; only its hash lands in `access_token.token_hash`.
+Seeded history has no "shown once" moment, so the seed exports `DEMO_CREATOR_TOKEN` and `DEMO_EXPIRED_TOKEN` and stores their genuine sha256 hex.
+The alternative was a placeholder hash, which would have forced the token resolver to special-case the demo, and a resolver with a demo branch is exactly the kind of lie this project bans.
+With real hashes the resolver does one thing in one way: hash the URL token, look up `by_token_hash`, check expiry and revocation.
+The e2e creator run and the demo invite link both open `/#/c/demo-creator-token` and exercise the production lookup.
+
+**D14. The demo affordances ship enabled, defaulted in `vite.config.ts` rather than in a `.env` file.**
+
+The role switcher and profile switcher are demo tools, not product features, so they are gated behind `VITE_DEMO_TOOLS` rather than compiled in unconditionally.
+The default is true and lives in the committed vite config, because `.gitignore` bans every `.env` from the repository (the no-committed-keys rule) and a gate that depends on an uncommitted file fails closed for exactly the reviewer it exists for.
+A real deployment sets `VITE_DEMO_TOOLS=false` in its build environment and the controls disappear.
+The switcher is styled as a labelled demo strip, never as an account menu, so nobody mistakes it for evidence of access control that does not exist.
+
+**D15. Until the triage inbox is a real surface, every staff role lands on the library.**
+
+The definition of done says the app opens on a non-empty library in a few seconds.
+Landing the manager on a placeholder triage page would fail that deliberately, so `roleHome('manager')` is `/library` for now and flips to `/triage` in the same commit that builds the inbox.

@@ -2,8 +2,8 @@
 
 Read `CLAUDE.md` first. This file is the ordered task list, so the sequence cannot be mistaken.
 
-Last pushed commit: `0de1d10`, "Seed: a deliberately imperfect demo dataset, generated deterministically".
-Gates at that commit: 262 tests passing, clean typecheck, clean lint, 16 fixtures verified.
+Last pushed commit: the app shell (see git log).
+Gates at that commit: 285 tests passing, clean typecheck, clean lint, 16 fixtures verified, boot e2e 44 passed with 0 pending.
 
 ## Resume in one line
 
@@ -21,6 +21,7 @@ Gates at that commit: 262 tests passing, clean typecheck, clean lint, 16 fixture
 | B1 | 16 engineered fixtures, a manifest separating `declared` from `expected_preflight` with tolerances, a verifier, and a formula drift guard | `public/fixtures/`, `scripts/{build-fixtures,verify-fixtures}.mjs` |
 | Seed media | 27 real stock items. Contact sheets are genuine frame extractions from rendered clips | `public/seed/`, `scripts/build-seed-media.mjs` |
 | Seed data | The demo dataset, generated at runtime, deterministic, with 10 deliberate imperfections each covered by a test | `src/data/{seed,hydrate}.ts` |
+| App shell | Bootstrap, Pinia store, router, role switcher, creator token resolution, and the first honest library grid | `src/app/`, `src/App.vue`. The load-bearing test: a role switch remounts the view tree (element identity changes), and the token route can only construct a `creatorTokenSession`. Boot e2e: 44 passed, 0 pending |
 
 ## Possibly in flight, check before starting
 
@@ -34,19 +35,14 @@ If any of those directories is missing, that track was not finished and is yours
 
 ## The task list, in dependency order
 
-### 1. NEXT: the app shell
+### 1. DONE: the app shell
 
-Nothing renders real data yet. `src/App.vue` is a placeholder.
+`src/app/` exists: bootstrap (`bootstrap.ts`), the Pinia store (`store.ts`), the router with role guards and the `/#/c/:token` route (`router.ts`), session construction and the creator token resolver (`session.ts`), the demo tools strip, and a first honest library grid at `/library` that reads published assets through the editor scope and renders the committed posters.
+The remount-on-role-switch rule is enforced by keying the router view on `store.viewKey` and asserted by a test that checks DOM element identity changes across a switch.
+The seeded token hashes are now the real sha256 of `DEMO_CREATOR_TOKEN` and `DEMO_EXPIRED_TOKEN` (see D13), so `/#/c/demo-creator-token` resolves through the production lookup.
+Staff roles land on `/library` until the triage inbox is real (D15).
 
-Build `src/app/`:
-- A bootstrap that opens the database for the active profile, hydrates the demo seed if needed, probes capabilities, assembles the browser platform, and creates a scoped repository for the active session.
-- A Pinia store holding the session, the platform report, and the repository. No component may touch IndexedDB or the platform directly.
-- A router with the role surfaces plus the creator token route at `/#/c/:token`, whose loader can only construct a `creatorTokenSession`, so there is no reachable path from creator UI to a manager repository.
-- A role switcher, dev-only behind `import.meta.env.VITE_DEMO_TOOLS`, styled as a demo affordance rather than an account menu so nobody mistakes it for proof there is no access control.
-
-Critical: on a role switch the view tree must remount rather than restore. A cached view holding the previous role's data is ranked the highest-probability leak in the whole product, and it is caused by the standard fix for preserving grid scroll position. Key the router view on the session kind.
-
-### 2. The editor surface, the most demoable one
+### 2. NEXT: the editor surface, the most demoable one
 
 Library grid reading published assets through the repository, with real posters from `/seed/posters/`. One search box as the primary interaction, facets as results-derived chips with counts (never a taxonomy tree), a clip sheet, bins, and the zero-result ladder ending in "add to next brief" which writes a `gap` row.
 

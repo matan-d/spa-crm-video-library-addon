@@ -21,7 +21,9 @@ import { SeededClock, SEED_EPOCH_MS } from '@/platform/clock'
 import { SeededRng, SEED_STRING } from '@/platform/rng'
 import { createIdFactory } from '@/platform/id'
 
-export const SEED_VERSION = 'seed-v1'
+// v2: access token hashes became the real sha256 of the exported demo tokens,
+// so the creator token link resolves through the same lookup production uses.
+export const SEED_VERSION = 'seed-v2'
 const SEED_VERSION_KEY = 'seed_version'
 
 export interface HydrateResult {

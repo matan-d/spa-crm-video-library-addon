@@ -60,6 +60,14 @@ export default tseslint.config(
   ...tseslint.configs.recommended,
   ...pluginVue.configs['flat/recommended'],
   {
+    // vue-eslint-parser handles the SFC; the TypeScript parser must be named
+    // for the <script lang="ts"> block or every typed SFC is a parse error.
+    files: ['**/*.vue'],
+    languageOptions: {
+      parserOptions: { parser: tseslint.parser },
+    },
+  },
+  {
     rules: {
       'no-restricted-syntax': ['error', ...deterministicOnly],
       'no-console': ['warn', { allow: ['warn', 'error'] }],
