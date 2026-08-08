@@ -269,7 +269,8 @@ describe('the mounted shell', () => {
     const marker = wrapper.find('[data-testid="seed-ready"]')
     expect(marker.exists()).toBe(true)
     expect(Number(marker.attributes('data-count'))).toBeGreaterThan(0)
-    expect(marker.attributes('data-seed-version')).toBe('seed-v2')
+    const { SEED_VERSION } = await import('@/data/hydrate')
+    expect(marker.attributes('data-seed-version')).toBe(SEED_VERSION)
   })
 })
 

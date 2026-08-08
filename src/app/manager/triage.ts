@@ -105,9 +105,17 @@ export interface DeliveryDiff {
   awaitingDerivatives: Asset[]
 }
 
-/** An AI match is provisional evidence exactly while the clip is undecided. */
+/**
+ * An AI match is provisional evidence exactly while the clip is undecided.
+ * A sheetless clip can make no claim at all: without derivatives there was no
+ * vision run, so a match field on such a row is a defect, not evidence.
+ */
 function aiMatchStands(asset: Asset): boolean {
-  return asset.review_status === 'pending' && asset.confirmed_brief_item_id == null
+  return (
+    asset.review_status === 'pending' &&
+    asset.confirmed_brief_item_id == null &&
+    !isAwaitingDerivatives(asset)
+  )
 }
 
 export function computeDiff(items: BriefItem[], assets: Asset[]): DeliveryDiff {

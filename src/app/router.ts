@@ -31,6 +31,8 @@ import DealsView from './views/DealsView.vue'
 import ReviewQueueView from './views/ReviewQueueView.vue'
 import GapsView from './views/GapsView.vue'
 import BriefsView from './views/BriefsView.vue'
+import DataHealthView from './views/DataHealthView.vue'
+import StorageView from './views/StorageView.vue'
 
 /** Where each role lands. Also the redirect target when a route is refused. */
 export function roleHome(role: ActiveRole, creatorToken?: string | null): string {
@@ -108,13 +110,16 @@ export const routes: RouteRecordRaw[] = [
     'Creators',
     'Vetting and the scorecard. Lands with the manager surface.',
   ),
-  placeholder(
-    '/data-health',
-    ['manager'],
-    'Data health',
-    'ai_run counts by provider: the direct answer to "is any of this real".',
-  ),
-  placeholder('/storage', ['manager'], 'Storage', 'Quota, tier and eviction.'),
+  {
+    path: '/data-health',
+    component: DataHealthView,
+    meta: { roles: ['manager'], title: 'Data health' } satisfies SurfaceMeta,
+  },
+  {
+    path: '/storage',
+    component: StorageView,
+    meta: { roles: ['manager'], title: 'Storage' } satisfies SurfaceMeta,
+  },
   placeholder('/sync', ['manager'], 'Sync', 'The outbox and the loopback adapter.'),
   {
     path: '/c/:token',

@@ -23,7 +23,10 @@ import { createIdFactory } from '@/platform/id'
 
 // v2: access token hashes became the real sha256 of the exported demo tokens,
 // so the creator token link resolves through the same lookup production uses.
-export const SEED_VERSION = 'seed-v2'
+// v3: the HEVC case no longer carries an AI brief-item match, because a match
+// claim on a clip nobody could decode is fabrication and the health panel
+// counts it as such.
+export const SEED_VERSION = 'seed-v3'
 const SEED_VERSION_KEY = 'seed_version'
 
 export interface HydrateResult {

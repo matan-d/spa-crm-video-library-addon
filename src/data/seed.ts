@@ -526,6 +526,9 @@ export function buildSeed(deps: {
     hevc.ai_framing_score = null
     hevc.ai_confidence = null
     hevc.ai_brand_safety = null
+    // Including the match claim: a brief-item match on a clip nobody could
+    // decode is fabrication, and the data health panel counts it as such.
+    hevc.ai_matched_brief_item_id = null
     hevc.ai_provenance = 'none'
     ;(hevc.preflight as Record<string, unknown>).codec_playable = {
       status: 'fail',
