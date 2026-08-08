@@ -52,6 +52,7 @@ export type StoreName =
   | 'gap_dismissal'
   | 'insight'
   // local only, never synced
+  | 'blob'
   | 'search_token'
   | 'asset_facet'
   | 'reindex_queue'
@@ -312,6 +313,20 @@ export const STORES: StoreSpec[] = [
   },
 
   // ---- local only ----
+  {
+    // Contact sheets and posters, as Blobs. A separate store rather than a field
+    // on the record, for two reasons: the records stay small enough to scan
+    // cheaply, and eviction needs to walk these oldest-first without dragging
+    // every record's metadata through memory. Derived and regenerable, so never
+    // synced: in production these live in object storage.
+    name: 'blob',
+    keyPath: 'key',
+    localOnly: true,
+    indexes: [
+      { name: 'by_created', keyPath: 'created_at' },
+      { name: 'by_kind', keyPath: 'kind' },
+    ],
+  },
   {
     name: 'search_token',
     keyPath: 'id',
