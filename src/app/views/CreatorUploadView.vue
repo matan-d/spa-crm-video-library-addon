@@ -14,6 +14,7 @@ import { computed, onMounted, ref, shallowRef } from 'vue'
 import { useRoute } from 'vue-router'
 import { createBrowserExtractionHost } from '@/media/browser/decode'
 import { deriveIngestPolicy } from '@/platform/capability'
+import { resolveTechSpec } from '../creator/tech-specs'
 import type { PreflightContext } from '@/media/preflight'
 import type { HashedAsset } from '@/media/phash'
 import type { Asset, Branch, BriefItem, Collab, Delivery } from '@/data/types'
@@ -37,6 +38,7 @@ const collab = shallowRef<Collab | null>(null)
 const branch = shallowRef<Branch | null>(null)
 const delivery = shallowRef<Delivery | null>(null)
 const briefItems = shallowRef<BriefItem[]>([])
+const techSpecKey = shallowRef<string | null>(null)
 const rows = ref<UploadRow[]>([])
 const filteredCount = ref(0)
 const submitted = ref<{ count: number } | null>(null)
@@ -64,9 +66,15 @@ onMounted(async () => {
     branch.value = (await repo.get<Branch>('branch', collab.value.branch_id)) ?? null
   }
 
-  const briefs = await repo.list<{ id: string; collab_id: string; status: string }>('brief')
+  const briefs = await repo.list<{
+    id: string
+    collab_id: string
+    status: string
+    tech_specs_key: string | null
+  }>('brief')
   const locked = briefs.find((row) => row.status === 'locked') ?? briefs[0]
   if (locked) {
+    techSpecKey.value = locked.tech_specs_key ?? null
     briefItems.value = (
       await repo.list<BriefItem>('brief_item', { where: (row) => row.brief_id === locked.id })
     )
@@ -113,22 +121,27 @@ onMounted(async () => {
   loaded.value = true
 })
 
-/** The pre-flight context: the brief's thresholds and the branch, never guessed. */
+/**
+ * The pre-flight context: the agreed spec, the visit, and the branch.
+ *
+ * Every value is read from the records rather than typed in here. The thresholds
+ * come from the spec key the brief names, so what a creator is judged against is
+ * what was agreed with them and not what a component author assumed. The branch
+ * is null rather than a fallback coordinate when we cannot see one: a missing
+ * branch must make `near_branch` unknown, and defaulting to 0,0 would instead
+ * measure the distance to the Gulf of Guinea and fail every clip. That is not a
+ * hypothetical, it is the bug this comment replaced.
+ */
 function preflightContext(): PreflightContext {
   const b = branch.value
+  const spec = resolveTechSpec(techSpecKey.value)
+  const hasCoordinates = !!b && typeof b.lat === 'number' && typeof b.lng === 'number'
   return {
-    thresholds: {
-      required_orientation: 'vertical',
-      min_duration_s: 3,
-      min_short_edge_px: 720,
-      min_long_edge_px: 1280,
-      visit_window_hours: 24,
-      near_branch_radius_m: 500,
-    },
+    thresholds: spec.thresholds,
     visit_date: collab.value?.visit_at
       ? new Date(collab.value.visit_at).toISOString().slice(0, 10)
       : new Date(store.ctx!.clock.now()).toISOString().slice(0, 10),
-    branch: b ? { branch_id: b.id, lat: b.lat ?? 0, lng: b.lng ?? 0 } : null,
+    branch: hasCoordinates ? { branch_id: b!.id, lat: b!.lat as number, lng: b!.lng as number } : null,
     comparison_set: 'delivery',
     dhash_hamming_threshold: 4,
   } as PreflightContext

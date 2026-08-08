@@ -26,7 +26,10 @@ import { createIdFactory } from '@/platform/id'
 // v3: the HEVC case no longer carries an AI brief-item match, because a match
 // claim on a clip nobody could decode is fabrication and the health panel
 // counts it as such.
-export const SEED_VERSION = 'seed-v3'
+// v4: the demo visit date and the San Jose branch coordinates now match the
+// fixture manifest's context, so the committed fixtures pre-flight in the demo
+// exactly as the manifest says they must.
+export const SEED_VERSION = 'seed-v4'
 const SEED_VERSION_KEY = 'seed_version'
 
 export interface HydrateResult {

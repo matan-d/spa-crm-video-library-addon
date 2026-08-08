@@ -65,6 +65,19 @@ export interface SeedResult {
   }
 }
 
+/**
+ * The demo visit date, and it is the fixture manifest's `context.visit_date`
+ * on purpose.
+ *
+ * The sixteen engineered fixtures carry capture times around 2026-08-04 and the
+ * manifest asserts what pre-flight must conclude about them at a branch at
+ * 37.3382, -121.8863. If the demo's visit were a different day at different
+ * coordinates then dropping those same files into the demo would produce
+ * `capture_date: fail` and `near_branch: fail`, and the demo would contradict
+ * the contract the tests assert. So the two worlds are one world.
+ */
+export const DEMO_VISIT_AT_MS = Date.parse('2026-08-04T11:00:00Z')
+
 export const SEED_ORG_ID = 'org-astolia'
 const ORG_ID = SEED_ORG_ID
 const DAY = 86_400_000
@@ -99,8 +112,9 @@ const BRANCHES = [
     name: 'Astolia San Jose',
     city: 'San Jose',
     address: '1180 Lincoln Ave, San Jose, CA',
-    lat: 37.3082,
-    lng: -121.9046,
+    // The fixture manifest's branch coordinates. See DEMO_VISIT_AT_MS.
+    lat: 37.3382,
+    lng: -121.8863,
     rooms: ['treatment_room', 'reception', 'corridor', 'sauna', 'wet_room', 'lounge', 'studio'],
     primary: true,
   },
@@ -325,6 +339,9 @@ export function buildSeed(deps: {
     collabIds[plan.key] = id
     const branch = BRANCHES[plan.branch]!
     const visitOffset = plan.key === 'ghosted' ? -21 * DAY : plan.key === 'visit' ? 0 : -(index + 2) * DAY
+    // The collab the demo creator token opens is pinned to the fixture world's
+    // visit date, so the committed fixtures pre-flight exactly as documented.
+    const visitAtMs = plan.key === 'visit' ? DEMO_VISIT_AT_MS : t0 + visitOffset
 
     push('collab', {
       id,
@@ -333,7 +350,7 @@ export function buildSeed(deps: {
       owner_user_id: 'user-manager',
       stage: plan.stage,
       stage_entered_at: t0 - (index + 1) * DAY,
-      visit_at: plan.stage === 'source' || plan.stage === 'vet' ? null : t0 + visitOffset,
+      visit_at: plan.stage === 'source' || plan.stage === 'vet' ? null : visitAtMs,
       vip_tier: plan.stage === 'source' ? null : 'half_day',
       comp_value_usd: plan.stage === 'source' ? null : 240 + index * 40,
       outcome: plan.outcome,

@@ -78,6 +78,15 @@ onMounted(async () => {
   })
   consent.value = records.sort((a, b) => b.created_at - a.created_at)[0] ?? null
 
+  // A creator who already agreed does not get asked again. Re-presenting a
+  // signed agreement invites a second record for the same consent, and the
+  // record is supposed to be immutable and singular. They go straight to the
+  // page that shows what they have already sent.
+  if (consent.value) {
+    void router.replace(`/c/${store.creatorToken}/upload`)
+    return
+  }
+
   const briefs = await repo.list<BriefRow>('brief')
   const locked = briefs.find((brief) => brief.status === 'locked') ?? briefs[0]
   if (locked) {

@@ -338,7 +338,17 @@ const CREATOR_COLLAB_FIELDS = [
 
 const CREATOR_CREATOR_FIELDS = ['id', 'display_name', 'primary_handle'] as const
 
-const CREATOR_BRANCH_FIELDS = ['id', 'name', 'address', 'city', 'timezone'] as const
+/**
+ * `lat` and `lng` are here deliberately.
+ *
+ * Local pre-flight cannot answer "was this filmed at the studio" without the
+ * studio's location, and doing that check on the creator's device is the whole
+ * point: they learn the answer before uploading. The coordinates leak nothing,
+ * because the projection already includes the street address they are travelling
+ * to. Withholding them would move the check to a server this product does not
+ * have, and would fail the creator for our architecture.
+ */
+const CREATOR_BRANCH_FIELDS = ['id', 'name', 'address', 'city', 'timezone', 'lat', 'lng'] as const
 
 const EDITOR_BRANCH_FIELDS = ['id', 'name', 'city', 'timezone', 'rooms'] as const
 

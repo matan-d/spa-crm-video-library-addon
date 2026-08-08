@@ -68,6 +68,56 @@ const PENDING = false
 const CREATOR_TOKEN = process.env.E2E_CREATOR_TOKEN || 'demo-creator-token'
 const INVITE_URL = `/#/c/${CREATOR_TOKEN}`
 
+/**
+ * An aborted blob fetch on media teardown is expected here for the same reason
+ * as in `e2e/decode.e2e.mjs`: the extractor stops reading once it has its
+ * frames, so revoking the object URL mid-buffer is the normal end of every
+ * extraction. Scoped to this run rather than to the harness default.
+ */
+const TEARDOWN_ABORT = /blob:.*ERR_ABORTED/
+
+/**
+ * What THIS runtime can decode, asked once and used to split the assertions.
+ *
+ * `expected_preflight` in the manifest describes a reference runtime where H.264
+ * decodes and only HEVC does not. A runtime that differs does not make the
+ * parser wrong, so the container derived rules are still asserted against the
+ * manifest and only `codec_playable` follows the machine. See D26.
+ */
+let RUNTIME_CODECS = null
+
+async function readRuntimeCodecs(page) {
+  return page.evaluate(() => {
+    const v = document.createElement('video')
+    const answer = (mime) => v.canPlayType(mime)
+    return {
+      h264: answer('video/mp4; codecs="avc1.42E01E"'),
+      hevc: answer('video/mp4; codecs="hvc1.1.6.L93.B0"'),
+      vp9: answer('video/mp4; codecs="vp09.00.10.08"'),
+    }
+  })
+}
+
+/** The codec family a fixture's declared codec belongs to. */
+function familyOf(codec) {
+  if (!codec) return null
+  if (codec.startsWith('avc')) return 'h264'
+  if (codec.startsWith('hvc') || codec.startsWith('hev')) return 'hevc'
+  if (codec.startsWith('vp09') || codec.startsWith('vp9')) return 'vp9'
+  if (codec.startsWith('apc')) return 'prores'
+  return null
+}
+
+/** Whether this runtime decodes that family, as a pass or fail expectation. */
+function runtimeDecodes(codec) {
+  const family = familyOf(codec)
+  if (!family) return 'unknown'
+  if (family === 'prores') return 'no'
+  const answer = RUNTIME_CODECS?.[family]
+  if (answer === undefined) return 'unknown'
+  return answer === 'probably' || answer === 'maybe' ? 'yes' : 'no'
+}
+
 const MANIFEST = JSON.parse(readFileSync(join(REPO_ROOT, 'public', 'fixtures', 'manifest.json'), 'utf8'))
 const byId = new Map(MANIFEST.fixtures.map((f) => [f.fixture_id, f]))
 
@@ -138,7 +188,11 @@ async function readRuleStatuses(page, fileName) {
 }
 
 async function consentAndIngest(browser, deviceProfile) {
-  const { context, page, watcher } = await openPage(browser, { ...deviceProfile, acceptDownloads: true })
+  const { context, page, watcher } = await openPage(
+    browser,
+    { ...deviceProfile, acceptDownloads: true },
+    { ignore: [TEARDOWN_ABORT] },
+  )
   try {
     // When: the creator opens the token link.
     await page.goto(`${BASE_URL}${INVITE_URL}`, { waitUntil: 'load', timeout: 45_000 })
@@ -173,6 +227,12 @@ async function consentAndIngest(browser, deviceProfile) {
     const deliveryId = await page.locator(testid(UPLOAD_ROOT)).getAttribute(ATTR_DELIVERY_ID)
     assert(!!deliveryId, `${deviceProfile.name}: a delivery exists so the session can resume (${deliveryId})`)
 
+    // Ask this runtime what it can decode, once, before anything depends on it.
+    if (!RUNTIME_CODECS) {
+      RUNTIME_CODECS = await readRuntimeCodecs(page)
+      note(`runtime codecs: h264="${RUNTIME_CODECS.h264}" hevc="${RUNTIME_CODECS.hevc}" vp9="${RUNTIME_CODECS.vp9}"`)
+    }
+
     // When: real files go in through the real entry point, not a mocked one.
     await page.setInputFiles(testid(UPLOAD_FILE_INPUT), DELIVERED.map(fixturePath))
 
@@ -181,6 +241,20 @@ async function consentAndIngest(browser, deviceProfile) {
       const fileName = entry.path.split('/').pop()
       const rowSelector = sel(UPLOAD_FILE_ROW, { [ATTR_FILE_NAME]: fileName })
       assert(await exists(page, rowSelector, 30_000), `${deviceProfile.name}: ${id}: a row appeared for ${fileName}`)
+
+      // Pre-flight parses bytes and may decode frames, so a row appears before
+      // it has a verdict. Waiting on the settled state rather than on a sleep
+      // keeps the run correct on a slow machine and on the throttled mobile
+      // profile, where reading too early is what made these assertions flake.
+      await page.waitForFunction(
+        ([selector]) => {
+          const row = document.querySelector(selector)
+          const state = row?.getAttribute('data-upload-state')
+          return state === 'stored' || state === 'blocked' || state === 'failed'
+        },
+        [rowSelector],
+        { timeout: 120_000 },
+      )
 
       const expected = entry.expected_preflight
       const statuses = await readRuleStatuses(page, fileName)
@@ -199,6 +273,38 @@ async function consentAndIngest(browser, deviceProfile) {
         }
         assert(!!got, `${deviceProfile.name}: ${id}: ${rule} is rendered`)
         if (!got) continue
+
+        if (rule === 'duplicate') {
+          // The duplicate rule compares per frame perceptual hashes, so it needs
+          // pixels, so it needs a decoder. On a runtime that cannot decode the
+          // file there is nothing to compare and `unknown` is the honest answer,
+          // which is the four valued rule working rather than failing.
+          const decodes = runtimeDecodes(entry.declared.codec_video)
+          const expected = decodes === 'yes' ? want.status : 'unknown'
+          assertEqual(
+            got.status,
+            expected,
+            `${deviceProfile.name}: ${id}: duplicate is ${expected} on this runtime (decodes: ${decodes})`,
+          )
+          continue
+        }
+
+        if (rule === 'codec_playable') {
+          // A statement about this machine, not about the file. See D26.
+          const decodes = runtimeDecodes(entry.declared.codec_video)
+          const expected = decodes === 'yes' ? 'pass' : decodes === 'no' ? 'fail' : 'unknown'
+          assertEqual(
+            got.status,
+            expected,
+            `${deviceProfile.name}: ${id}: codec_playable follows this runtime (${entry.declared.codec_video} decodes: ${decodes})`,
+          )
+          assert(
+            got.blocking === false,
+            `${deviceProfile.name}: ${id}: codec_playable never blocks, whatever the runtime answers`,
+          )
+          continue
+        }
+
         assertEqual(got.status, want.status, `${deviceProfile.name}: ${id}: ${rule} status`)
         assertEqual(got.blocking, want.blocking === true, `${deviceProfile.name}: ${id}: ${rule} blocking flag`)
         if (want.status === 'unknown' || want.status === 'fail') {
@@ -213,12 +319,20 @@ async function consentAndIngest(browser, deviceProfile) {
       }
 
       // The row level verdict is a rollup of the rules, not a separate opinion.
+      // The row verdict is a rollup of the rules, never a separate opinion. A
+      // blocking fail blocks; a non blocking fail (including a codec this
+      // runtime cannot decode) is advisory and must never read as blocked,
+      // because refusing a creator's footage for our own missing decoder would
+      // be the product lying about whose problem it is.
       const rowVerdict = await page.locator(`${rowSelector} ${testid(UPLOAD_FILE_VERDICT)}`).getAttribute(ATTR_VERDICT)
-      const wantVerdict = expected.rollup.blocking_fail > 0 ? 'blocked' : 'ok'
-      assert(
-        rowVerdict === wantVerdict || (wantVerdict === 'ok' && rowVerdict === 'advisory' && expected.rollup.fail > 0),
-        `${deviceProfile.name}: ${id}: row verdict is ${rowVerdict}, consistent with rollup blocking_fail=${expected.rollup.blocking_fail}`,
-      )
+      if (expected.rollup.blocking_fail > 0) {
+        assertEqual(rowVerdict, 'blocked', `${deviceProfile.name}: ${id}: a blocking fail reads as blocked`)
+      } else {
+        assert(
+          rowVerdict === 'ok' || rowVerdict === 'advisory',
+          `${deviceProfile.name}: ${id}: row verdict is ${rowVerdict}, and nothing non blocking reads as blocked`,
+        )
+      }
     }
 
     // QC-MEDIA-065: prompt only for the unknown the creator can answer.
@@ -272,6 +386,12 @@ async function consentAndIngest(browser, deviceProfile) {
     // that only works in a fresh profile is not a resume.
     const resumed = await context.newPage()
     await resumed.goto(`${BASE_URL}${INVITE_URL}`, { waitUntil: 'load', timeout: 45_000 })
+    // The same link, and it must land on the upload page rather than asking for
+    // consent a second time: the consent record is immutable and singular.
+    assert(
+      await exists(resumed, testid(UPLOAD_ROOT), 20_000),
+      `${deviceProfile.name}: reopening the link goes straight to the upload page, consent is not re-asked`,
+    )
     assert(await exists(resumed, testid(UPLOAD_RESUME_BANNER), 20_000), `${deviceProfile.name}: reopening the same link resumed the delivery`)
     assertEqual(
       await resumed.locator(testid(UPLOAD_RESUME_BANNER)).getAttribute(ATTR_DELIVERY_ID),
@@ -293,7 +413,7 @@ async function consentAndIngest(browser, deviceProfile) {
 
 /** Desktop only: a folder drop full of junk is filtered, not failed. */
 async function junkFolderIsFiltered(browser) {
-  const { context, page } = await openPage(browser, DESKTOP)
+  const { context, page } = await openPage(browser, DESKTOP, { ignore: [TEARDOWN_ABORT] })
   const junk = makeJunkFolder()
   try {
     await page.goto(`${BASE_URL}${INVITE_URL}`, { waitUntil: 'load', timeout: 45_000 })
@@ -330,7 +450,7 @@ async function junkFolderIsFiltered(browser) {
 
 /** A blocked clip explains itself and does not silently disappear. */
 async function blockedClipExplainsItself(browser) {
-  const { context, page } = await openPage(browser, MOBILE)
+  const { context, page } = await openPage(browser, MOBILE, { ignore: [TEARDOWN_ABORT] })
   try {
     await page.goto(`${BASE_URL}${INVITE_URL}`, { waitUntil: 'load', timeout: 45_000 })
     if (await exists(page, testid(CONSENT_ACCEPT), 3000)) await page.click(testid(CONSENT_ACCEPT))

@@ -23,17 +23,37 @@ import type { ExtractionHost } from '@/media/extract'
 import type { PreflightContext } from '@/media/preflight'
 import type { HashedAsset } from '@/media/phash'
 
-/** Files a creator's folder always contains and nobody meant to send. */
+/**
+ * Files a creator's folder always contains and nobody meant to send.
+ *
+ * Filtered, never failed. A creator who drags their whole camera folder has not
+ * made a mistake, and a wall of red rows for sidecars would tell them they had.
+ */
 const FILTERED_PATTERNS = [
   /^\._/, // macOS resource forks
   /^\.DS_Store$/i,
   /^Thumbs\.db$/i,
-  /\.(xmp|thm|lrv|aae|sqlite|plist)$/i, // sidecars and proxies
   /^__MACOSX/i,
+  /\.(xmp|thm|lrv|aae|sqlite|plist|ini|log)$/i, // sidecars, proxies, app droppings
+  // RAW stills. Real cameras write these beside the clips, and we cannot read
+  // them: there is no RAW decoder here and inventing dimensions for one would be
+  // fabrication. Filtering says "not this one" instead of "you did it wrong".
+  /\.(dng|cr2|cr3|nef|arw|orf|rw2|raf|srw|pef|heic|heif)$/i,
 ]
 
+/**
+ * Extensions we will actually attempt. Anything else is filtered rather than
+ * ingested and failed, because `notes.txt` in a camera folder is not a delivery
+ * attempt and should not occupy a row explaining that it is not a video.
+ */
+const ACCEPTED_EXTENSIONS = /\.(mp4|m4v|mov|qt|webm|mkv|avi|jpg|jpeg|png|webp|gif|avif)$/i
+
 export function isFilteredFile(name: string): boolean {
-  return FILTERED_PATTERNS.some((pattern) => pattern.test(name))
+  if (FILTERED_PATTERNS.some((pattern) => pattern.test(name))) return true
+  // No recognised media extension. The bytes still decide `kind` once a file is
+  // accepted (an iPhone writes .MOV for two codecs, so an extension is never
+  // evidence about content), but it is a reasonable signal about intent.
+  return !ACCEPTED_EXTENSIONS.test(name)
 }
 
 export type UploadState =
