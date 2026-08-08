@@ -8,13 +8,12 @@
 //    whole view tree instead of restoring cached views. A cached view holding
 //    the previous role's data is the highest-probability leak in the product.
 import { computed, onMounted } from 'vue'
-import { RouterLink, RouterView, useRouter } from 'vue-router'
+import { RouterLink, RouterView } from 'vue-router'
 import { useAppStore, ACTIVE_ROLE_KEY } from './app/store'
 import type { StaffRole } from './app/session'
 import DemoTools from './app/components/DemoTools.vue'
 
 const store = useAppStore()
-const router = useRouter()
 
 const demoTools = import.meta.env.VITE_DEMO_TOOLS === 'true'
 
@@ -27,17 +26,15 @@ function rememberedRole(): StaffRole {
   }
 }
 
-onMounted(async () => {
-  await store.boot({
+// Boot starts as the shell mounts, and the router's guard awaits it, so the
+// first navigation already resolves against a real session. Nothing re-navigates
+// afterwards: a second navigation to the same path is a duplicate, and relying
+// on one is what made token links render an empty page.
+onMounted(() => {
+  void store.boot({
     storage: safeLocalStorage(),
     initialRole: rememberedRole(),
   })
-  if (store.ready) {
-    // The initial navigation ran before boot finished, when the guard had
-    // nothing to check against. Re-run it now that the session exists, so a
-    // token link resolves and a staff deep link is role checked.
-    await router.replace(router.currentRoute.value.fullPath)
-  }
 })
 
 function safeLocalStorage(): Pick<Storage, 'getItem'> | null {

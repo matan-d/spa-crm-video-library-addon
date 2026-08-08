@@ -5,6 +5,7 @@
 // creator surface task; the brief a creator is being asked for is already real
 // and already scoped, because it is read through the token session.
 import { computed, onMounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { useAppStore } from '../store'
 
 interface BriefRow {
@@ -39,7 +40,12 @@ interface BranchRow {
 }
 
 const store = useAppStore()
+const router = useRouter()
 const gate = computed(() => store.creatorGate)
+
+function continueToUpload() {
+  router.push(`/c/${store.creatorToken}/upload`)
+}
 
 const branch = ref<BranchRow | null>(null)
 const collab = ref<CollabRow | null>(null)
@@ -210,6 +216,7 @@ function visitDate(ms: number | null): string {
       v-if="collab?.usage_terms_text"
       data-testid="consent-panel"
       class="consent"
+      :data-consent-version="collab.consent_text_version ?? 'consent-v1'"
     >
       <h2>Usage agreement</h2>
       <p
@@ -266,9 +273,9 @@ function visitDate(ms: number | null): string {
       type="button"
       data-testid="invite-continue"
       class="continue"
-      disabled
+      @click="continueToUpload"
     >
-      Continue to upload (lands with the creator upload page)
+      Continue to sending your clips
     </button>
   </section>
 </template>
@@ -391,11 +398,12 @@ h2 {
   margin-top: var(--space-4);
   appearance: none;
   font: inherit;
-  font-size: 0.85rem;
-  border: 1px dashed var(--line);
+  font-size: 0.95rem;
+  border: 1px solid var(--human);
   border-radius: var(--radius);
-  background: var(--surface);
-  color: var(--muted);
-  padding: var(--space-2) var(--space-3);
+  background: var(--human);
+  color: var(--surface);
+  padding: var(--space-3) var(--space-4);
+  cursor: pointer;
 }
 </style>

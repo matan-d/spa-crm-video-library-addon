@@ -32,6 +32,13 @@ export const ACTIVE_ROLE_KEY = 'astolia.active_role'
 interface AppState {
   status: 'idle' | 'booting' | 'ready' | 'error'
   bootError: string | null
+  /**
+   * The in-flight boot, so the router's guard can await it rather than waving
+   * navigations through while the session does not exist yet. That race is what
+   * made a token link render nothing: the first navigation resolved un-booted,
+   * and re-navigating to the same path afterwards was rejected as a duplicate.
+   */
+  bootPromise: Promise<void> | null
   ctx: AppContext | null
   role: ActiveRole
   session: Session | null
@@ -48,6 +55,7 @@ export const useAppStore = defineStore('app', {
   state: (): AppState => ({
     status: 'idle',
     bootError: null,
+    bootPromise: null,
     ctx: null,
     role: 'manager',
     session: null,
@@ -72,7 +80,23 @@ export const useAppStore = defineStore('app', {
 
   actions: {
     async boot(deps: BootDeps & { initialRole?: StaffRole } = {}) {
-      if (this.status === 'booting' || this.status === 'ready') return
+      if (this.status === 'ready') return
+      // A second caller joins the first boot rather than starting a rival one.
+      if (this.bootPromise) return this.bootPromise
+      this.bootPromise = this.runBoot(deps)
+      return this.bootPromise
+    },
+
+    /**
+     * Anything that must not act on a half-booted store awaits this. Returns
+     * immediately once boot has settled, successfully or not.
+     */
+    async whenReady(): Promise<void> {
+      if (this.status === 'ready' || this.status === 'error') return
+      if (this.bootPromise) await this.bootPromise
+    },
+
+    async runBoot(deps: BootDeps & { initialRole?: StaffRole } = {}) {
       this.status = 'booting'
       this.bootError = null
       try {

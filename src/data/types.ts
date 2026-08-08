@@ -224,7 +224,22 @@ export interface Asset extends Envelope {
   review_status: ReviewStatus
   is_published: boolean
   is_published_i: number
+  /**
+   * What the MANAGER confirmed this clip covers. The authoritative match.
+   */
   confirmed_brief_item_id: string | null
+  /**
+   * What the CREATOR said this clip is for, recorded at upload.
+   *
+   * Deliberately a different column from `confirmed_brief_item_id` rather than a
+   * value written into it. Three different claims exist about what a clip
+   * covers: the creator's, the model's (`ai_matched_brief_item_id`) and the
+   * manager's, and collapsing any two of them destroys the only measurement
+   * that says whether either the creator or the model is reliable. The
+   * creator's live checklist counts this one, because at upload time it is the
+   * only claim that exists.
+   */
+  creator_claimed_brief_item_id: string | null
   is_hero: boolean
   /** Blunt internal text. Never shown to a creator. */
   reject_reason_text: string | null

@@ -51,8 +51,14 @@ import {
   sel, testid,
 } from './_support/testids.mjs'
 
-/** Flip to false when the creator invite page and upload page land. */
-const PENDING = true
+/**
+ * The invite page and the upload page have landed, and the browser decode
+ * adapters they need landed with them (docs/06-decisions.md D25), so this run
+ * is live. It is now also the only automated proof that a contact sheet can be
+ * produced by our own code, which is why the sheet assertions below are not
+ * optional extras.
+ */
+const PENDING = false
 
 /**
  * The seed must publish one stable creator token for this run, and the loop run
@@ -235,6 +241,24 @@ async function consentAndIngest(browser, deviceProfile) {
     if (briefItemCount > 0) {
       assertEqual(checklistCount, briefItemCount, `${deviceProfile.name}: one checklist item per locked brief item`)
     }
+    // Attribution is the creator's claim, and it is deliberately explicit: no
+    // model has run on these clips (and must not, the fixtures are colour bars),
+    // so nothing else could honestly fill the checklist in. The control being
+    // present and moving the checklist IS the assertion.
+    const firstStored = page.locator(`${sel(UPLOAD_FILE_ROW, { [ATTR_FILE_NAME]: 'vertical_ok.mp4' })} select`)
+    assertEqual(await firstStored.count(), 1, `${deviceProfile.name}: a stored clip offers "which shot is this"`)
+    const briefItemValue = await page.evaluate(
+      ([rowSel]) => {
+        const select = document.querySelector(`${rowSel} select`)
+        const option = select ? Array.from(select.options).find((o) => o.value !== 'none') : null
+        return option ? option.value : null
+      },
+      [sel(UPLOAD_FILE_ROW, { [ATTR_FILE_NAME]: 'vertical_ok.mp4' })],
+    )
+    assert(!!briefItemValue, `${deviceProfile.name}: the picker lists the locked brief items`)
+    await firstStored.selectOption(briefItemValue)
+    await page.waitForTimeout(200)
+
     const metCount = await page.locator(sel(CHECKLIST_ITEM, { [ATTR_STATUS]: 'met' })).count()
     assert(metCount > 0, `${deviceProfile.name}: at least one checklist item moved to met after ingest (${metCount})`)
 

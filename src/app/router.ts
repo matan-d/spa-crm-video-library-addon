@@ -33,6 +33,7 @@ import GapsView from './views/GapsView.vue'
 import BriefsView from './views/BriefsView.vue'
 import DataHealthView from './views/DataHealthView.vue'
 import StorageView from './views/StorageView.vue'
+import CreatorUploadView from './views/CreatorUploadView.vue'
 
 /** Where each role lands. Also the redirect target when a route is refused. */
 export function roleHome(role: ActiveRole, creatorToken?: string | null): string {
@@ -129,6 +130,14 @@ export const routes: RouteRecordRaw[] = [
     // reachable by anyone holding a link, exactly like production.
     meta: { title: 'Creator invite' },
   },
+  {
+    // The upload page lives UNDER the token, so it is reachable only by
+    // resolving that token: there is no upload URL that works without one.
+    path: '/c/:token/upload',
+    component: CreatorUploadView,
+    props: true,
+    meta: { title: 'Send clips' },
+  },
   { path: '/:pathMatch(.*)*', redirect: '/' },
 ]
 
@@ -141,6 +150,11 @@ export function createAppRouter(history?: RouterHistory): Router {
 
   router.beforeEach(async (to) => {
     const store = useAppStore()
+    // Wait for boot rather than waving the navigation through. A guard that
+    // passes an un-booted navigation has to be re-run later, and re-navigating
+    // to the same path is a duplicate vue-router rejects, so the second chance
+    // never comes: the creator's token link rendered an empty page.
+    await store.whenReady()
     if (!store.ready) return true
 
     // Opening a token link IS entering the creator context, whatever role the

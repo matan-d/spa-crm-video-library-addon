@@ -181,3 +181,34 @@ This is stricter than the QA case as originally written, which expected two fail
 `DecodeAdapter` is the interface, the chain around it is complete and asserted against fakes (the frame plan, the fallback order, blank detection, tiling, the long edge cap, hashing, the memory discipline), and the `<video>` plus canvas and WebCodecs implementations are absent.
 jsdom has neither video decode nor a canvas rasteriser, so writing them here would produce the least trustworthy code in the pipeline with no automated coverage at all, and the WebCodecs path is the one that claims frame accuracy.
 The consequence is stated everywhere it matters rather than buried: **no contact sheet has been produced by this code yet**, `docs/media-pipeline.md` 7.6 says so, and every affected QA case now reads `Blocked-by: decode adapter` and is listed in `qa/manual-checklist.md`.
+
+**D25. D24 is reversed for the element path, because the stated blocker turned out not to hold. The WebCodecs half stands.**
+
+D24 deferred both adapters for one reason: no automated coverage was possible.
+That reason was true of `vitest` and jsdom, and it is not true of this repository as a whole.
+`e2e/_support/harness.mjs` drives a real Chromium, which has video decode, a canvas rasteriser and `VideoDecoder`, and `qa/manual-checklist.md` 1.1 already listed twelve cases as "automatable the moment the two decode adapters exist".
+So the blocker was a statement about one test runner that had been generalised into a statement about the project.
+
+What changes: the `<video>` plus canvas adapter, `encodeJpeg`, `decodeStill` and `probeMedia` are written in `src/media/browser/decode.ts` and exercised by `e2e/creator.e2e.mjs` against the committed fixtures, whose synthetic content is designed for exactly this (a travelling white box and a burned in timecode, so "five visibly different moments" is a checkable claim rather than a hopeful one).
+The twelve cases in 1.1 move from the manual checklist into that run.
+
+What does not change: the WebCodecs adapter still declines rather than decoding, and it records `demux_unavailable` when it does.
+Sample feeding is a real body of work whose value is frame accuracy, the element path already produces correct sheets, and a half written decoder that silently lands on the wrong frame is worse than one that declines out loud.
+`VideoDecoder.isConfigSupported` is still called, so the decline is informed rather than blind, and the diagnostic says the configuration was supported and the feeding is not implemented.
+
+The consequence sentence in D24 is therefore now false in the browser and still true in `vitest`, which is the honest way to say it: **sheets are produced by this code in a real browser, asserted by the creator run, and no unit test produces one.**
+
+**D26. The e2e runtime has no H.264 decoder, so the creator run asserts codec support against the runtime and everything else against the manifest.**
+
+Measured, not assumed: the Playwright Chromium in this environment is the open source build without proprietary codecs.
+`canPlayType('video/mp4; codecs="avc1.42E01E"')` returns the empty string and loading a committed H.264 fixture fails with `DEMUXER_ERROR_NO_SUPPORTED_STREAMS`.
+The fixture manifest's reference runtime is `chromium_desktop_windows_without_hevc_extension`, where H.264 decodes and only HEVC does not, so the two runtimes disagree about exactly one rule and about whether derivatives exist.
+
+The creator run therefore splits its assertions by what each one depends on.
+The six container derived rules (orientation, min duration, min resolution, capture date, near branch, duplicate) come from the bytes and are asserted against `expected_preflight` as before, because a parser is a parser on every runtime.
+`codec_playable` and the presence of a sheet are asserted against the runtime's own probed answer, because they are statements about the machine rather than about the file.
+This is the design the pre-flight engine already had: support is injected into the rule engine rather than computed inside it, and `runtime_dependent: true` on the manifest's HEVC entry said the same thing about one file that is now true of several.
+
+The consequence for the decode proof is that H.264 cannot demonstrate the element path here, so `e2e/decode.e2e.mjs` generates a VP9 in MP4 clip at run time with the ffmpeg already in `devDependencies`.
+VP9 in MP4 is a real ISOBMFF file, so it goes through our own atom parser rather than around it, and this Chromium decodes VP9, so the run exercises the same code path an iPhone clip takes on a Mac.
+The clip is generated rather than committed because `public/fixtures/` is a sha256 verified contract about container gotchas, and a codec chosen to suit one CI machine does not belong in it.

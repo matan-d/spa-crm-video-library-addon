@@ -127,8 +127,17 @@ td,
   font-family: var(--mono);
 }
 
+/*
+ * The focus ring is deliberately NOT amber.
+ *
+ * Amber means "a model produced this" (docs/05-design-system.md), and a focus
+ * ring is neither a model output nor a human decision: it is system state, so
+ * it takes an ink-weight neutral. Spending the amber here would make every
+ * focused element in the app read as AI output, which is the exact defect the
+ * colour rule exists to prevent.
+ */
 :focus-visible {
-  outline: 2px solid var(--ai);
+  outline: 2px solid var(--ink);
   outline-offset: 2px;
 }
 

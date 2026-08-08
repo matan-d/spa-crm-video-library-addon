@@ -326,7 +326,8 @@ const EDITOR_ASSET_FIELDS = [
 const CREATOR_ASSET_FIELDS = [
   'id', 'kind', 'filename', 'duration_s', 'coded_width', 'coded_height',
   'captured_at', 'captured_at_source', 'preflight', 'preflight_version',
-  'review_status', 'confirmed_brief_item_id', 'creator_facing_note',
+  'review_status', 'confirmed_brief_item_id', 'creator_claimed_brief_item_id',
+  'creator_facing_note',
   'media_state', 'derivative_state', 'poster_key', 'sheet_key',
 ] as const
 
@@ -401,6 +402,11 @@ export const FORBIDDEN_FIELDS: Record<Exclude<SessionKind, 'manager'>, string[]>
     'comp_value_usd', 'vip_tier', 'outcome', 'owner_user_id',
     'consent_text_version', 'consent_accepted_at', 'usage_terms_text',
     'reject_reason_text', 'nudge_draft_text', 'do_not_shoot',
+    // An editor searching the library has no business knowing what the creator
+    // claimed a clip was for: the manager's confirmation is the only match an
+    // editor should ever act on, and showing both invites cutting on a claim
+    // nobody checked.
+    'creator_claimed_brief_item_id',
   ],
   creator_token: [
     'fit_score', 'fit_reasons', 'risk_flags', 'suggested_tier', 'scorecard',
