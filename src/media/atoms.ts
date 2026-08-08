@@ -179,6 +179,13 @@ export interface ContainerFacts {
   mdat_offset: number | null
   moov_position: 'start' | 'end' | 'unknown'
   top_level_types: string[]
+  /**
+   * Every atom path the recursive walker reached inside `moov`, in container
+   * order: `moov/trak[0]/mdia/minf/stbl/stsd/avc1`. Diagnostics rather than a
+   * derivation, and the cheapest way to see that a file was walked as a tree
+   * rather than sniffed for a byte pattern.
+   */
+  atom_paths: string[]
   bytes_read: number
   atoms_visited: number
   /** Non fatal oddities. A warning never changes a verdict, it explains one. */
@@ -336,15 +343,28 @@ export async function parseContainer(
     return fail(facts, 'moov_not_found', source)
   }
 
+  // One budget across both walks, starting from what the top level walk already
+  // spent, so the hop cap is a statement about the file rather than about a level.
+  const budget: AtomBudget = { atoms: top.atomsVisited, max: maxAtoms, warnings: facts.warnings }
   try {
-    readMoov(moov, facts, maxAtoms, options.sampleTables === true)
+    readMoov(moov, facts, budget, options.sampleTables === true)
   } catch (error) {
     facts.warnings.push(`moov parse failed: ${describeError(error)}`)
+    facts.atoms_visited = budget.atoms
     return fail(facts, 'metadata_unparseable', source)
   }
+  facts.atoms_visited = budget.atoms
 
   if (options.sampleTables === true && facts.video_sample_table === null) {
     facts.warnings.push('sample tables were requested but the video track carries none')
+  }
+
+  // A `moov` we found and could read nothing out of is not a parse: reporting `ok`
+  // with every field null would hand the caller a container it has to re-check
+  // field by field. This is the truncated or absurdly sized moov case.
+  if (facts.video_tracks.length === 0 && facts.duration_s.value === null && facts.mvhd_creation_time_raw === null) {
+    facts.warnings.push('moov was located but carried no readable mvhd, duration or track')
+    return fail(facts, 'metadata_unparseable', source)
   }
 
   facts.ok = true
@@ -514,6 +534,17 @@ interface BoxRef {
 }
 
 /**
+ * One shared budget for the whole walk: hops made, the cap, and the warnings
+ * collected on the way. Shared rather than per level so "under 512 atom headers
+ * for any file" is a claim about the file and not about one subtree.
+ */
+interface AtomBudget {
+  atoms: number
+  max: number
+  warnings: string[]
+}
+
+/**
  * Walks the children of one box, calling back per child.
  *
  * Returns the number of boxes visited so the caller can enforce a global hop cap.
@@ -525,7 +556,7 @@ function eachChild(
   view: DataView,
   start: number,
   end: number,
-  budget: { atoms: number; max: number; warnings: string[] },
+  budget: AtomBudget,
   visit: (box: BoxRef) => void,
 ): void {
   let offset = start
@@ -573,73 +604,220 @@ function eachChild(
   }
 }
 
-function readMoov(moov: Uint8Array, facts: ContainerFacts, maxAtoms: number, sampleTables: boolean): void {
+// ---------------------------------------------------------------------------
+// the recursive child walker
+// ---------------------------------------------------------------------------
+
+/**
+ * One atom in the tree, with the path that reached it.
+ *
+ * Offsets are into the buffer the tree was built over (the `moov` window), not
+ * into the file, because that window is the only thing this parser ever holds in
+ * memory.
+ */
+export interface AtomNode {
+  type: string
+  /** Slash separated, with a bracketed index on repeated siblings: `moov/trak[1]/mdia`. */
+  path: string
+  depth: number
+  start: number
+  end: number
+  bodyStart: number
+  children: AtomNode[]
+}
+
+/**
+ * Depth cap for the recursive descent.
+ *
+ * The deepest legal path this parser cares about is
+ * `moov/trak/mdia/minf/stbl/stsd/avc1`, which is depth 6, so 8 leaves room for a
+ * writer that nests one more level and still refuses a file that claims to nest
+ * forever.
+ */
+export const MAX_ATOM_DEPTH = 8
+
+/**
+ * Where a container's children begin, or null when this atom holds data rather
+ * than boxes.
+ *
+ * `CONTAINER_ATOMS` is the vocabulary: those are plain containers whose payload
+ * is a child list starting at the body. Two atoms are irregular and are named
+ * here rather than added to that set, because their child offset is not the body
+ * offset and a generic walk would read four or eight bytes of the wrong thing:
+ *
+ * - `meta` is a FullBox in ISO BMFF and a plain box in QuickTime, so the start is
+ *   sniffed rather than assumed.
+ * - `stsd` is a FullBox with an entry count, so its children (the sample entries)
+ *   start eight bytes in.
+ *
+ * A sample entry (`avc1`, `hvc1`, `mp4a`) is deliberately NOT descended: its
+ * children begin after a fixed 78 or 28 byte body that differs by media type, so
+ * they are read by the specialised reader that knows which one it is looking at.
+ */
+function childrenStartOf(bytes: Uint8Array, node: Pick<AtomNode, 'type' | 'bodyStart'>): number | null {
+  if (CONTAINER_ATOMS.has(node.type)) return node.bodyStart
+  if (node.type === 'meta') return metaChildStart(bytes, node)
+  if (node.type === 'stsd') return node.bodyStart + 8
+  return null
+}
+
+/**
+ * Fills in `node.children`, recursively, for every atom whose payload is a child
+ * list.
+ *
+ * This is the walk that turns "find the atom at this path" into a lookup instead
+ * of six nested hand written loops, and it shares one hop budget with the top
+ * level walk so the 512 hop cap is global rather than per level. A subtree whose
+ * sizes are inconsistent stops at that subtree: `eachChild` returns rather than
+ * throwing, so a corrupt `udta` costs the `udta` and nothing else.
+ */
+function buildAtomTree(bytes: Uint8Array, view: DataView, node: AtomNode, budget: AtomBudget): void {
+  const start = childrenStartOf(bytes, node)
+  if (start === null) return
+  if (node.depth >= MAX_ATOM_DEPTH) {
+    budget.warnings.push(`stopped descending at ${node.path}: depth cap of ${MAX_ATOM_DEPTH} reached`)
+    return
+  }
+
+  const boxes: BoxRef[] = []
+  eachChild(bytes, view, start, node.end, budget, (box) => {
+    boxes.push(box)
+  })
+
+  // Repeated siblings get a bracketed index and a lone child does not, so
+  // `moov/trak[0]` and `moov/trak[1]` are distinguishable while `moov/mvhd`
+  // stays readable. Two passes because the suffix depends on the total.
+  const totals = new Map<string, number>()
+  for (const box of boxes) totals.set(box.type, (totals.get(box.type) ?? 0) + 1)
+  const seen = new Map<string, number>()
+
+  for (const box of boxes) {
+    const index = seen.get(box.type) ?? 0
+    seen.set(box.type, index + 1)
+    const child: AtomNode = {
+      type: box.type,
+      path: (totals.get(box.type) ?? 1) > 1 ? `${node.path}/${box.type}[${index}]` : `${node.path}/${box.type}`,
+      depth: node.depth + 1,
+      start: box.start,
+      end: box.end,
+      bodyStart: box.bodyStart,
+      children: [],
+    }
+    node.children.push(child)
+    buildAtomTree(bytes, view, child, budget)
+  }
+}
+
+/** The first child of this type, or null. Absence is a normal answer here. */
+export function childOf(node: AtomNode, type: string): AtomNode | null {
+  return node.children.find((child) => child.type === type) ?? null
+}
+
+export function childrenOf(node: AtomNode, type: string): AtomNode[] {
+  return node.children.filter((child) => child.type === type)
+}
+
+/**
+ * Every atom of this type anywhere below `node`, in container order.
+ *
+ * Needed because `meta` legally appears at `moov/meta`, at `moov/udta/meta` and
+ * at `moov/trak/meta` depending on the writer, and an iPhone's creation date is
+ * in whichever one it chose.
+ */
+export function descendantsOf(node: AtomNode, type: string): AtomNode[] {
+  const out: AtomNode[] = []
+  const visit = (current: AtomNode): void => {
+    for (const child of current.children) {
+      if (child.type === type) out.push(child)
+      visit(child)
+    }
+  }
+  visit(node)
+  return out
+}
+
+function collectPaths(node: AtomNode): string[] {
+  const out = [node.path]
+  for (const child of node.children) out.push(...collectPaths(child))
+  return out
+}
+
+function readMoov(
+  moov: Uint8Array,
+  facts: ContainerFacts,
+  budget: AtomBudget,
+  sampleTables: boolean,
+): void {
   const view = new DataView(moov.buffer, moov.byteOffset, moov.byteLength)
-  const budget = { atoms: 0, max: maxAtoms, warnings: facts.warnings }
 
   // `moov` itself is the box at offset 0 of this buffer.
   let moovBody = 8
   const declared = view.getUint32(0)
   if (declared === 1) moovBody = 16
 
-  let movieTimescale: number | null = null
-  let movieDurationUnits: number | null = null
-  const traks: BoxRef[] = []
-  let udta: BoxRef | null = null
-  let meta: BoxRef | null = null
+  const root: AtomNode = {
+    type: 'moov',
+    path: 'moov',
+    depth: 0,
+    start: 0,
+    // The buffer, not the declared size: a truncated download hands us fewer
+    // bytes than the header claims and the walk must stop at what is present.
+    end: moov.byteLength,
+    bodyStart: moovBody,
+    children: [],
+  }
+  buildAtomTree(moov, view, root, budget)
+  facts.atom_paths = collectPaths(root)
 
-  eachChild(moov, view, moovBody, moov.byteLength, budget, (box) => {
-    if (box.type === 'mvhd') {
-      const mvhd = readMvhd(moov, view, box)
-      movieTimescale = mvhd.timescale
-      movieDurationUnits = mvhd.duration
-      facts.mvhd_creation_time_raw = mvhd.creationRaw
+  const mvhdNode = childOf(root, 'mvhd')
+  if (mvhdNode) {
+    const mvhd = readMvhd(moov, view, mvhdNode)
+    facts.mvhd_creation_time_raw = mvhd.creationRaw
 
-      if (mvhd.creationRaw > 0) {
-        const at_ms = (mvhd.creationRaw - QUICKTIME_EPOCH_OFFSET_S) * 1000
-        facts.captured_at_candidates.push({
-          source: 'mvhd',
-          at_ms,
-          raw: mvhd.creationRaw,
-          has_offset: false,
-          // Defined as UTC by the specification, and routinely written in camera
-          // local time in practice, so a value here is a hint and not a fact.
-          confidence: 'medium',
-        })
+    if (mvhd.creationRaw > 0) {
+      facts.captured_at_candidates.push({
+        source: 'mvhd',
+        at_ms: (mvhd.creationRaw - QUICKTIME_EPOCH_OFFSET_S) * 1000,
+        raw: mvhd.creationRaw,
+        has_offset: false,
+        // Defined as UTC by the specification, and routinely written in camera
+        // local time in practice, so a value here is a hint and not a fact.
+        confidence: 'medium',
+      })
+    } else {
+      // Rule two of this module: zero is absence. Applying the 1904 epoch to it
+      // reports a capture date of 1904-01-01, which is worse than nothing.
+      facts.warnings.push('mvhd creation time is zero, which is absence rather than 1904-01-01')
+    }
+
+    if (mvhd.timescale > 0) {
+      const seconds = mvhd.duration / mvhd.timescale
+      facts.duration_s = {
+        value: round(seconds, 6),
+        confidence: 'high',
+        evidence: 'moov/mvhd',
+        note: 'duration divided by timescale. A fragmented file can legally report 0 here.',
       }
-    } else if (box.type === 'trak') {
-      traks.push(box)
-    } else if (box.type === 'udta') {
-      udta = box
-    } else if (box.type === 'meta') {
-      meta = box
+      if (seconds === 0) {
+        facts.warnings.push('mvhd reports a zero duration, which a fragmented or still-writing file does')
+      }
     }
-  })
-
-  if (movieTimescale && movieDurationUnits !== null && movieTimescale > 0) {
-    const seconds = movieDurationUnits / movieTimescale
-    facts.duration_s = {
-      value: round(seconds, 6),
-      confidence: 'high',
-      evidence: 'moov/mvhd',
-      note: 'duration divided by timescale. A fragmented file can legally report 0 here.',
-    }
-    if (seconds === 0) {
-      facts.warnings.push('mvhd reports a zero duration, which a fragmented or still-writing file does')
-    }
+  } else {
+    facts.warnings.push('moov carries no mvhd, so there is no movie duration or creation time')
   }
 
-  for (const trak of traks) {
+  for (const trak of childrenOf(root, 'trak')) {
     readTrak(moov, view, trak, budget, facts, sampleTables)
   }
 
-  if (udta) readUdta(moov, view, udta, budget, facts)
-  if (meta) readAppleMeta(moov, view, meta, budget, facts)
-  // The Apple keys form also appears under `moov/udta/meta` on some writers.
-  if (udta) {
-    eachChild(moov, view, (udta as BoxRef).bodyStart, (udta as BoxRef).end, budget, (child) => {
-      if (child.type === 'meta') readAppleMeta(moov, view, child, budget, facts)
-    })
+  const udta = childOf(root, 'udta')
+  if (udta) readUdta(moov, view, udta, facts)
+
+  // `meta` turns up at `moov/meta`, at `moov/udta/meta` and at `moov/trak/meta`
+  // depending on the writer, and an iPhone's creation date is in whichever one it
+  // chose, so every one of them is read rather than the two we happened to expect.
+  for (const meta of descendantsOf(root, 'meta')) {
+    readAppleMeta(moov, view, meta, budget, facts)
   }
 
   finaliseVideoFacts(facts)
@@ -675,54 +853,56 @@ function readMvhd(bytes: Uint8Array, view: DataView, box: BoxRef): MvhdFields {
   return { creationRaw, timescale, duration }
 }
 
+/**
+ * Reads one track out of the atom tree.
+ *
+ * Every lookup here is a named path rather than a nested loop, which is the whole
+ * point of walking the tree first: a track with no `mdia`, or an `mdia` with no
+ * `stbl`, produces nulls and a warning instead of a silently skipped branch.
+ */
 function readTrak(
   bytes: Uint8Array,
   view: DataView,
-  trak: BoxRef,
-  budget: { atoms: number; max: number; warnings: string[] },
+  trak: AtomNode,
+  budget: AtomBudget,
   facts: ContainerFacts,
   sampleTables: boolean,
 ): void {
-  let trackId = 0
-  let matrix: number[] | null = null
-  let presentation: Dimensions | null = null
-  let handler: string | null = null
+  const tkhdNode = childOf(trak, 'tkhd')
+  const tkhd = tkhdNode ? readTkhd(bytes, view, tkhdNode) : null
+  const trackId = tkhd?.trackId ?? 0
+  const matrix = tkhd?.matrix ?? null
+  const presentation = tkhd?.presentation ?? null
+
+  const mdia = childOf(trak, 'mdia')
+  if (!mdia) {
+    facts.warnings.push(`${trak.path} carries no mdia, so the track cannot be described`)
+    return
+  }
+
+  const mdhd = childOf(mdia, 'mdhd')
   let mediaTimescale: number | null = null
   let mediaDurationUnits: number | null = null
-  let stbl: BoxRef | null = null
-
-  eachChild(bytes, view, trak.bodyStart, trak.end, budget, (box) => {
-    if (box.type === 'tkhd') {
-      const tkhd = readTkhd(bytes, view, box)
-      trackId = tkhd.trackId
-      matrix = tkhd.matrix
-      presentation = tkhd.presentation
-    } else if (box.type === 'mdia') {
-      eachChild(bytes, view, box.bodyStart, box.end, budget, (mdiaChild) => {
-        if (mdiaChild.type === 'mdhd') {
-          const version = bytes[mdiaChild.bodyStart] ?? 0
-          let p = mdiaChild.bodyStart + 4
-          if (version === 1) {
-            p += 16
-            mediaTimescale = view.getUint32(p)
-            p += 4
-            mediaDurationUnits = Number(view.getBigUint64(p))
-          } else {
-            p += 8
-            mediaTimescale = view.getUint32(p)
-            p += 4
-            mediaDurationUnits = view.getUint32(p)
-          }
-        } else if (mdiaChild.type === 'hdlr') {
-          handler = fourccAt(bytes, mdiaChild.bodyStart + 8)
-        } else if (mdiaChild.type === 'minf') {
-          eachChild(bytes, view, mdiaChild.bodyStart, mdiaChild.end, budget, (minfChild) => {
-            if (minfChild.type === 'stbl') stbl = minfChild
-          })
-        }
-      })
+  if (mdhd) {
+    const version = bytes[mdhd.bodyStart] ?? 0
+    let p = mdhd.bodyStart + 4
+    if (version === 1) {
+      p += 16 // creation plus modification, 64 bit
+      mediaTimescale = view.getUint32(p)
+      p += 4
+      mediaDurationUnits = Number(view.getBigUint64(p))
+    } else {
+      p += 8 // creation plus modification, 32 bit
+      mediaTimescale = view.getUint32(p)
+      p += 4
+      mediaDurationUnits = view.getUint32(p)
     }
-  })
+  }
+
+  const hdlr = childOf(mdia, 'hdlr')
+  const handler = hdlr ? fourccAt(bytes, hdlr.bodyStart + 8) : null
+  const minf = childOf(mdia, 'minf')
+  const stbl = minf ? childOf(minf, 'stbl') : null
 
   const durationSeconds =
     mediaTimescale && mediaTimescale > 0 && mediaDurationUnits !== null
@@ -730,10 +910,10 @@ function readTrak(
       : null
 
   if (handler === 'soun') {
-    const entry = stbl ? readFirstSampleFormat(bytes, view, stbl, budget) : null
+    const entry = stbl ? firstSampleEntry(stbl) : null
     facts.audio_tracks.push({
       track_id: trackId,
-      codec_fourcc: entry?.format ?? null,
+      codec_fourcc: entry?.type ?? null,
       duration_s: durationSeconds,
     })
     return
@@ -741,11 +921,12 @@ function readTrak(
 
   if (handler !== 'vide') {
     if (handler) facts.warnings.push(`ignored a track with handler ${handler}`)
+    else facts.warnings.push(`${trak.path} has no hdlr, so its media type is unknown and it was ignored`)
     return
   }
 
   const visual = stbl ? readVisualSampleEntry(bytes, view, stbl, budget) : null
-  const table = sampleTables && stbl ? readSampleTable(bytes, view, stbl, budget, mediaTimescale ?? 0) : null
+  const table = sampleTables && stbl ? readSampleTable(bytes, view, stbl, mediaTimescale ?? 0) : null
 
   const track: VideoTrackFacts = {
     track_id: trackId,
@@ -839,36 +1020,31 @@ interface VisualEntry {
   codecString: string | null
 }
 
-function readFirstSampleFormat(
-  bytes: Uint8Array,
-  view: DataView,
-  stbl: BoxRef,
-  budget: { atoms: number; max: number; warnings: string[] },
-): { format: string; entry: BoxRef } | null {
-  let found: { format: string; entry: BoxRef } | null = null
-  eachChild(bytes, view, stbl.bodyStart, stbl.end, budget, (box) => {
-    if (box.type !== 'stsd' || found) return
-    // stsd is a FullBox: 4 bytes of version and flags, then a 4 byte entry count.
-    eachChild(bytes, view, box.bodyStart + 8, box.end, budget, (entry) => {
-      if (!found) found = { format: entry.type, entry }
-    })
-  })
-  return found
+/**
+ * The first sample entry of a track, which is where the codec fourcc lives.
+ *
+ * The tree already descended into `stsd` past its entry count, so the sample
+ * entries are its children and this is a lookup. The fourcc comes from here and
+ * never from the file extension or the browser reported MIME type: an iPhone
+ * writes `.MOV` for both H.264 and HEVC, and Android writes `.mp4` for both.
+ */
+function firstSampleEntry(stbl: AtomNode): AtomNode | null {
+  const stsd = childOf(stbl, 'stsd')
+  return stsd?.children[0] ?? null
 }
 
 function readVisualSampleEntry(
   bytes: Uint8Array,
   view: DataView,
-  stbl: BoxRef,
-  budget: { atoms: number; max: number; warnings: string[] },
+  stbl: AtomNode,
+  budget: AtomBudget,
 ): VisualEntry | null {
-  const first = readFirstSampleFormat(bytes, view, stbl, budget)
-  if (!first) return null
-  if (!VIDEO_SAMPLE_FORMATS.has(first.format)) {
-    budget.warnings.push(`unrecognised video sample format ${JSON.stringify(first.format)}`)
+  const entry = firstSampleEntry(stbl)
+  if (!entry) return null
+  if (!VIDEO_SAMPLE_FORMATS.has(entry.type)) {
+    budget.warnings.push(`unrecognised video sample format ${JSON.stringify(entry.type)}`)
   }
 
-  const entry = first.entry
   // VisualSampleEntry: 8 byte box header, 6 reserved, 2 data reference index,
   // 2 pre_defined, 2 reserved, 12 pre_defined, then width and height as uint16.
   // THIS is the coded size. `tkhd` is not.
@@ -892,11 +1068,11 @@ function readVisualSampleEntry(
   })
 
   return {
-    format: first.format,
+    format: entry.type,
     coded,
     sampleAspect,
     description,
-    codecString: codecStringFor(first.format, description),
+    codecString: codecStringFor(entry.type, description),
   }
 }
 
@@ -977,8 +1153,7 @@ function hex2(value: number): string {
 function readSampleTable(
   bytes: Uint8Array,
   view: DataView,
-  stbl: BoxRef,
-  budget: { atoms: number; max: number; warnings: string[] },
+  stbl: AtomNode,
   timescale: number,
 ): VideoSampleTable | null {
   let sizes: number[] | null = null
@@ -988,7 +1163,9 @@ function readSampleTable(
   let cttsEntries: { count: number; offset: number }[] | null = null
   let syncSamples: number[] | null = null
 
-  eachChild(bytes, view, stbl.bodyStart, stbl.end, budget, (box) => {
+  // The children are already indexed, so this reads the tree rather than walking
+  // the bytes a second time.
+  for (const box of stbl.children) {
     const body = box.bodyStart + 4 // every one of these is a FullBox
     switch (box.type) {
       case 'stsz': {
@@ -1066,7 +1243,7 @@ function readSampleTable(
       default:
         break
     }
-  })
+  }
 
   if (!sizes || !chunkOffsets || !stscEntries || !sttsEntries) return null
   if (timescale <= 0) return null
@@ -1155,21 +1332,15 @@ function samplesPerChunkAt(
 // provenance: dates and coordinates
 // ---------------------------------------------------------------------------
 
-function readUdta(
-  bytes: Uint8Array,
-  view: DataView,
-  udta: BoxRef,
-  budget: { atoms: number; max: number; warnings: string[] },
-  facts: ContainerFacts,
-): void {
-  eachChild(bytes, view, udta.bodyStart, udta.end, budget, (box) => {
+function readUdta(bytes: Uint8Array, view: DataView, udta: AtomNode, facts: ContainerFacts): void {
+  for (const box of udta.children) {
     if (box.type === '©day') {
       const text = readQuickTimeText(bytes, box)
-      if (!text) return
+      if (!text) continue
       const parsed = parseIso8601WithOffset(text)
       if (!parsed) {
         facts.warnings.push(`udta/©day could not be parsed: ${JSON.stringify(text)}`)
-        return
+        continue
       }
       facts.captured_at_candidates.push({
         source: 'udta_day',
@@ -1182,22 +1353,22 @@ function readUdta(
       })
     } else if (box.type === '©xyz') {
       const text = readQuickTimeText(bytes, box)
-      if (!text) return
+      if (!text) continue
       const fix = parseIso6709(text)
       if (!fix) {
         facts.warnings.push(`udta/©xyz is not ISO 6709: ${JSON.stringify(text)}`)
-        return
+        continue
       }
       recordGps(facts, fix, 'udta_c_xyz_iso6709', 'moov/udta/©xyz')
     } else if (box.type === 'loci') {
       const fix = readLoci(bytes, view, box)
       if (!fix) {
         facts.warnings.push('moov/udta/loci is present but too short to read')
-        return
+        continue
       }
       recordGps(facts, fix, 'udta_loci_3gpp', 'moov/udta/loci')
     }
-  })
+  }
 }
 
 /**
@@ -1250,42 +1421,36 @@ function readLoci(bytes: Uint8Array, view: DataView, box: BoxRef): GpsFix | null
 function readAppleMeta(
   bytes: Uint8Array,
   view: DataView,
-  meta: BoxRef,
-  budget: { atoms: number; max: number; warnings: string[] },
+  meta: AtomNode,
+  budget: AtomBudget,
   facts: ContainerFacts,
 ): void {
-  const childStart = metaChildStart(bytes, meta)
+  const keysBox = childOf(meta, 'keys')
+  const ilst = childOf(meta, 'ilst')
+  if (!keysBox || !ilst) return
+
+  // FullBox, then a 4 byte entry count, then per entry: size, namespace, name.
+  // The entries are not boxes in the CONTAINER_ATOMS sense (their "type" is the
+  // namespace, usually `mdta`, and the key name is the payload), so this level is
+  // read directly rather than descended into by the tree walker.
   const keys: string[] = []
-  let ilst: BoxRef | null = null
-
-  eachChild(bytes, view, childStart, meta.end, budget, (box) => {
-    if (box.type === 'keys') {
-      // FullBox, then a 4 byte entry count, then per entry: size, namespace, name.
-      eachChild(bytes, view, box.bodyStart + 8, box.end, budget, (entry) => {
-        // The child's "type" here is the 4 byte namespace, usually `mdta`, and the
-        // key name is the rest of the entry.
-        keys.push(decodeUtf8(bytes.subarray(entry.bodyStart, entry.end)))
-      })
-    } else if (box.type === 'ilst') {
-      ilst = box
-    }
+  eachChild(bytes, view, keysBox.bodyStart + 8, keysBox.end, budget, (entry) => {
+    keys.push(decodeUtf8(bytes.subarray(entry.bodyStart, entry.end)))
   })
-
-  if (!ilst || keys.length === 0) return
+  if (keys.length === 0) return
 
   const values = new Map<string, string>()
-  eachChild(bytes, view, (ilst as BoxRef).bodyStart, (ilst as BoxRef).end, budget, (item) => {
+  for (const item of ilst.children) {
     // An `ilst` child's type is the 1 based index into `keys`, big endian.
-    const index = fourccToUint32(item.type)
-    const key = keys[index - 1]
-    if (!key) return
+    const key = keys[fourccToUint32(item.type) - 1]
+    if (!key) continue
     eachChild(bytes, view, item.bodyStart, item.end, budget, (data) => {
       if (data.type !== 'data') return
       // type indicator (4) then locale (4), then the payload.
       const payload = bytes.subarray(data.bodyStart + 8, data.end)
       values.set(key, decodeUtf8(payload).replace(/\0+$/, '').trim())
     })
-  })
+  }
 
   const creation = values.get('com.apple.quicktime.creationdate')
   if (creation) {
@@ -1316,7 +1481,7 @@ function readAppleMeta(
  * start 4 bytes later in one than in the other. Sniffing which it is beats
  * branching on the container brand, because both forms turn up in both.
  */
-function metaChildStart(bytes: Uint8Array, meta: BoxRef): number {
+function metaChildStart(bytes: Uint8Array, meta: Pick<AtomNode, 'bodyStart'>): number {
   const plain = fourccAt(bytes, meta.bodyStart + 4)
   if (plain === 'hdlr' || plain === 'keys' || plain === 'ilst' || plain === 'mdta') return meta.bodyStart
   return meta.bodyStart + 4
@@ -1646,6 +1811,7 @@ function emptyFacts(bytes: number): ContainerFacts {
     mdat_offset: null,
     moov_position: 'unknown',
     top_level_types: [],
+    atom_paths: [],
     bytes_read: 0,
     atoms_visited: 0,
     warnings: [],

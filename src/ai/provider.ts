@@ -127,6 +127,15 @@ export class AiError extends Error {
   readonly validationErrors: readonly ValidationError[]
   /** As much of the run metadata as was known when it failed. A failed run is still a run. */
   readonly meta: Partial<AiMeta>
+  /**
+   * The response that failed, kept verbatim.
+   *
+   * A validation failure with nothing to look at is unresolvable after the fact,
+   * so the malformed payload travels with the error and reaches
+   * `ai_run.output_json` alongside `schema_valid: false`. Undefined when the
+   * failure happened before any payload existed, which is every transport error.
+   */
+  readonly rawOutput: unknown
 
   constructor(
     reason: AiErrorReason,
@@ -134,6 +143,7 @@ export class AiError extends Error {
     options: {
       meta?: Partial<AiMeta>
       validationErrors?: readonly ValidationError[]
+      rawOutput?: unknown
       cause?: unknown
     } = {},
   ) {
@@ -143,6 +153,7 @@ export class AiError extends Error {
     this.retryable = RETRYABLE.has(reason)
     this.validationErrors = options.validationErrors ?? []
     this.meta = options.meta ?? {}
+    this.rawOutput = options.rawOutput
     if (options.cause !== undefined) this.cause = options.cause
   }
 }
