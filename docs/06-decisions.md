@@ -70,8 +70,8 @@ A commit at each completed track boundary, with all four gates green: tests, typ
 **D9. Netlify deployment.**
 The build produces a static site that deploys with the committed `netlify.toml`. A live URL needs the account owner's Netlify auth, so if that never happens the submission still satisfies the brief: a fresh clone runs with `npm install && npm run dev`, no key and no network required. Not a blocker, and not a question.
 
-**D10. The AI session history deliverable.**
-That is the conversation itself, so exporting it belongs to the account owner. Nothing in the build depends on it.
+**D10. The AI session history deliverable is committed raw, not summarised.**
+It is in [docs/ai-session-history/](ai-session-history/README.md): the session log exactly as the tool wrote it, with one GitHub token redacted and the log truncated before the prompt that asked for the export. A written-up narrative would have been easier to read and worth less, because the deliverable's value is that the false starts and the four test failures that turned out to be bad tests are still in it. Nothing in the build depends on it.
 
 ## Standing rules that need no further discussion
 

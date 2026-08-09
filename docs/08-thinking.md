@@ -2,6 +2,8 @@
 
 Two pages. Everything here links out rather than summarising, because the reasoning is already written down at length and compressing it would only make it less checkable.
 
+The brief asks for six things, in this order: the problem, the solution, where AI was used and where it deliberately was not, the decisions, what was not built, and what comes next. The problem and the solution share the first section because here they are one argument. Everything after that is in the order asked.
+
 ## The problem, restated as I understood it
 
 Astolia's editors need a growing library of authentic raw footage. One way to get it is collaborations: a creator receives a free VIP visit and delivers agreed footage in return. The brief asked for a CRM add-on to run that.
