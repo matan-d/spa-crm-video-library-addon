@@ -2,12 +2,15 @@
 
 Read `CLAUDE.md` first. This file is the ordered task list, so the sequence cannot be mistaken.
 
-Last pushed commit: the flagship loop run (see git log).
-Gates at that commit: 742 unit tests, clean typecheck, clean lint, 16 fixtures verified, and `npm run test:e2e` at 564 passed, 0 failed, 0 pending across seven browser runs.
+Last pushed commit: every surface built, no placeholder routes left (see git log).
+Gates at that commit: 819 unit tests, clean typecheck, clean lint, 16 fixtures verified, and `npm run test:e2e` at 625 passed, 0 failed, 0 pending across eight browser runs.
 
 ## Resume in one line
 
 > Read `CLAUDE.md` and `docs/07-handoff.md`, then continue at the first task marked NEXT. Do not ask questions: every decision is closed in `docs/06-decisions.md`.
+
+Nothing is marked NEXT.
+The build is at the state described in the definition of done at the bottom of this file, and what remains is in "What is deliberately not built".
 
 ## Done
 
@@ -26,9 +29,9 @@ Gates at that commit: 742 unit tests, clean typecheck, clean lint, 16 fixtures v
 ## The specialist tracks, now complete
 
 - `src/ai/**` is finished: fixtures authored against the committed sheets (sha256 asserted), the deterministic mock, replay, the disabled live adapter, and the writer whose enqueue guard refuses vision without a sheet. See D16 to D19 and `qa/cases/ai.md`.
-- `src/media/**` is finished except one named seam: the two DOM-touching decode adapters (D24). All seven pre-flight rules are asserted per fixture against `expected_preflight`. See `docs/media-pipeline.md` and `qa/cases/media.md`.
+- `src/media/**` is finished except one named seam: WebCodecs sample feeding, which declines out loud (D25). The element path is written and proved in a real browser. All seven pre-flight rules are asserted per fixture against `expected_preflight`. See `docs/media-pipeline.md` and `qa/cases/media.md`.
 - `docs/platform-matrix.md` exists with a source and date per cell; its top findings P-1, P-2 and P-11 are fixed in the probe and the platform assembly.
-- `e2e/`: boot, editor and manager runs are green at both viewports. The creator run stays PENDING until the upload page lands; the loop run is not written yet.
+- `e2e/`: eight runs, all green, 625 assertions, 0 pending. Boot, editor, manager, sync, decode, ai, creator and the flagship loop run.
 
 ## The task list, in dependency order
 
@@ -62,16 +65,38 @@ Thresholds resolve from the spec key the brief names (`src/app/creator/tech-spec
 Closure happens first on the paper trail (a human confirmed a published clip covers the item the gap produced) and only second on facet matching, so the flagship claim does not rest on model output.
 An explicit editor request is never displaced by a scored gap during brief generation, because a request that vanishes without trace is worse than no request feature at all.
 
-### 6. NEXT: Search D1 to D4
+### 6. DONE: the AI query parser, on top of the deterministic floor
 
-Still to build: the persistent index (`search_token`, `asset_facet`, `reindex_queue` with the incremental worker) and the AI query parser wired through `src/ai` search_parse.
-The deterministic in-memory search in `src/app/editor/search.ts` is the floor it replaces; keep its two rules.
+`src/app/editor/ai-search.ts` makes exactly one contribution: the synonym hop the floor refuses to guess at.
+The floor runs first and always, the model is asked only about words it could not place, and a model mapping never overrules an exact lookup.
+Asking is a button that only appears when something is unmapped, every mapping is a removable chip carrying the original words and the confidence, and what neither could place stays unmapped and still filters nothing.
+See D27, and the editor run asserts the whole path including the undo.
 
-### 7. The rest
+The persistent index (`search_token`, `asset_facet`, `reindex_queue` with an incremental worker) is deliberately not built: the in-memory search is O(assets) over a library that fits in memory, and a persistent index whose invalidation is untested is slower to trust than a scan.
+The stores exist in the schema for when the library outgrows that.
 
-Data health and storage panels are done, with snapshot export and import.
-Done: data health and storage panels with snapshot export and import, the two page thinking doc (`docs/08-thinking.md`), the README demo walkthrough, and `e2e/run-all.mjs` so `npm run test:e2e` finally does what package.json always claimed.
-Still to build: the loopback sync adapter and sync panel, the env-gated Supabase adapter, Capacitor config and platform notes, and the WebCodecs sample feeding if frame accuracy is ever wanted.
+### 7. DONE: the rest
+
+The creators roster (`src/app/views/CreatorsView.vue`, `src/data/scorecard.ts`, `src/app/manager/vetting.ts`): the vetting guess and the measured scorecard side by side, every rate showing its denominator, `unknown` where there is nothing to measure. See D32.
+Snapshot export and import plus the eviction sentinel (`src/data/snapshot.ts`), which is the remedy for the one failure this product cannot design around. See D35.
+Data health and the storage panel, the two page thinking doc (`docs/08-thinking.md`), the README demo walkthrough, and `e2e/run-all.mjs` so `npm run test:e2e` finally does what package.json always claimed.
+The Capacitor config and the shell notes (`capacitor.config.ts`, `docs/09-shell-notes.md`), written blind and documented as untested. See D33 and D34.
+The loopback sync adapter and the sync panel.
+`src/app/sync/policy.ts` holds the merge rules from C.3 as data (seven primitives, one executor), `src/app/sync/loopback.ts` drains the outbox into a second IndexedDB database with its own `server_updated_at` clock and pulls back on a `(server_updated_at, id)` cursor, and `src/app/views/SyncView.vue` shows depth, per table counts, the real patch payloads, the cursors and the conflict list, labelled `Adapter: loopback`.
+Local-only fields are now stripped at the outbox append, driven by `LOCAL_ONLY_FIELDS` in the schema.
+`sync_conflict` is a new local-only store, so `SCHEMA_VERSION` is 2 and there is a second migration; see D29 to D31 and `qa/cases/sync.md`.
+`/sync` and `/creators` are wired, so there are no placeholder routes left and the placeholder component is deleted.
+
+## What is deliberately not built, and why
+
+Each of these is a decision rather than a gap, and each is in the README with the same reasoning.
+
+- **The Supabase transport.** The schema, the row level security and the merge policy are written; the loopback adapter exercises all of it for real against a second local database. What is missing is one HTTP client, and it is missing because U2 says nothing is deployed.
+- **WebCodecs sample feeding.** The adapter calls `isConfigSupported` and then declines with `demux_unavailable`. A half written decoder that silently lands on the wrong frame is worse than one that declines out loud (D25).
+- **The persistent search index.** See task 6.
+- **The desktop shell and mobile native builds.** Configured, never run, and `docs/09-shell-notes.md` says so per claim with a source and a date. D34 gates any iOS build on export and import, which now exist.
+- **Transcode.** The HEVC clip stays undecodable here and reads as such, with no sheet, no tags and no AI fields rather than a guess.
+
 Findings filed by the tracks and not yet actioned: the seed vocabulary drift (manifest meta terms versus `src/ai/taxonomy.ts`), `ai_run.input_ref` missing from the local schema, seeded AI tags carrying `ai_run_id: null`, and the eligibility gate before vetting (QC-AI-061).
 
 ## Things that will bite, recorded so they only bite once

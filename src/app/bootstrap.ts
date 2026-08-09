@@ -24,6 +24,13 @@ import { SystemClock, type Clock } from '@/platform/clock'
 import { CryptoRng } from '@/platform/rng'
 import { createIdFactory, type IdFactory } from '@/platform/id'
 import { readMeta, writeMeta } from '@/data/db'
+import {
+  countRecords,
+  readSentinel,
+  verdictFrom,
+  writeSentinel,
+  type StorageVerdict,
+} from '@/data/snapshot'
 
 const DEVICE_ID_KEY = 'device_id'
 
@@ -32,6 +39,12 @@ export interface BootDeps {
   profile?: ProfileId
   /** Storage the active profile is read from. Null means default to demo. */
   storage?: Pick<Storage, 'getItem'> | null
+  /**
+   * Where the eviction sentinel lives. Separate from `storage` above because
+   * that one is read-only by design and this one is written on every boot.
+   * Null disables the sentinel, which is what a test wanting a bare boot passes.
+   */
+  sentinelStorage?: Storage | null
   indexedDbFactory?: IDBFactory
   clock?: Clock
   newId?: IdFactory
@@ -52,6 +65,17 @@ export interface AppContext {
   seedVersion: string
   /** Rows in the asset store after boot, for the seed-ready marker. */
   assetCount: number
+  /**
+   * What happened to local storage between the last session and this one,
+   * decided BEFORE hydration could paper over it.
+   *
+   * Order matters here and is the whole reason this is computed in boot rather
+   * than in the storage panel: if the browser evicted the database and then
+   * hydration re-seeded the demo, a panel reading the count afterwards would
+   * see a full database and report `intact`. The loss would be real, complete,
+   * and invisible. See `src/data/snapshot.ts`.
+   */
+  storageVerdict: StorageVerdict
 }
 
 export async function bootApp(deps: BootDeps = {}): Promise<AppContext> {
@@ -60,6 +84,19 @@ export async function bootApp(deps: BootDeps = {}): Promise<AppContext> {
   const profile = deps.profile ?? readActiveProfile(deps.storage ?? null)
 
   const { db } = await openDatabase(profile, deps.indexedDbFactory)
+
+  // Before hydration, always. See AppContext.storageVerdict.
+  const sentinelStorage =
+    deps.sentinelStorage === undefined
+      ? typeof localStorage === 'undefined'
+        ? null
+        : localStorage
+      : deps.sentinelStorage
+  const rowsBeforeHydration = await countRecords(db)
+  const storageVerdict = verdictFrom(
+    sentinelStorage ? readSentinel(sentinelStorage, profile) : null,
+    rowsBeforeHydration,
+  )
 
   // Only the demo profile is ever seeded. The live profile starts empty and
   // stays empty until real work happens, which is the whole point of D11's
@@ -80,6 +117,16 @@ export async function bootApp(deps: BootDeps = {}): Promise<AppContext> {
 
   const assetCount = (await countRows(db, ['asset'])).asset ?? 0
 
+  // Refreshed last, so a boot that threw halfway leaves the previous session's
+  // sentinel in place rather than recording a state that never finished.
+  if (sentinelStorage) {
+    writeSentinel(sentinelStorage, {
+      profile,
+      rows: await countRecords(db),
+      at: clock.now(),
+    })
+  }
+
   return {
     profile,
     db,
@@ -90,6 +137,7 @@ export async function bootApp(deps: BootDeps = {}): Promise<AppContext> {
     hydration,
     seedVersion: SEED_VERSION,
     assetCount,
+    storageVerdict,
   }
 }
 

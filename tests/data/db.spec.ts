@@ -11,12 +11,16 @@ import {
 import {
   INDEXED_BOOLEANS,
   LOCAL_ONLY_STORES,
+  MIGRATIONS,
   SCHEMA_VERSION,
   STORES,
   STORE_NAMES,
   SYNCED_STORES,
 } from '@/data/schema'
 import { databaseName, readActiveProfile, writeActiveProfile } from '@/data/profile'
+
+/** Every migration runs, in order, on a database that did not exist. */
+const ALL_MIGRATIONS = MIGRATIONS.map((migration) => migration.version)
 
 let factory: IDBFactory
 
@@ -30,7 +34,7 @@ describe('openDatabase', () => {
     const { db, version, previousVersion, applied } = await openDatabase('demo', factory)
     expect(version).toBe(SCHEMA_VERSION)
     expect(previousVersion).toBe(0)
-    expect(applied).toEqual([1])
+    expect(applied).toEqual(ALL_MIGRATIONS)
     for (const name of STORE_NAMES) {
       expect(db.objectStoreNames.contains(name)).toBe(true)
     }
@@ -96,7 +100,7 @@ describe('openDatabase', () => {
     await deleteProfileDatabase('demo', factory)
 
     const reopened = await openDatabase('demo', factory)
-    expect(reopened.applied).toEqual([1]) // rebuilt from scratch
+    expect(reopened.applied).toEqual(ALL_MIGRATIONS) // rebuilt from scratch
     await expect(readMeta(reopened.db, 'seed_version')).resolves.toBeUndefined()
     reopened.db.close()
   })
@@ -115,7 +119,19 @@ describe('schema shape', () => {
   it('keeps the outbox and sync state local only, so demo data cannot target a real backend', () => {
     expect(LOCAL_ONLY_STORES).toContain('outbox')
     expect(LOCAL_ONLY_STORES).toContain('sync_state')
+    expect(LOCAL_ONLY_STORES).toContain('sync_conflict')
     expect(SYNCED_STORES).not.toContain('outbox')
+  })
+
+  it('introduces every store at a version this build can actually reach', () => {
+    // A store declared `since: 3` on a build whose SCHEMA_VERSION is 2 would
+    // never be created by any migration, and every open would then fail the
+    // completeness check with an error about a database nobody hand-edited.
+    const versions = new Set(ALL_MIGRATIONS)
+    for (const spec of STORES) {
+      expect(versions, `${spec.name} has no migration`).toContain(spec.since ?? 1)
+    }
+    expect(Math.max(...ALL_MIGRATIONS)).toBe(SCHEMA_VERSION)
   })
 
   it('never indexes a raw boolean field', async () => {

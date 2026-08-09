@@ -140,11 +140,7 @@ export async function probeCapabilities(env: ProbeEnvironment): Promise<Capabili
   if (!env.hasOpfs) {
     warnings.push('OPFS is unavailable, so original media bytes cannot be kept on this device.')
   }
-  if (env.loadScheme === 'file:') {
-    warnings.push(
-      'Loaded over file:, which gives an opaque storage origin. IndexedDB and OPFS data will not be reachable from an http origin, and may not persist at all.',
-    )
-  }
+  warnOnOrigin(env, warnings)
   if (!env.hasStorageEstimate) {
     warnings.push('Storage estimates are unavailable, so quota pressure cannot be anticipated, only hit.')
   }
@@ -179,6 +175,54 @@ export async function probeCapabilities(env: ProbeEnvironment): Promise<Capabili
       directoryDrop: env.hasDirectoryDrop,
     },
     warnings,
+  }
+}
+
+/**
+ * Warns about the document origin, which is where a shell build quietly differs
+ * from the browser build.
+ *
+ * A scheme is not a cosmetic detail here: `capacitor://localhost`,
+ * `https://localhost` in an Android shell and `capacitor-electron://` are each a
+ * different storage origin from the deployed site, so IndexedDB and OPFS written
+ * in one are unreachable from the other. Warning only for `file:` left every
+ * shell scheme silent, which is precisely the case where a user opens the app
+ * and reads an empty library as data loss. See docs/platform-matrix.md P-5 and
+ * docs/09-shell-notes.md.
+ */
+function warnOnOrigin(env: ProbeEnvironment, warnings: string[]): void {
+  const scheme = env.loadScheme
+
+  if (scheme === 'http:' || scheme === 'https:') return
+
+  if (scheme === 'file:') {
+    warnings.push(
+      'Loaded over file:, which gives an opaque storage origin. IndexedDB and OPFS data will not be reachable from an http origin, and may not persist at all.',
+    )
+    return
+  }
+
+  if (scheme === 'unknown') {
+    // The environment builder falls back to this when `location` cannot be read.
+    // Silence here would claim the origin is fine, which is a different sentence
+    // from "we could not tell".
+    warnings.push(
+      'The document origin could not be read, so whether this data is shared with the browser build cannot be determined.',
+    )
+    return
+  }
+
+  warnings.push(
+    `Loaded over ${scheme}, which is a separate storage origin from the browser build. Records and media saved in a browser are not visible here, and a snapshot export and import is the only way to bring them across.`,
+  )
+
+  // A shell scheme with no shell identity means the preload contract in
+  // docs/09-shell-notes.md is missing. Every downstream decision, the transcode
+  // refusal included, is then being made as though this were a browser tab.
+  if (env.shell === 'browser') {
+    warnings.push(
+      `The origin scheme ${scheme} says this is an app shell, and no shell identified itself to the probe. Shell-only capabilities stay switched off, and diagnostics from this runtime will say browser.`,
+    )
   }
 }
 

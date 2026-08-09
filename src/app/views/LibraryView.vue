@@ -17,6 +17,7 @@ import {
   type SearchOutcome,
   type VocabularyEntry,
 } from '../editor/search'
+import { parseWithAi, type AiParseResult } from '../editor/ai-search'
 import ClipSheet from '../editor/ClipSheet.vue'
 import BinPanel, { type BinEntry, type UsageReceipt } from '../editor/BinPanel.vue'
 
@@ -45,6 +46,17 @@ const outcome = shallowRef<SearchOutcome | null>(null)
 const queryLogId = ref<string | null>(null)
 const refinements = ref<Map<string, string>>(new Map())
 
+/**
+ * The model's interpretation of the last query, when it was asked.
+ *
+ * Asking is explicit rather than automatic. An editor who types words the
+ * taxonomy knows gets a deterministic answer and no call at all, and the button
+ * only appears when there is something the vocabulary could not place, which is
+ * the only case where a model has anything to add.
+ */
+const aiParse = ref<AiParseResult | null>(null)
+const aiBusy = ref(false)
+
 function execute(text: string, logId: string | null) {
   executedText.value = text
   queryLogId.value = logId
@@ -54,13 +66,44 @@ function execute(text: string, logId: string | null) {
     tags: tags.value,
     vocabulary: vocabulary.value,
     refinements: refinements.value,
+    // Terms the model translated, merged in as if the vocabulary knew them.
+    // Null on a plain search, which is the overwhelmingly common case.
+    extraTerms: aiParse.value?.source === 'model' ? aiParse.value.parsed.mapped : null,
   })
+}
+
+/**
+ * Asks the model what the words it could not place might mean.
+ *
+ * The result is merged into the same search that already ran, so a failed or
+ * slow call costs the editor nothing: they keep the deterministic results they
+ * already have.
+ */
+async function askTheModel() {
+  const repo = store.repo
+  if (!repo || aiBusy.value) return
+  aiBusy.value = true
+  try {
+    const rooms = new Set<string>()
+    for (const asset of assets.value) if (asset.ai_room) rooms.add(asset.ai_room)
+    aiParse.value = await parseWithAi(executedText.value, {
+      repo,
+      vocabulary: vocabulary.value,
+      knownRooms: rooms,
+      branchSlugs: [],
+    })
+    execute(executedText.value, queryLogId.value)
+  } finally {
+    aiBusy.value = false
+  }
 }
 
 async function submitSearch() {
   const text = queryText.value.trim()
   refinements.value = new Map()
   gapConfirmation.value = null
+  // A previous query's interpretation must never be shown against a new one.
+  aiParse.value = null
 
   // Compute first, then log what actually happened: outcome is a fact about
   // this search, not a hope.
@@ -87,6 +130,7 @@ function clearSearch() {
   queryText.value = ''
   refinements.value = new Map()
   gapConfirmation.value = null
+  aiParse.value = null
   execute('', null)
 }
 
@@ -118,6 +162,15 @@ function clearFacets() {
 const results = computed(() => outcome.value?.results ?? [])
 const facets = computed(() => outcome.value?.facets ?? [])
 const parsed = computed(() => outcome.value?.parsed ?? { mapped: [], unmapped: [] })
+
+/**
+ * The terms the model contributed, so the neutral "Understood as" row can leave
+ * them out. They are shown once, in amber, on their own row with the confidence
+ * and the words being translated. Rendering the same mapping twice, once
+ * neutral and once amber, would say two different things about who decided it.
+ */
+const modelTerms = computed(() => new Set((aiParse.value?.mappings ?? []).map((m) => m.term)))
+const floorTerms = computed(() => parsed.value.mapped.filter((t) => !modelTerms.value.has(t.term)))
 const showZero = computed(
   () => loaded.value && executedText.value.length > 0 && results.value.length === 0,
 )
@@ -290,7 +343,7 @@ async function requestShot() {
     >
       <span class="parsed-label">Understood as</span>
       <span
-        v-for="term in parsed.mapped"
+        v-for="term in floorTerms"
         :key="term.term"
         data-testid="search-term-chip"
         class="chip"
@@ -316,6 +369,68 @@ async function requestShot() {
         :data-term="word"
       >
         {{ word }}: not in the vocabulary yet
+      </span>
+
+      <!-- Only offered when there is something the vocabulary could not place.
+           A model has nothing to add to a query it already understood, and
+           asking anyway would spend a call to be told what we know. -->
+      <button
+        v-if="parsed.unmapped.length && !aiParse"
+        type="button"
+        data-testid="search-ask-model"
+        class="chip chip-ask"
+        :disabled="aiBusy"
+        @click="askTheModel"
+      >
+        {{ aiBusy ? 'Asking...' : 'What might these mean?' }}
+      </button>
+
+      <span
+        v-if="aiParse?.source === 'model'"
+        data-testid="search-parse-provenance"
+        class="chip chip-ai"
+        :data-provenance="aiParse.provider ?? undefined"
+        :data-ai-run-id="aiParse.runId ?? undefined"
+      >
+        {{ aiParse.provider === 'mock' ? 'interpreted by a model (simulated)' : 'interpreted by a model' }}
+      </span>
+      <span
+        v-else-if="aiParse?.fellBackBecause"
+        data-testid="search-parse-provenance"
+        class="chip chip-unmapped"
+        :data-provenance="'deterministic'"
+      >
+        the model could not be reached, so these are exact matches only
+      </span>
+    </div>
+
+    <!-- What the model proposed, with the words it was translating and how sure
+         it was. Removable, because an editor who did not mean that must be able
+         to say so in one click. -->
+    <div
+      v-if="aiParse?.mappings.length"
+      class="ai-mappings"
+    >
+      <span
+        v-for="mapping in aiParse.mappings"
+        :key="`${mapping.raw}-${mapping.term}`"
+        data-testid="search-term-chip"
+        class="chip chip-ai"
+        :data-term="mapping.raw"
+        :data-mapped-to="mapping.term"
+        :data-provenance="aiParse?.provider ?? undefined"
+      >
+        {{ mapping.raw }} &rarr; {{ mapping.term }}
+        <span class="mono confidence">{{ mapping.confidence.toFixed(2) }}</span>
+        <button
+          type="button"
+          data-testid="search-term-chip-remove"
+          class="chip-remove"
+          :aria-label="`Remove ${mapping.raw}`"
+          @click="aiParse = null; execute(executedText, queryLogId)"
+        >
+          &times;
+        </button>
       </span>
     </div>
 
@@ -626,6 +741,40 @@ async function requestShot() {
 .chip-unmapped {
   color: var(--warn);
   border-style: dashed;
+}
+
+/* Amber: a model produced this interpretation. */
+.chip-ai {
+  color: var(--ai);
+  background: var(--ai-soft);
+  border-color: var(--ai-line);
+}
+
+.chip-ask {
+  color: var(--ai);
+  background: var(--surface);
+  border-color: var(--ai-line);
+  border-style: dashed;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.8rem;
+}
+
+.chip-ask:disabled {
+  cursor: wait;
+  opacity: 0.7;
+}
+
+.ai-mappings {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  align-items: center;
+}
+
+.confidence {
+  font-size: 0.66rem;
+  opacity: 0.8;
 }
 
 .chip-remove {

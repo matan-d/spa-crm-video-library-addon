@@ -375,6 +375,33 @@ export interface SyncState {
   last_pushed_at: number | null
 }
 
+/**
+ * A merge the policy refused, kept as a row rather than shown as a toast.
+ *
+ * A conflict that is only a transient notification is a conflict that gets
+ * dismissed and then discovered three weeks later inside a campaign, so this is
+ * a record with a resolution field and no automatic expiry. Local only: it
+ * describes what this device tried to do and what the merge did instead.
+ */
+export interface SyncConflict {
+  id: string
+  store: string
+  row_id: string
+  /** The field, or the coupled group, that was refused as a unit. */
+  fields: string[]
+  /** Which merge primitive decided it. */
+  policy: string
+  /** What the row kept. */
+  kept: unknown
+  /** What the incoming patch wanted, and did not get. */
+  refused: unknown
+  detail: string
+  direction: 'push' | 'pull'
+  detected_at: number
+  resolved_by: string | null
+  resolved_at: number | null
+}
+
 /** Every record the repository can hold, keyed by store name. */
 export interface RecordMap {
   org: Org

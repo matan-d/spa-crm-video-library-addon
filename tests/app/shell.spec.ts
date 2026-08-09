@@ -11,7 +11,23 @@ import { useAppStore } from '@/app/store'
 import { sha256Hex } from '@/platform/hash'
 import { ScopeError } from '@/data/scope'
 import { DEMO_CREATOR_TOKEN, DEMO_CREATOR_TOKEN_HASH, DEMO_EXPIRED_TOKEN } from '@/data/seed'
+import { readSentinel } from '@/data/snapshot'
 import { testDeps } from './helpers'
+
+/** A localStorage stand-in, so one test's sentinel cannot leak into the next. */
+function fakeStorage(): Storage {
+  const map = new Map<string, string>()
+  return {
+    get length() {
+      return map.size
+    },
+    clear: () => map.clear(),
+    getItem: (key: string) => map.get(key) ?? null,
+    key: (index: number) => [...map.keys()][index] ?? null,
+    removeItem: (key: string) => void map.delete(key),
+    setItem: (key: string, value: string) => void map.set(key, value),
+  } as Storage
+}
 
 
 let factory: IDBFactory
@@ -281,3 +297,49 @@ async function flush(wrapper: { vm: { $nextTick: () => Promise<void> } }): Promi
     await wrapper.vm.$nextTick()
   }
 }
+
+describe('the eviction sentinel, decided before hydration can hide it', () => {
+  it('reads a first boot as a first run, and leaves a sentinel behind', async () => {
+    const storage = fakeStorage()
+    const ctx = await bootApp({ ...testDeps(new IDBFactory()), sentinelStorage: storage })
+
+    expect(ctx.storageVerdict).toEqual({ state: 'first_run' })
+    const left = readSentinel(storage, 'demo')
+    expect(left).not.toBeNull()
+    expect(left!.rows).toBeGreaterThan(0)
+  })
+
+  it('reads a second boot of the same database as intact', async () => {
+    const storage = fakeStorage()
+    const factory = new IDBFactory()
+    await bootApp({ ...testDeps(factory), sentinelStorage: storage })
+    const second = await bootApp({ ...testDeps(factory), sentinelStorage: storage })
+
+    expect(second.storageVerdict.state).toBe('intact')
+  })
+
+  it('names an eviction even though hydration immediately re-seeds over it', async () => {
+    // The load bearing case. The browser reclaimed IndexedDB, localStorage
+    // survived, and boot then re-seeds the demo. A panel reading the row count
+    // afterwards sees a full database and would report `intact`, so the verdict
+    // has to be decided before hydration runs. If this test ever fails, total
+    // silent data loss is back.
+    const storage = fakeStorage()
+    await bootApp({ ...testDeps(new IDBFactory()), sentinelStorage: storage })
+
+    // A fresh factory is exactly what an eviction looks like: the sentinel is
+    // still in localStorage, and the database it describes is gone.
+    const afterEviction = await bootApp({
+      ...testDeps(new IDBFactory()),
+      sentinelStorage: storage,
+    })
+
+    expect(afterEviction.storageVerdict.state).toBe('evicted')
+    expect(afterEviction.assetCount).toBeGreaterThan(0)
+  })
+
+  it('boots normally with no sentinel storage at all', async () => {
+    const ctx = await bootApp({ ...testDeps(new IDBFactory()), sentinelStorage: null })
+    expect(ctx.storageVerdict).toEqual({ state: 'first_run' })
+  })
+})

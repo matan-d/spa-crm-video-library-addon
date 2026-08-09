@@ -166,6 +166,54 @@ describe('the table allowlist', () => {
   })
 })
 
+describe('the write predicate, which is the allowlist at row granularity', () => {
+  it('lets an editor record the one run its own surface produces', async () => {
+    // The search box parses through the AI seam, and that call has to leave a run
+    // row or the provenance chip on the result points at nothing.
+    await expect(
+      editor.create('ai_run', {
+        kind: 'search_parse',
+        provider: 'mock',
+        subject_type: 'search_query',
+        subject_id: 'hash-abc',
+      }),
+    ).resolves.toBeTypeOf('string')
+  })
+
+  it('refuses the runs that belong to another role, by kind and not by table', async () => {
+    // A `vet` run IS the creator's score and the editor cannot even read one.
+    // A `vision_tag` run is the manager's curation record. Neither has a
+    // legitimate caller on the editor surface, so both fail loudly.
+    for (const kind of ['vet', 'vision_tag', 'gap_scan']) {
+      await expect(
+        editor.create('ai_run', { kind, provider: 'mock', subject_type: 'asset', subject_id: 'a1' }),
+        `editor create ai_run kind=${kind}`,
+      ).rejects.toBeInstanceOf(ScopeError)
+    }
+  })
+
+  it('refuses a patch that would turn a permitted row into a forbidden one', async () => {
+    const id = await editor.create('ai_run', {
+      kind: 'search_parse',
+      provider: 'mock',
+      subject_type: 'search_query',
+      subject_id: 'hash-def',
+    })
+    await expect(editor.patch('ai_run', id, { kind: 'vet' })).rejects.toBeInstanceOf(ScopeError)
+  })
+
+  it('leaves the manager unrestricted, because the predicate is per role and not a global rule', async () => {
+    await expect(
+      manager.create('ai_run', {
+        kind: 'vet',
+        provider: 'mock',
+        subject_type: 'creator',
+        subject_id: CREATOR,
+      }),
+    ).resolves.toBeTypeOf('string')
+  })
+})
+
 describe('the projection', () => {
   it('never exposes a forbidden field name to an editor', async () => {
     const assets = await editor.list('asset')

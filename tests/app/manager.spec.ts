@@ -1,9 +1,13 @@
 import { IDBFactory } from 'fake-indexeddb'
 import { beforeEach, describe, expect, it } from 'vitest'
+import { createPinia, setActivePinia } from 'pinia'
 import { computeDiff, triageDelivery } from '@/app/manager/triage'
+import { computeScorecards, rosterOrder } from '@/data/scorecard'
+import { allowedTiers, overrideFitScore, vetCreator } from '@/app/manager/vetting'
+import { createAiProvider } from '@/ai'
 import { bootApp, repoForSession } from '@/app/bootstrap'
 import { sessionForRole } from '@/app/session'
-import type { Asset, BriefItem, Delivery } from '@/data/types'
+import type { Asset, BriefItem, Collab, Creator, Delivery } from '@/data/types'
 import { testDeps } from './helpers'
 
 // ---------------------------------------------------------------------------
@@ -230,5 +234,232 @@ describe('the seeded hero delivery', () => {
     expect(visible).toBeDefined()
     // And the projection still strips what an editor may not see.
     expect(visible).not.toHaveProperty('reject_reason_text')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// unit: the creator scorecard, the measured half of the second feedback loop
+// ---------------------------------------------------------------------------
+
+function makeCreator(id: string): Creator {
+  return {
+    id,
+    display_name: id,
+    primary_handle: `@${id}`,
+    lifecycle: 'active',
+    platforms: [],
+    fit_score: null,
+    fit_reasons: [],
+    risk_flags: [],
+    suggested_tier: null,
+    fit_score_override: null,
+    override_reason: null,
+    reliability_tier: 'new',
+    scorecard: null,
+    notes: null,
+  } as unknown as Creator
+}
+
+function makeCollab(id: string, creator_id: string, over: Partial<Collab> = {}): Collab {
+  return { id, creator_id, branch_id: 'b1', stage: 'library', outcome: 'completed', ...over } as Collab
+}
+
+describe('computeScorecards', () => {
+  const base = { deliveries: [] as never[], briefs: [] as never[], briefItems: [] as never[] }
+
+  it('reports a rate with no denominator as unknown, never as zero', () => {
+    // A brand new creator scored 0% would sort below one who genuinely delivers
+    // badly, which inverts the judgement this panel exists to support.
+    const [row] = computeScorecards({
+      ...base,
+      creators: [makeCreator('c1')],
+      collabs: [],
+      assets: [],
+    })
+    expect(row!.computed.approval_rate).toBeNull()
+    expect(row!.computed.promise_kept_rate).toBeNull()
+    expect(row!.computed.completed_collabs).toBe(0)
+  })
+
+  it('counts only clips a human actually ruled on, so a review backlog is not the creator fault', () => {
+    const [row] = computeScorecards({
+      ...base,
+      creators: [makeCreator('c1')],
+      collabs: [makeCollab('k1', 'c1')],
+      assets: [
+        makeAsset('a1', { collab_id: 'k1', review_status: 'approved' }),
+        makeAsset('a2', { collab_id: 'k1', review_status: 'rejected' }),
+        // Three still waiting. They are not failures, they are unreviewed.
+        makeAsset('a3', { collab_id: 'k1', review_status: 'pending' }),
+        makeAsset('a4', { collab_id: 'k1', review_status: 'pending' }),
+        makeAsset('a5', { collab_id: 'k1', review_status: 'pending' }),
+      ] as Asset[],
+    })
+    expect(row!.computed.assets_ruled_on).toBe(2)
+    expect(row!.computed.approval_rate).toBe(0.5)
+  })
+
+  it('measures promise kept against a locked brief only, and against the human confirmation', () => {
+    const locked = { id: 'br1', collab_id: 'k1', locked_at: 100 }
+    const draft = { id: 'br2', collab_id: 'k1', locked_at: null }
+    const [row] = computeScorecards({
+      creators: [makeCreator('c1')],
+      collabs: [makeCollab('k1', 'c1')],
+      deliveries: [],
+      briefs: [locked, draft] as never[],
+      briefItems: [
+        { id: 'i1', brief_id: 'br1' },
+        { id: 'i2', brief_id: 'br1' },
+        // On the draft. Holding a creator to a shot list that changed after they
+        // shot it is not a reliability signal.
+        { id: 'i3', brief_id: 'br2' },
+      ] as never[],
+      assets: [
+        makeAsset('a1', { collab_id: 'k1', review_status: 'approved', confirmed_brief_item_id: 'i1' }),
+        // The MODEL matched this one and no human confirmed it. Scoring a creator
+        // off the model's guess would spend the separation those columns exist for.
+        makeAsset('a2', {
+          collab_id: 'k1',
+          review_status: 'approved',
+          ai_matched_brief_item_id: 'i2',
+          confirmed_brief_item_id: null,
+        }),
+      ] as Asset[],
+    })
+    expect(row!.computed.brief_items_promised).toBe(2)
+    expect(row!.computed.brief_items_delivered).toBe(1)
+    expect(row!.computed.promise_kept_rate).toBe(0.5)
+  })
+
+  it('flags a stored scorecard that disagrees with the derivation rather than silently preferring one', () => {
+    const creator = makeCreator('c1')
+    creator.scorecard = {
+      completed_collabs: 4,
+      approval_rate: 0.9,
+      promise_kept_rate: null,
+      brand_safety_hits: 0,
+      consent_problems: 0,
+    }
+    const [row] = computeScorecards({
+      ...base,
+      creators: [creator],
+      collabs: [makeCollab('k1', 'c1')],
+      assets: [makeAsset('a1', { collab_id: 'k1', review_status: 'approved' })] as Asset[],
+    })
+    expect(row!.computed.completed_collabs).toBe(1)
+    expect(row!.drift.length).toBe(2)
+    expect(row!.drift.join(' ')).toContain('stored 4, computed 1')
+  })
+
+  it('names the human override as the effective score, and keeps the model number separate', () => {
+    const creator = makeCreator('c1')
+    creator.fit_score = 88
+    creator.fit_score_override = 62
+    const [row] = computeScorecards({ ...base, creators: [creator], collabs: [], assets: [] })
+    expect(row!.effective_score).toBe(62)
+    expect(row!.effective_source).toBe('human')
+    expect(row!.creator.fit_score).toBe(88)
+  })
+
+  it('sinks a blocked creator below every score, so a hard gate is not clicked through', () => {
+    const blocked = makeCreator('blocked')
+    blocked.lifecycle = 'blocked'
+    blocked.fit_score = 99
+    const ok = makeCreator('ok')
+    ok.fit_score = 40
+    const unscored = makeCreator('unscored')
+
+    const order = computeScorecards({ ...base, creators: [blocked, ok, unscored], collabs: [], assets: [] })
+      .sort(rosterOrder)
+      .map((row) => row.creator.id)
+    // Scored beats unscored, and both beat blocked. Unscored is not scored zero.
+    expect(order).toEqual(['ok', 'unscored', 'blocked'])
+  })
+})
+
+describe('vetting', () => {
+  let factory: IDBFactory
+
+  beforeEach(() => {
+    factory = new IDBFactory()
+    setActivePinia(createPinia())
+  })
+
+  it('widens the tier band with evidence, and never lets the model choose outside it', () => {
+    expect(allowedTiers('new')).toEqual(['half_day'])
+    expect(allowedTiers('proven')).toContain('full_day')
+    expect(allowedTiers('trusted')).toContain('vip_full')
+    expect(allowedTiers('new')).not.toContain('vip_full')
+  })
+
+  it('refuses to re-score a creator a human blocked', async () => {
+    const ctx = await bootApp(testDeps(factory))
+    const repo = repoForSession(ctx, sessionForRole('manager'))
+    const creator = makeCreator('c1')
+    creator.lifecycle = 'blocked'
+
+    const outcome = await vetCreator({ repo }, creator, [], null)
+    expect(outcome.status).toBe('refused')
+  })
+
+  it('drops a suggested tier the band did not permit', async () => {
+    const ctx = await bootApp(testDeps(factory))
+    const repo = repoForSession(ctx, sessionForRole('manager'))
+    const [creator] = await repo.list<Creator>('creator', { limit: 1 })
+    await repo.patch('creator', creator!.id, { reliability_tier: 'new' })
+    const fresh = (await repo.get<Creator>('creator', creator!.id))!
+
+    // The real mock provider, with one field bent. A hand-rolled meta would not
+    // survive `writeAiRun`, and the point of the test is the band check rather
+    // than a fake that happens to satisfy the run writer.
+    const inner = createAiProvider({ mode: 'mock' })
+    const generous = {
+      async vet(input: Parameters<typeof inner.vet>[0]) {
+        const result = await inner.vet(input)
+        return {
+          ...result,
+          // Outside the band the code computed and told it about.
+          output: { ...result.output, score: 91, suggested_tier: 'vip_full' },
+        }
+      },
+    } as never
+
+    const outcome = await vetCreator({ repo }, fresh, [], null, generous)
+    expect(outcome.status).toBe('vetted')
+    const after = (await repo.get<Creator>('creator', creator!.id))!
+    expect(after.suggested_tier).toBeNull()
+    expect(after.fit_score).toBe(91)
+  })
+
+  it('never clears a human override, however sure the model is', async () => {
+    const ctx = await bootApp(testDeps(factory))
+    const repo = repoForSession(ctx, sessionForRole('manager'))
+    const [creator] = await repo.list<Creator>('creator', { limit: 1 })
+    await overrideFitScore(repo, creator!.id, 62, 'Audience is younger than the branch demographic.')
+    const fresh = (await repo.get<Creator>('creator', creator!.id))!
+
+    await vetCreator({ repo }, fresh, [], null)
+
+    const after = (await repo.get<Creator>('creator', creator!.id))!
+    expect(after.fit_score_override).toBe(62)
+    expect(after.override_reason).toBe('Audience is younger than the branch demographic.')
+  })
+
+  it('refuses an override with no reason, because a number alone is not a decision', async () => {
+    const ctx = await bootApp(testDeps(factory))
+    const repo = repoForSession(ctx, sessionForRole('manager'))
+    const [creator] = await repo.list<Creator>('creator', { limit: 1 })
+    await expect(overrideFitScore(repo, creator!.id, 71, '   ')).rejects.toThrow(/needs a reason/)
+  })
+
+  it('withdrawing an override clears its reason with it', async () => {
+    const ctx = await bootApp(testDeps(factory))
+    const repo = repoForSession(ctx, sessionForRole('manager'))
+    const [creator] = await repo.list<Creator>('creator', { limit: 1 })
+    await overrideFitScore(repo, creator!.id, 71, 'met them at the branch')
+    await overrideFitScore(repo, creator!.id, null, '')
+    const after = (await repo.get<Creator>('creator', creator!.id))!
+    expect(after.fit_score_override).toBeNull()
+    expect(after.override_reason).toBeNull()
   })
 })

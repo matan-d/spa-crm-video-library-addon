@@ -22,9 +22,19 @@ So the product I built closes that circuit. What an editor searches for and cann
 
 ## Where AI is deliberately absent
 
-Vetting proposes a fit score and never gates. Brief matching proposes a match and the human confirms or corrects it, in a different column, so match accuracy stays measurable. Gap phrasing writes an instruction; the gap itself is computed from real signals. Search parsing maps words to taxonomy terms shown as removable chips, and an unmapped term is surfaced rather than silently dropped, because "editors say words the taxonomy lacks" and "the library lacks footage" are different problems with different owners and conflating them would poison the gap scan with vocabulary noise.
+Vetting proposes a fit score and never gates. The visit tier band is computed in code and the model may only choose inside it, because a model that can hand a full-day VIP visit to an unproven creator is a model with a budget. A creator a human blocked is not re-scored at all, and a re-vet never touches a human's override.
+
+Brief matching proposes a match and the human confirms or corrects it, in a different column, so match accuracy stays measurable, and the creator's reliability score counts only the human's column. Gap phrasing writes an instruction; the gap itself is computed from real signals.
+
+Search runs a deterministic floor first and always. The model is asked one question, only about the words the floor could not place: "golden hour" is not in the vocabulary and never should be, because a taxonomy that grows a term for every phrase an editor might type stops being a taxonomy. Its answer is a removable chip carrying the original words and the confidence, it never overrules an exact lookup, and what it also cannot place stays unmapped and filters nothing. "Editors say words the taxonomy lacks" and "the library lacks footage" are different problems with different owners, and conflating them would poison the gap scan with vocabulary noise.
 
 A single model tier was chosen over routing by task. It was considered: the honest reason not to route is that this product's hard calls are judgement under ambiguity, and the cheap tier's failure mode there is confident wrongness, which is the most expensive failure available in a system whose whole claim is that it does not fabricate.
+
+## The second loop, and the number that makes vetting checkable
+
+A fit score is a guess made before any work. Reliability is what happened after. The creators roster puts them in the same row, and everything on the measured side is derived from rows with its denominator shown: approval counts only clips a human actually ruled on, because counting a pending clip as a rejection is the studio's review backlog wearing a creator's name; promise-kept counts only against a locked brief, because holding someone to a shot list that changed after they shot it is not a reliability signal. A rate with no denominator reads `unknown`, never 0%, since a brand new creator scored zero would sort below one who genuinely delivers badly.
+
+That is the half that has to exist first. Feeding the measured score back into the next vetting call is a small change on top of it, and it is not built, because a feedback loop closed on numbers nobody has checked is worse than an open one.
 
 ## What the seed proves, and why it is ugly on purpose
 
@@ -34,16 +44,20 @@ The demo's visit date and branch coordinates are the fixture manifest's, so the 
 
 ## What is not built, and why that is the honest answer
 
-No server is deployed. No model is called. The WebCodecs decode path declines out loud instead of half-working. The desktop shell and mobile native are configured and never built. The persistent search index and the AI query parser are specified and not built; the deterministic search underneath them is real and tested. Each of these is listed in the README with its reasoning, and everything that needs a human or a device this build does not have is in `qa/manual-checklist.md`, so coverage is never implied.
+No server is deployed and no model is called: those are the two constraints the whole build is shaped around. The sync transport is the one that took the most care to leave out honestly. The Postgres schema, its row level security and the merge policy are written, and a loopback adapter drains the outbox into a second local database with its own server clock and its own copy of the rules, so the conflict paths are exercised for real rather than described. What is missing is an HTTP client. The panel says `Adapter: loopback` in plain text and there is a test asserting nothing on that screen claims otherwise, because a reviewer who catches an overclaim there discounts everything else in the build.
+
+The WebCodecs decode path calls `isConfigSupported` and then declines out loud; a half written decoder that silently lands on the wrong frame is worse than one that refuses. The desktop shell and mobile native are configured and never run, with the shell notes marking each claim verified or inferred with a date. The persistent search index is specified and not built, because the in-memory scan is correct over a library that fits in memory and an index whose invalidation is untested is slower to trust. Transcode is not built, so the HEVC clip reads as undecodable rather than as decoded.
+
+Records live in IndexedDB by constraint, and IndexedDB is evictable, which is the one failure the architecture cannot design away. So it is made detectable instead: a sentinel in localStorage separates an eviction from a first visit, the verdict is computed before hydration could re-seed over it, and snapshot export and import give the recovery path. Each of these is listed in the README with its reasoning, and everything that needs a human or a device this build does not have is in `qa/manual-checklist.md`, so coverage is never implied.
 
 Two decisions were reversed during the build, and the reversals are recorded with the evidence rather than quietly applied. The decode adapters were deferred on the grounds that no automated coverage was possible; that was true of the unit runner and had been over-generalised into a claim about the project, because the repository drives a real browser (D25). And the pre-flight thresholds were briefly hardcoded in a component, which would have accepted footage the agreed spec rejects; they now resolve from the spec key the brief names (D26 and `src/app/creator/tech-specs.ts`).
 
 ## What I would do next, in order
 
-1. The persistent search index and the reindex queue, then the AI query parser on top of the deterministic floor that already exists.
-2. The loopback sync adapter, which is where the conflict rules get exercised for real. The merge policy is already written as data rather than as `if` statements, and the band that matters is human curation: a stale device flipping a rejected clip back to approved and republishing footage a human killed for consent reasons is the worst bug this system can have.
+1. The Supabase transport behind the adapter seam the loopback already fills. Everything it needs exists; what it buys is the multi-device case, and the band that matters there is human curation. A stale device flipping a rejected clip back to approved and republishing footage a human killed for consent reasons is the worst bug this system can have, which is why that band is `sticky` in the policy table rather than last-write-wins.
+2. Feed the measured scorecard into vetting, closing the second loop now that its measured half is real.
 3. Transcode, so the HEVC hole closes. Desktop shell first, because the bytes are already local.
-4. The creator scorecard feeding vetting, which is the second feedback loop and the one that makes reliability a number rather than a memory.
+4. The persistent search index, when a library stops fitting in memory and not before.
 
 ## Where to read more
 

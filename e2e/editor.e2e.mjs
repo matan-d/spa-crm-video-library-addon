@@ -27,7 +27,8 @@ import {
   REQUEST_SHOT, REQUEST_SHOT_CONFIRMATION, REQUEST_SHOT_SUBMIT,
   RESULT_COUNT, RESULT_GRID, RESULT_TILE, RESULT_TILE_ADD_TO_BIN,
   RESULT_TILE_POSTER, ROLE_EDITOR, ROLE_OPTION,
-  SEARCH_TERM_CHIP, SEARCH_UNMAPPED_TERM, SIMULATED_BADGE,
+  SEARCH_ASK_MODEL, SEARCH_PARSE_PROVENANCE,
+  SEARCH_TERM_CHIP, SEARCH_TERM_CHIP_REMOVE, SEARCH_UNMAPPED_TERM, SIMULATED_BADGE,
   USAGE_CONFIRMATION, ZERO_RESULT,
   sel, testid,
 } from './_support/testids.mjs'
@@ -105,6 +106,80 @@ async function editorChecks(browser, deviceProfile) {
       unmappedCount,
       handsCount,
       `${deviceProfile.name}: the unmapped term filtered nothing (${unmappedCount} = ${handsCount})`,
+    )
+
+    // ---- the AI query parser, layered on the floor above --------------------
+    //
+    // "golden hour" is deliberately not in the vocabulary and never will be:
+    // a taxonomy that grows a term for every phrase an editor might type stops
+    // being a taxonomy. The floor leaves all three words unmapped, and the model
+    // is offered only then.
+    await search(page, 'golden hour window')
+    assert(
+      await exists(page, testid(SEARCH_ASK_MODEL)),
+      `${deviceProfile.name}: the model is offered only because the vocabulary could not place these words`,
+    )
+    const beforeAsk = await resultCount(page)
+
+    await page.click(testid(SEARCH_ASK_MODEL))
+    await page.waitForSelector(testid(SEARCH_PARSE_PROVENANCE), { timeout: 10_000 })
+
+    // The mapping is shown with the words it translated, its confidence, and a
+    // provenance read off the run rather than off the current mode.
+    const aiChips = await page.$$eval(sel(SEARCH_TERM_CHIP, { 'data-provenance': 'mock' }), (nodes) =>
+      nodes.map((node) => ({
+        raw: node.getAttribute('data-term'),
+        term: node.getAttribute('data-mapped-to'),
+      })),
+    )
+    assert(
+      aiChips.some((chip) => chip.raw === 'golden hour' && chip.term === 'warm_light'),
+      `${deviceProfile.name}: the model mapped "golden hour" to warm_light, and the chip says which words it translated`,
+    )
+    assertEqual(
+      await page.getAttribute(testid(SEARCH_PARSE_PROVENANCE), 'data-provenance'),
+      'mock',
+      `${deviceProfile.name}: the parse chip carries the run's provider, so simulated output cannot pass as real`,
+    )
+    assert(
+      (await page.getAttribute(testid(SEARCH_PARSE_PROVENANCE), 'data-ai-run-id')) != null,
+      `${deviceProfile.name}: the parse points at a recorded ai_run`,
+    )
+
+    // Exactly one chip per mapping. A model term rendered both neutral and amber
+    // would say two different things about who decided it.
+    const goldenChipCount = await page.$$eval(
+      sel(SEARCH_TERM_CHIP, { 'data-mapped-to': 'warm_light' }),
+      (nodes) => nodes.length,
+    )
+    assertEqual(goldenChipCount, 1, `${deviceProfile.name}: the model's mapping is rendered once, not twice`)
+
+    // "window" was not mapped by the floor OR by the model, so it stays visible
+    // and still filters nothing. A vocabulary gap must never read as a content gap.
+    const stillUnmapped = await page.$$eval(testid(SEARCH_UNMAPPED_TERM), (nodes) =>
+      nodes.map((node) => node.getAttribute('data-term')),
+    )
+    assert(
+      stillUnmapped.includes('window'),
+      `${deviceProfile.name}: what neither the floor nor the model could place stays on the vocabulary to-do list`,
+    )
+
+    // The mapping changed the answer, which is the whole reason to ask.
+    const afterAsk = await resultCount(page)
+    assert(
+      afterAsk !== beforeAsk || afterAsk > 0,
+      `${deviceProfile.name}: the model's mapping reached the result set (${beforeAsk} -> ${afterAsk})`,
+    )
+
+    // And it is undoable in one click, back to exactly the floor's answer.
+    await page.click(
+      `${sel(SEARCH_TERM_CHIP, { 'data-provenance': 'mock' })} ${testid(SEARCH_TERM_CHIP_REMOVE)}`,
+    )
+    await page.waitForTimeout(150)
+    assertEqual(
+      await resultCount(page),
+      beforeAsk,
+      `${deviceProfile.name}: removing the model's chip restored the deterministic answer`,
     )
 
     // Facet chips refine and clear.

@@ -2,39 +2,16 @@ import { IDBFactory } from 'fake-indexeddb'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { openDatabase } from '@/data/db'
 import { countRows, hydrateIfNeeded, SEED_VERSION } from '@/data/hydrate'
-import { buildSeed, signatureOf, type MediaManifest } from '@/data/seed'
+import { buildSeed, signatureOf } from '@/data/seed'
+import { computeScorecards } from '@/data/scorecard'
+import type { Asset, Brief, BriefItem, Collab, Creator, Delivery } from '@/data/types'
 import { createScopedRepo } from '@/data/repo'
 import { editorSession, managerSession } from '@/data/scope'
 import { SeededClock, SEED_EPOCH_MS } from '@/platform/clock'
 import { SeededRng, SEED_STRING } from '@/platform/rng'
 import { createIdFactory } from '@/platform/id'
+import { media } from './media-fixture'
 
-/** A stand-in for the committed media manifest, so the test needs no network. */
-function media(count = 27): MediaManifest {
-  return {
-    items: Array.from({ length: count }, (_, i) => ({
-      slug: `item-${i + 1}`,
-      orientation: i % 13 === 12 ? 'horizontal' : 'vertical',
-      meta: {
-        shot_type: ['closeup', 'macro', 'wide', 'medium'][i % 4]!,
-        room: ['treatment_room', 'reception', 'sauna', 'studio'][i % 4]!,
-        subjects: ['hands', 'oil'],
-        vibe: 'calm',
-        light: 'soft_indoor',
-      },
-      derived_clip: {
-        width: 1080,
-        height: 1920,
-        duration_s: 6,
-        committed: i < 3,
-        path: i < 3 ? `/seed/clips/item-${i + 1}.mp4` : null,
-        bytes: 400_000,
-      },
-      poster: { path: `/seed/posters/item-${i + 1}.jpg`, bytes: 10_000 },
-      contact_sheet: { path: `/seed/sheets/item-${i + 1}.jpg`, bytes: 34_000, frames: 5, layout: '1x5' },
-    })),
-  }
-}
 
 function build() {
   const clock = new SeededClock({ startMs: SEED_EPOCH_MS, autoAdvanceMs: 1 })
@@ -302,5 +279,30 @@ describe('signatureOf', () => {
 
   it('differs for different cells', () => {
     expect(signatureOf({ room: 'sauna' })).not.toBe(signatureOf({ room: 'lounge' }))
+  })
+})
+
+describe('the seeded scorecard cache', () => {
+  it('is derived from the rows it was seeded alongside, not typed in', async () => {
+    const seed = build()
+    const derived = computeScorecards({
+      creators: seed.rows.creator as unknown as Creator[],
+      collabs: seed.rows.collab as unknown as Collab[],
+      deliveries: (seed.rows.delivery ?? []) as unknown as Delivery[],
+      assets: seed.rows.asset as unknown as Asset[],
+      briefs: (seed.rows.brief ?? []) as unknown as Brief[],
+      briefItems: (seed.rows.brief_item ?? []) as unknown as BriefItem[],
+    })
+
+    // Exactly one row is left stale on purpose, so the roster's drift warning has
+    // data. Every other cache agrees with the derivation, so a drift a reviewer
+    // sees is a real one rather than seed noise.
+    const drifting = derived.filter((row) => row.drift.length > 0).map((row) => row.creator.id)
+    expect(drifting).toEqual(['creator-1'])
+  })
+
+  it('lists the stale cache among the imperfections rather than hiding it', () => {
+    const seed = build()
+    expect(seed.summary.imperfectCases.join(' ')).toContain('stale')
   })
 })

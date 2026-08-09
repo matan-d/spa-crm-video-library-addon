@@ -212,3 +212,162 @@ This is the design the pre-flight engine already had: support is injected into t
 The consequence for the decode proof is that H.264 cannot demonstrate the element path here, so `e2e/decode.e2e.mjs` generates a VP9 in MP4 clip at run time with the ffmpeg already in `devDependencies`.
 VP9 in MP4 is a real ISOBMFF file, so it goes through our own atom parser rather than around it, and this Chromium decodes VP9, so the run exercises the same code path an iPhone clip takes on a Mac.
 The clip is generated rather than committed because `public/fixtures/` is a sha256 verified contract about container gotchas, and a codec chosen to suit one CI machine does not belong in it.
+
+**D27. The AI query parser is offered, never automatic, and it is asked only about the words the taxonomy could not place.**
+
+The deterministic floor in `src/app/editor/search.ts` maps words to taxonomy terms by exact and underscore-joined lookup, and refuses to guess.
+The model's contribution is exactly the synonym hop that floor will not make: "golden hour" is not in the vocabulary and never should be, because a taxonomy that grows a term for every phrase an editor might type stops being a taxonomy.
+
+Three shapes follow from that, and each one exists because the alternative is a search box that lies.
+
+The floor runs first and always, and the model is asked only about `unmapped`.
+A term the floor resolved by exact lookup is already correct, and letting a model overrule a lookup trades a certainty for a guess.
+`src/app/editor/ai-search.ts` therefore discards any proposed mapping whose words the floor had already placed, and there is a test that feeds it a provider deliberately trying to rewrite `hands` to `feet`.
+
+Asking is a button, not a side effect of typing, and the button only appears when there is something unmapped.
+An editor who types words the vocabulary knows gets a deterministic answer and no call at all, which is the overwhelmingly common case and the one where a model has nothing to add.
+
+Whatever neither the floor nor the model can place stays unmapped, stays visible, and still filters nothing.
+That list is the vocabulary's to-do list, and letting it filter would turn "we lack the word" into "we lack the footage", which is the one confusion that would poison the gap scan.
+
+Below `MAPPING_FLOOR` (0.55) a proposed mapping is dropped rather than shown, because a chip an editor has to evaluate and reject is worse than no chip.
+The seeded `morning light` to `daylight` fixture sits just above the floor at 0.58 on purpose: it is the mapping most likely to be wrong, it is shown, and it is removable in one click.
+
+**D28. The scoped repository gains a write predicate, and the editor may create exactly one kind of `ai_run`.**
+
+The allowlist could only say "this role touches this table", and the truth for the editor and `ai_run` is narrower: it writes exactly one kind of row.
+Parsing a query through the AI seam has to leave a run row, or the provenance chip on the result points at nothing and Data Health undercounts the calls that were actually made.
+But a `vet` run IS the creator's score, which the editor cannot even read, and a `vision_tag` run is the manager's curation record.
+
+So `writable(session, store, row)` is added next to `visible`, called from `create` and from `patch`, and it throws a `ScopeError` rather than filtering.
+Filtering is right on a read, because a row you may not see should read as absent.
+A write has no such reading: there is no legitimate caller, so it fails loudly.
+The `patch` check runs against the merged row, so a permitted row cannot be edited into a forbidden one.
+
+This is the `WITH CHECK` half of the future row level security policy, written in the same place as the `USING` half, which is the whole reason visibility lives in one layer.
+It is deliberately small: a predicate per table is a policy surface, and the point of one layer is that there is not much of it.
+
+**D29. The loopback server is a second IndexedDB database per profile, and applying a pulled row is the second sanctioned bypass of the scoped repository.**
+
+`src/app/sync/loopback.ts` drains the outbox into `astolia_<profile>_loopback_server`, which holds one object store per synced table plus a `server_meta` store carrying the server's own clock.
+Per profile, because the profile is what makes a demo outbox structurally incapable of reaching anything real, and a shared loopback server would put fabricated rows one bug away from a live one.
+
+The server clock is monotonic first and wall clock second: `max(previous + 1, clock.now())`.
+A frozen `SeededClock` (every test) or a machine correcting NTP drift would otherwise reissue a timestamp, and a cursor built on a clock that can repeat a value silently loses every row written during the repeat.
+One tick per push batch rather than per row, matching a Postgres transaction sharing one `now()`, which also means the `(server_updated_at, id)` tiebreak is exercised on every push instead of only in theory.
+
+Pulled rows are written straight to their object store rather than through the repository.
+Going through the repository would append an outbox entry per pulled row and echo every pull back at the server forever.
+This is the same argument as D12 (hydration), and these two remain the only bypasses: everything a human does still goes through the front door.
+`server_updated_at` and `rev` are copied across outside the merge, because `mergeRow` refuses those two fields from any patch, and a client that could write the pull cursor could hide its own rows from every other device with no error anywhere.
+
+The ordinal ladders use the enum values that exist in `src/data/types.ts`, not the longer ones sketched in the architecture review C.3.
+`review_status` is `pending < approved < rejected` (there is no `needs_fix` in this build) and `derivative_state` is `none < partial < ready` (there is no `failed` or `server_derived`).
+The rule that matters survives both simplifications intact: rejected beats approved, and a more capable producer's derivatives cannot be erased by a device that has not made any.
+
+**D30. A patch for a row the server has never seen is promoted to the whole local row, rather than failing.**
+
+Seeded rows are history and hydration writes them with no outbox entries (D12), so the first thing the loopback server ever hears about a seeded clip is somebody approving it.
+Sending only the changed field would create a server row that is one field and no clip.
+Failing the entry instead would mean every action a reviewer takes on the demo dataset lands in the sync panel as an error, which teaches a reviewer that the sync design does not work when what it actually shows is that the seed predates the queue.
+So the adapter reads the local row and sends that.
+A patch with no row on the server and none on this device is a genuine defect and still fails loudly, with the entry marked `failed` and the reason on it.
+
+**D31. Local-only fields are stripped at the outbox append, and a patch made only of them queues nothing at all.**
+
+`LOCAL_ONLY_FIELDS` in `src/data/schema.ts` declares them per store (`upload_state`, `upload_offset_bytes`, `media_state`, `local_file_key` on `asset`), and `appendOutbox` applies it.
+Stripping at the adapter instead would leave a per-device upload offset sitting in a queue labelled pending sync, which is a lie about what the device is doing even though nothing ever transmits it.
+Outbox depth is a number a human reads to decide whether it is safe to close the tab, so an entry whose drain is a guaranteed no-op must not inflate it: a patch that carries nothing but local state is dropped before it is queued, while a create still queues because the row itself has to exist remotely.
+The merge executor strips the same list again on the way in, because the two ends of a sync are written months apart and only one of them is ours in production.
+
+Two consequences worth naming.
+`sync_conflict` is a new local-only store, so `SCHEMA_VERSION` is 2 and there is a second migration.
+Migration 1 was not edited to create it: `StoreSpec.since` records the version that introduced a store, each migration creates only its own, and a migration that rewrites its own history is one nobody can reason about on a database that already ran it.
+And a conflict is a row rather than a toast, per C.3, because a notification gets dismissed and the disagreement is then found three weeks later inside a campaign.
+
+**D32. The creators roster is built, and its argument is that the guess and the measurement sit next to each other.**
+
+`/creators` was the last placeholder besides `/sync`, and the temptation was a contact list.
+What it is instead is the second feedback loop's measured half: a fit score is a guess made before any work, reliability is what happened after, and putting them in the same row is what lets a manager notice the guess was wrong.
+
+Every figure on the right is derived from rows by `src/data/scorecard.ts`, and every rate shows its denominator.
+A rate with no denominator is `null` and renders `unknown`, never 0%, because a brand new creator scored zero would sort below one who genuinely delivers badly, which inverts the exact judgement the panel exists to support.
+This is the same four-valued discipline as pre-flight, applied to a different absence.
+
+Promise-kept counts only against a LOCKED brief, and only against `confirmed_brief_item_id`.
+An unlocked brief is a draft, and holding a creator to a shot list that changed after they shot it is not a reliability signal.
+Scoring off `ai_matched_brief_item_id` would spend the entire reason those are two columns.
+Pending clips are excluded from the approval rate: counting an unreviewed clip as a rejection is the studio's backlog wearing a creator's name.
+
+The panel keeps the stored `creator.scorecard` cache and flags where it disagrees, rather than silently preferring the derivation.
+If the two differ then either the cache is stale or the derivation is wrong, and both are worth seeing.
+The seed now computes the cache from the rows it seeded alongside, and leaves `creator-1` deliberately stale, so the drift path has data in the demo rather than only in a unit test.
+
+Vetting itself never gates: `vetCreator` writes an advisory score and returns.
+The visit tier band is computed in code from the reliability tier and passed as a closed list, and a suggestion outside the band is dropped rather than stored, because a model that can hand a full-day VIP visit to an unproven creator is a model with a budget.
+A blocked creator is refused outright, since a model re-score reads as a second opinion on a decision the model was never part of.
+And a re-vet never touches `fit_score_override`: a human decision is not something a later run revises.
+
+`computeScorecards` lives in `src/data/scorecard.ts` rather than beside the view, because the seed writes the cache and the roster reads it, so both need the same arithmetic and a seed importing from `src/app` would invert the layering.
+It is pure logic over row types, the same category as `signatureOf`.
+
+**D33. The desktop shell keeps `@capacitor-community/electron`'s configuration shape, even though that project is now unmaintained.**
+
+Discovered while writing `capacitor.config.ts` and verified on 2026-08-09: the package's own README states "This project is currently unmaintained" and recommends the Capawesome Electron platform instead.
+Its latest published version is 5.0.1, it declares `@capacitor/cli >=5.4.0`, and the current CLI is 8.5.0, so it is also two majors behind.
+U4 names Electron via Capacitor and does not name a package, so this is mine to settle.
+
+We keep the community platform's shape, for three reasons.
+
+1. What is being reviewed is a configuration and the thinking behind it, not a build. The `electron` key with `customUrlScheme`, deep linking off and no tray is the same set of decisions either way, and switching packages would change the file's location without changing a single judgement in it.
+2. The alternative is not free of the same problem. Capawesome's platform puts its configuration in `electron/capacitor.electron.config.ts`, inside a generated project directory that does not exist here, so adopting it would leave this repository with no shell configuration at all to review.
+3. Switching to a package we also cannot run would trade a documented unmaintained dependency for an undocumented untested one, which is worse: the first is a known risk and the second is an assumption.
+
+What is recorded rather than hidden: P-14 above states the maintenance status, states that `npx cap add @capacitor-community/electron` on a Capacitor 8 project is unverified and may simply fail, and names exactly what changes on a move to Capawesome.
+One thing does not change on that move and is worth repeating: that platform's context isolation and sandboxed renderer are documented as "enabled by default and not configurable", so the `contextBridge` preload contract in section 5.1 stops being the recommended route and becomes the only one.
+
+**D34. No Capacitor iOS build ships before export and import plus the sentinel record exist.**
+
+Capacitor's own storage guide says Local Storage "must be considered transient", that "the OS will reclaim local storage from Web Views if a device is running low on space", and that "The same can be said for IndexedDB at least on iOS (on Android, the persisted storage API is available to mark IndexedDB as persisted)".
+The request to make `navigator.storage.persist()` work for a Capacitor app was closed as not planned.
+Both checked 2026-08-09 and recorded as P-13 above.
+
+This product keeps every record in IndexedDB by constraint, so on that one target the vendor documents our primary datastore as reclaimable, with no remedy available to us from the web layer.
+An installed app that silently empties is worse than a browser tab that does, because a user has a mental model for "the browser cleared site data" and none at all for an app that forgets.
+
+The decision is a gate rather than a redesign, because a redesign is not needed in order to be honest.
+The gate is now met on the browser side: export, import and the sentinel are built (D35).
+The sentinel record and snapshot export and import are already mandatory in `docs/01-architecture-review.md` B.2 for the browser's own eviction rules, and they turn total silent loss into a detected state with a recovery path.
+So the gate costs nothing that was not already owed.
+The longer term answer, if this target is ever taken seriously, is a native durable store behind the existing `ByteStore` and record seams, which is the platform port doing the job it was built for.
+
+Nothing here changes U6: the config is written, the target stays deferred, and this is the condition attached to undeferring it.
+
+**D35. Snapshot export and import exist, and a sentinel record makes eviction detectable rather than silent.**
+
+Every record lives in IndexedDB by constraint (U2), and IndexedDB is evictable.
+A browser under storage pressure clears it, and on iOS the vendor documents it as reclaimable with `navigator.storage.persist()` explicitly not planned (D34 and `docs/09-shell-notes.md` P-13).
+There is nothing the web layer can do to stop that.
+What it can do is refuse to lose the data silently, and that is the whole of `src/data/snapshot.ts`.
+
+The sentinel is about 200 bytes in `localStorage` saying "this profile had a database, with this many rows, at this time".
+localStorage and IndexedDB are cleared together by an origin data wipe but NOT by the storage pressure eviction that reclaims IndexedDB, so the pair separates three states that are otherwise identical on boot: a first visit, a normal return, and an eviction.
+Without it the third is indistinguishable from the first, so the app would re-seed the demo over somebody's real work and call it a fresh start.
+
+The verdict is computed in `bootApp` **before hydration**, and this ordering is the load-bearing part.
+If the browser evicted the database and hydration then re-seeded the demo, a panel reading the row count afterwards would see a full database and report `intact`.
+The loss would be real, complete and invisible.
+There is a test that boots, discards the factory, boots again, and asserts `evicted` while `assetCount` is non-zero: if it ever fails, total silent data loss is back.
+
+A rate of loss is not modelled, because IndexedDB eviction is all or nothing per origin.
+Fewer rows than last time means somebody deleted things, and only "we had rows and now have none" is the browser's doing.
+A sentinel recording an empty database never raises eviction either, because the live profile starts empty on purpose and a false alarm on the one profile holding real work is worse than a missed one on the demo.
+
+The export carries records only.
+Original bytes live in OPFS and a real library is tens of gigabytes, so a JSON snapshot inlining them would be unopenable; derived blobs are excluded because they are reproducible and a backup that doubles in size is a backup people stop taking.
+The manifest states both exclusions in the file, so a restore reads as "records back, originals to re-upload" rather than as a complete backup that quietly is not one.
+
+Import merges rather than clearing first.
+A restore that emptied the database would turn a snapshot missing one table into data loss, after the point of no return.
+Tombstones travel with the snapshot: dropping them would un-delete everything the moment two devices synced.
+A file that is not a snapshot, or one from a newer schema, is refused before anything is written.

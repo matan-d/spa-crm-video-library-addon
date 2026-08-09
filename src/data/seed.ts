@@ -25,6 +25,8 @@ import type { Clock } from '@/platform/clock'
 import type { Rng } from '@/platform/rng'
 import type { IdFactory } from '@/platform/id'
 import type { StoreName } from './schema'
+import type { Asset, Brief, BriefItem, Collab, Creator, Delivery } from './types'
+import { computeScorecards } from './scorecard'
 
 export interface MediaManifestItem {
   slug: string
@@ -804,6 +806,46 @@ export function buildSeed(deps: {
     expires_at: t0 - 3 * DAY,
     revoked_at: null,
   })
+
+  // ---- the scorecard cache, derived from what was just seeded --------------
+  //
+  // `creator.scorecard` is a denormalised cache, and a seed that types numbers
+  // into it is fabricating exactly the kind of figure this product refuses to
+  // fabricate elsewhere. So it is computed from the collabs, assets and locked
+  // briefs above, by the same function the roster uses, and written back.
+  //
+  // One creator is left deliberately stale. `creator-1` keeps the hand-written
+  // cache, so the panel has a real drift to flag and the "stored disagrees with
+  // computed" path is exercised by the demo rather than only by a unit test. A
+  // stale cache is the normal failure of any denormalised column, and a seed
+  // where it never happens produces a UI that has never had to say so.
+  const STALE_ON_PURPOSE = 'creator-1'
+  const derived = computeScorecards({
+    creators: rows.creator as unknown as Creator[],
+    collabs: rows.collab as unknown as Collab[],
+    deliveries: (rows.delivery ?? []) as unknown as Delivery[],
+    assets: rows.asset as unknown as Asset[],
+    briefs: (rows.brief ?? []) as unknown as Brief[],
+    briefItems: (rows.brief_item ?? []) as unknown as BriefItem[],
+  })
+  const byId = new Map(derived.map((row) => [row.creator.id, row.computed]))
+  for (const row of rows.creator) {
+    if (row.id === STALE_ON_PURPOSE) continue
+    const computed = byId.get(row.id as string)
+    if (!computed) continue
+    const existing = row.scorecard as Record<string, unknown>
+    row.scorecard = {
+      completed_collabs: computed.completed_collabs,
+      approval_rate: computed.approval_rate,
+      promise_kept_rate: computed.promise_kept_rate,
+      // Not derivable from any row this build holds: a brand safety hit and a
+      // consent problem are human judgements with no table behind them yet, so
+      // the seeded value stands rather than being replaced by a computed zero.
+      brand_safety_hits: existing?.brand_safety_hits ?? 0,
+      consent_problems: existing?.consent_problems ?? 0,
+    }
+  }
+  imperfectCases.push('one creator whose stored scorecard is stale, so the drift warning has data')
 
   const counts = Object.fromEntries(Object.entries(rows).map(([store, list]) => [store, list.length]))
 

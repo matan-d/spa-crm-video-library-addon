@@ -9,6 +9,7 @@ import {
   tagIndex,
   type VocabularyEntry,
 } from '@/app/editor/search'
+import { parseWithAi } from '@/app/editor/ai-search'
 import { bootApp, repoForSession } from '@/app/bootstrap'
 import { sessionForRole } from '@/app/session'
 import { signatureOf } from '@/data/seed'
@@ -309,5 +310,163 @@ describe('the editor surface writes', () => {
     // the AI parser is later allowed to bridge, and the seed depends on it.
     const zero = parseQuery('golden hour window', vocabulary, rooms)
     expect(zero.mapped.filter((t) => t.kind !== 'room')).toEqual([])
+  })
+})
+
+// ---------------------------------------------------------------------------
+// unit: the AI query parser, layered on the floor
+// ---------------------------------------------------------------------------
+
+describe('the AI query parser', () => {
+  let factory: IDBFactory
+
+  beforeEach(() => {
+    factory = new IDBFactory()
+    setActivePinia(createPinia())
+  })
+
+  async function editorRepo() {
+    const ctx = await bootApp(testDeps(factory))
+    return repoForSession(ctx, sessionForRole('editor'))
+  }
+
+  async function depsFor(repo: Awaited<ReturnType<typeof editorRepo>>) {
+    const vocabulary = await repo.list<VocabularyEntry>('tag_vocabulary')
+    const assets = await repo.list<Asset>('asset')
+    const knownRooms = new Set(assets.map((a) => a.ai_room).filter((r): r is string => !!r))
+    return { repo, vocabulary, knownRooms, branchSlugs: [] }
+  }
+
+  it('is never asked about a query the vocabulary already understood', async () => {
+    const repo = await editorRepo()
+    const deps = await depsFor(repo)
+    // A provider that throws if touched: the point is that it is not touched.
+    const refuse = new Proxy({} as never, {
+      get() {
+        throw new Error('the model was asked about a query the floor had already mapped')
+      },
+    })
+
+    const result = await parseWithAi('hands warm light', { ...deps, provider: refuse })
+    expect(result.source).toBe('deterministic')
+    expect(result.runId).toBeNull()
+    expect(result.parsed.mapped.map((t) => t.term)).toEqual(['hands', 'warm_light'])
+  })
+
+  it('makes the synonym hop the floor refuses to guess at, and records the run', async () => {
+    const repo = await editorRepo()
+    const before = (await repo.list('ai_run')).length
+
+    const result = await parseWithAi('golden hour window', await depsFor(repo))
+
+    expect(result.source).toBe('model')
+    expect(result.provider).toBe('mock')
+    expect(result.mappings).toEqual([
+      { raw: 'golden hour', term: 'warm_light', facet: 'light', confidence: 0.82 },
+    ])
+    expect(result.parsed.mapped.map((t) => t.term)).toContain('warm_light')
+    expect(result.runId).not.toBeNull()
+    expect((await repo.list('ai_run')).length).toBe(before + 1)
+  })
+
+  it('leaves what nobody could place unmapped, so a vocabulary gap never reads as a content gap', async () => {
+    const repo = await editorRepo()
+    const result = await parseWithAi('golden hour window', await depsFor(repo))
+    // The fixture maps "golden hour" and deliberately declines "window".
+    expect(result.parsed.unmapped).toEqual(['window'])
+  })
+
+  it('never lets a model overrule a term the floor resolved by exact lookup', async () => {
+    const repo = await editorRepo()
+    const deps = await depsFor(repo)
+    const liar = {
+      async search_parse() {
+        return {
+          meta: { provider: 'mock', input_hash: 'hash-liar' },
+          output: {
+            mappings: [
+              // A term the floor already mapped by lookup. Accepting this would
+              // trade a certainty for a guess.
+              { raw: 'hands', facet: 'subject', term: 'feet', confidence: 0.99 },
+              { raw: 'golden hour', facet: 'light', term: 'warm_light', confidence: 0.8 },
+            ],
+            ranking: { order_by: 'relevance', boost_terms: [] },
+          },
+        }
+      },
+    } as never
+
+    const result = await parseWithAi('hands golden hour', { ...deps, provider: liar })
+    const terms = result.parsed.mapped.map((t) => t.term)
+    expect(terms).toContain('hands')
+    expect(terms).not.toContain('feet')
+    expect(terms).toContain('warm_light')
+  })
+
+  it('drops a mapping it is not confident enough about rather than showing it', async () => {
+    const repo = await editorRepo()
+    const deps = await depsFor(repo)
+    const unsure = {
+      async search_parse() {
+        return {
+          meta: { provider: 'mock', input_hash: 'hash-unsure' },
+          output: {
+            mappings: [{ raw: 'golden hour', facet: 'light', term: 'warm_light', confidence: 0.31 }],
+            ranking: null,
+          },
+        }
+      },
+    } as never
+
+    const result = await parseWithAi('golden hour', { ...deps, provider: unsure })
+    expect(result.mappings).toEqual([])
+    expect(result.source).toBe('deterministic')
+    expect(result.parsed.unmapped).toEqual(['golden', 'hour'])
+  })
+
+  it('falls back to the floor when the model fails, and says why', async () => {
+    const repo = await editorRepo()
+    const deps = await depsFor(repo)
+    const broken = {
+      async search_parse() {
+        throw new Error('provider unreachable')
+      },
+    } as never
+
+    const result = await parseWithAi('hands golden hour', { ...deps, provider: broken })
+    expect(result.source).toBe('deterministic')
+    expect(result.fellBackBecause).toBe('provider unreachable')
+    // The floor's answer survives intact: the editor loses the hop, not the search.
+    expect(result.parsed.mapped.map((t) => t.term)).toEqual(['hands'])
+  })
+
+  it('a model term filters exactly like a vocabulary term once merged', async () => {
+    const repo = await editorRepo()
+    const deps = await depsFor(repo)
+    const assets = await repo.list<Asset>('asset')
+    const tags = await repo.list<Tag>('tag')
+
+    const ai = await parseWithAi('golden hour', deps)
+    const floorOnly = runSearch({
+      text: 'golden hour',
+      assets,
+      tags,
+      vocabulary: deps.vocabulary,
+      refinements: new Map(),
+    })
+    const withModel = runSearch({
+      text: 'golden hour',
+      assets,
+      tags,
+      vocabulary: deps.vocabulary,
+      refinements: new Map(),
+      extraTerms: ai.parsed.mapped,
+    })
+
+    // Unmapped words filter nothing, so the floor returns the whole library.
+    expect(floorOnly.results.length).toBe(assets.length)
+    // The model's term is a real filter, and it is narrower.
+    expect(withModel.results.length).toBeLessThan(floorOnly.results.length)
+    expect(withModel.parsed.unmapped).toEqual([])
   })
 })

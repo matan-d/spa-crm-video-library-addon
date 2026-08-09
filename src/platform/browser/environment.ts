@@ -62,14 +62,44 @@ export function browserProbeEnvironment(): ProbeEnvironment {
   }
 }
 
+/**
+ * The four values a shell may use to declare itself over `contextBridge`.
+ *
+ * A desktop or native shell's preload script exposes `__shell__` with an `id`
+ * from this list, and the full contract is written out in docs/09-shell-notes.md
+ * section 5.1 so the shell side and this side cannot drift.
+ *
+ * A declaration is not a measurement, so it is trusted for identity only.
+ * Nothing downstream may take a capability from it: capabilities are probed.
+ */
+const SHELL_IDS: readonly ShellId[] = ['browser', 'electron', 'capacitor-ios', 'capacitor-android']
+
 function detectShell(): ShellId {
   // Feature presence only. Nothing here reads a user agent, because a user agent
   // lies on request and because branching on one is banned in this codebase.
   const g = globalThis as {
+    __shell__?: { id?: string }
     process?: { versions?: { electron?: string } }
     Capacitor?: { getPlatform?: () => string; isNativePlatform?: () => boolean }
   }
 
+  // Asked first, because it is the only route that works in a correctly
+  // configured Electron renderer. contextIsolation has defaulted to true since
+  // Electron 12, and it is not configurable at all in the Capawesome platform,
+  // so `process` is unreachable from the page's world and the legacy check
+  // below silently reports `browser` inside the desktop app. See P-3.
+  //
+  // Validated against the list rather than cast, because this value crosses a
+  // bridge from code we did not write, and an unrecognised string must fall
+  // through to the real detection instead of becoming a ShellId by assertion.
+  const declared = safe(() => g.__shell__?.id ?? null, null)
+  if (declared !== null && (SHELL_IDS as readonly string[]).includes(declared)) {
+    return declared as ShellId
+  }
+
+  // Kept only for a renderer running with node integration on, which is neither
+  // the default nor recommended. It costs one line, and it means an unusual
+  // build is identified rather than mislabelled.
   if (g.process?.versions?.electron) return 'electron'
 
   const platform = safe(() => g.Capacitor?.getPlatform?.() ?? null, null)

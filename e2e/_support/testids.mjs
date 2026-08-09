@@ -56,6 +56,7 @@ export function sel(id, attrs = {}) {
 export const ATTR_ASSET_ID = 'data-asset-id'
 export const ATTR_DELIVERY_ID = 'data-delivery-id'
 export const ATTR_COLLAB_ID = 'data-collab-id'
+export const ATTR_CREATOR_ID = 'data-creator-id'
 export const ATTR_BRIEF_ID = 'data-brief-id'
 export const ATTR_BRIEF_ITEM_ID = 'data-brief-item-id'
 export const ATTR_ORIGIN_GAP_ID = 'data-origin-gap-id'
@@ -113,6 +114,14 @@ export const ATTR_OFFSET_BYTES = 'data-offset-bytes'
 export const ATTR_ROTATION_SOURCE = 'data-rotation-source'
 export const ATTR_EXTRACTOR_PATH = 'data-extractor-path'
 export const ATTR_POLICY_TIER = 'data-policy-tier'
+/** Sync: which table a row is about, and how a queued write is doing. */
+export const ATTR_STORE = 'data-store'
+export const ATTR_OP = 'data-op'
+export const ATTR_STATE = 'data-state'
+/** Which merge primitive refused a value: write_once, ordinal, sticky, coupled, implies. */
+export const ATTR_POLICY = 'data-policy'
+export const ATTR_DIRECTION = 'data-direction'
+export const ATTR_ADAPTER = 'data-adapter'
 
 /** Enumerated values the runs compare against, so a typo is a lint error here. */
 export const ROLE_MANAGER = 'manager'
@@ -189,6 +198,9 @@ export const SYNC_STATUS = 'sync-status'
 export const OUTBOX_PENDING_COUNT = 'outbox-pending-count'
 export const OFFLINE_BANNER = 'offline-banner'
 
+// The sync panel, GROUP 14 below. SYNC_STATUS and OUTBOX_PENDING_COUNT stay
+// here because the shell may surface them outside the panel later.
+
 // ---------------------------------------------------------------------------
 // GROUP 2: editor library, search and results.
 // The editor run types plain language, checks the query was parsed and that the
@@ -208,6 +220,11 @@ export const SEARCH_TERM_CHIP = 'search-term-chip'
 export const SEARCH_TERM_CHIP_REMOVE = 'search-term-chip-remove'
 /** A term the taxonomy could not map. Surfaced, never silently dropped. */
 export const SEARCH_UNMAPPED_TERM = 'search-unmapped-term'
+/**
+ * Offered only when the vocabulary could not place a word, because a model has
+ * nothing to add to a query the floor already understood.
+ */
+export const SEARCH_ASK_MODEL = 'search-ask-model'
 /** Present when the parse came from a model, so provenance stays visible. */
 export const SEARCH_PARSE_PROVENANCE = 'search-parse-provenance'
 
@@ -435,6 +452,39 @@ export const BRIEF_INVITE_LINK = 'brief-invite-link'
 export const BRIEF_INVITE_COPY = 'brief-invite-copy'
 
 // ---------------------------------------------------------------------------
+// GROUP 10b: the creator roster, where the guess and the measurement sit side
+// by side. The manager run asserts that the score's colour and its
+// ATTR_PROVENANCE agree about who decided it, that an unmeasurable rate reads
+// `unknown` rather than zero, and that the model refuses to re-score a creator
+// a human blocked.
+// ---------------------------------------------------------------------------
+
+export const CREATORS_ROOT = 'creators'
+export const CREATORS_SUMMARY = 'creators-summary'
+/** ATTR_CREATOR_ID, `data-lifecycle`, `data-score-source` (human|model|none). */
+export const CREATOR_ROW = 'creator-row'
+/** ATTR_PROVENANCE is human, ai or none. Never the current mode. */
+export const CREATOR_FIT_SCORE = 'creator-fit-score'
+export const CREATOR_OVERRIDE_NOTE = 'creator-override-note'
+export const CREATOR_RISK_FLAGS = 'creator-risk-flags'
+export const CREATOR_SCORECARD = 'creator-scorecard'
+export const SCORECARD_COMPLETED = 'scorecard-completed'
+/** ATTR_STATUS is `known` or `unknown`. A rate with no denominator is unknown. */
+export const SCORECARD_APPROVAL_RATE = 'scorecard-approval-rate'
+export const SCORECARD_PROMISE_KEPT = 'scorecard-promise-kept'
+export const SCORECARD_GHOSTED = 'scorecard-ghosted'
+export const SCORECARD_DRIFT = 'scorecard-drift'
+export const CREATOR_VET = 'creator-vet'
+export const CREATOR_VET_RECEIPT = 'creator-vet-receipt'
+export const CREATOR_VET_REFUSAL = 'creator-vet-refusal'
+export const CREATOR_OVERRIDE = 'creator-override'
+export const CREATOR_OVERRIDE_FORM = 'creator-override-form'
+export const OVERRIDE_SCORE = 'override-score'
+export const OVERRIDE_REASON = 'override-reason'
+export const OVERRIDE_SAVE = 'override-save'
+export const OVERRIDE_ERROR = 'override-error'
+
+// ---------------------------------------------------------------------------
 // GROUP 11: creator invite page.
 // The creator run opens a token link, reads the locked brief, accepts consent,
 // and continues. The tenancy run asserts no internal field (fit score, risk
@@ -540,10 +590,47 @@ export const DATA_HEALTH_COUNTS = 'data-health-counts'
 export const REINDEX_QUEUE_DEPTH = 'reindex-queue-depth'
 /** ATTR_AI_RUN_ID, ATTR_PROVIDER, ATTR_CAPABILITY, ATTR_IS_CURRENT. */
 export const AI_RUN_ROW = 'ai-run-row'
-export const EXPORT_SNAPSHOT = 'export-snapshot'
-export const IMPORT_SNAPSHOT = 'import-snapshot'
+/**
+ * Snapshot export and restore, on the storage panel rather than data health:
+ * durability sits beside the eviction verdict it answers.
+ * STORAGE_VERDICT is `first_run`, `intact` or `evicted`, never a bare count.
+ */
+export const STORAGE_VERDICT = 'storage-verdict'
+export const EXPORT_SNAPSHOT = 'storage-export'
+export const IMPORT_SNAPSHOT = 'storage-import'
+export const EXPORT_SNAPSHOT_RECEIPT = 'storage-export-receipt'
+export const IMPORT_SNAPSHOT_RECEIPT = 'storage-import-receipt'
 export const RESET_DEMO_PROFILE = 'reset-demo-profile'
 export const SEED_VERSION_LABEL = 'seed-version-label'
+
+// ---------------------------------------------------------------------------
+// GROUP 14: the sync panel.
+// The honesty surface. A run reads the adapter label as data (it must say
+// "loopback" and never "supabase"), drains the outbox, and asserts that a
+// refused merge is listed as a conflict row rather than announced and lost.
+// ---------------------------------------------------------------------------
+
+export const SYNC_PANEL = 'sync-panel'
+/** ATTR_ADAPTER. Plain text, and the one claim this panel is allowed to make. */
+export const SYNC_ADAPTER = 'sync-adapter'
+export const SYNC_PUSH = 'sync-push'
+export const SYNC_PULL = 'sync-pull'
+export const SYNC_LAST_RUN = 'sync-last-run'
+/** ATTR_COUNT: rows the loopback server holds, so "it drained" is checkable. */
+export const SYNC_SERVER_ROWS = 'sync-server-rows'
+export const OUTBOX_SENT_COUNT = 'outbox-sent-count'
+export const OUTBOX_FAILED_COUNT = 'outbox-failed-count'
+/** Per table: ATTR_STORE, ATTR_COUNT (pending), plus sent and failed as data. */
+export const OUTBOX_STORE_ROW = 'outbox-store-row'
+/** One queued write: ATTR_SEQ, ATTR_STORE, ATTR_OP, ATTR_STATE. */
+export const OUTBOX_ENTRY_ROW = 'outbox-entry-row'
+/** The actual patch payload, verbatim JSON. Nothing here is summarised. */
+export const OUTBOX_ENTRY_PATCH = 'outbox-entry-patch'
+/** Per table cursor: ATTR_STORE, and the (server_updated_at, id) pair as data. */
+export const SYNC_CURSOR_ROW = 'sync-cursor-row'
+/** ATTR_STORE, ATTR_POLICY, ATTR_DIRECTION. A conflict is a record, not a toast. */
+export const SYNC_CONFLICT_ROW = 'sync-conflict-row'
+export const SYNC_CONFLICT_EMPTY = 'sync-conflict-empty'
 
 // ---------------------------------------------------------------------------
 // Contract self check: a duplicate id would make two surfaces indistinguishable
@@ -559,9 +646,12 @@ const ALL = {
   NAV_LIBRARY, NAV_TRIAGE, NAV_DEALS, NAV_BRIEFS, NAV_GAPS, NAV_CREATORS,
   NAV_DATA_HEALTH, NAV_STORAGE, NAV_SYNC,
   SYNC_STATUS, OUTBOX_PENDING_COUNT, OFFLINE_BANNER,
+  SYNC_PANEL, SYNC_ADAPTER, SYNC_PUSH, SYNC_PULL, SYNC_LAST_RUN, SYNC_SERVER_ROWS,
+  OUTBOX_SENT_COUNT, OUTBOX_FAILED_COUNT, OUTBOX_STORE_ROW, OUTBOX_ENTRY_ROW,
+  OUTBOX_ENTRY_PATCH, SYNC_CURSOR_ROW, SYNC_CONFLICT_ROW, SYNC_CONFLICT_EMPTY,
   LIBRARY_ROOT, LIBRARY_SEARCH_INPUT, LIBRARY_SEARCH_SUBMIT, LIBRARY_SEARCH_CLEAR,
   SEARCH_PARSED_QUERY, SEARCH_TERM_CHIP, SEARCH_TERM_CHIP_REMOVE,
-  SEARCH_UNMAPPED_TERM, SEARCH_PARSE_PROVENANCE,
+  SEARCH_UNMAPPED_TERM, SEARCH_ASK_MODEL, SEARCH_PARSE_PROVENANCE,
   RESULT_GRID, RESULT_COUNT, RESULT_TILE, RESULT_TILE_POSTER, RESULT_TILE_DURATION,
   RESULT_TILE_AI_SCORE, RESULT_TILE_CREATOR_CREDIT, RESULT_TILE_ADD_TO_BIN,
   RESULT_GRID_LOAD_MORE,
@@ -592,6 +682,12 @@ const ALL = {
   PREFLIGHT_PANEL, PREFLIGHT_ROLLUP, PREFLIGHT_RULE, PREFLIGHT_RULE_VALUE,
   PREFLIGHT_RULE_REASON, PREFLIGHT_UNKNOWN_MARK, CAPTURE_DATE_SOURCE,
   NO_PREVIEW_CHIP, PLACEHOLDER_TILE, REQUEST_H264_VERSION,
+  CREATORS_ROOT, CREATORS_SUMMARY, CREATOR_ROW, CREATOR_FIT_SCORE,
+  CREATOR_OVERRIDE_NOTE, CREATOR_RISK_FLAGS, CREATOR_SCORECARD,
+  SCORECARD_COMPLETED, SCORECARD_APPROVAL_RATE, SCORECARD_PROMISE_KEPT,
+  SCORECARD_GHOSTED, SCORECARD_DRIFT, CREATOR_VET, CREATOR_VET_RECEIPT,
+  CREATOR_VET_REFUSAL, CREATOR_OVERRIDE, CREATOR_OVERRIDE_FORM,
+  OVERRIDE_SCORE, OVERRIDE_REASON, OVERRIDE_SAVE, OVERRIDE_ERROR,
   GAPS_ROOT, GAP_SCAN_HEADER, GAP_SCAN_RUN, GAP_ROW, GAP_DEFICIT, GAP_EVIDENCE,
   GAP_FEED_TO_BRIEF, GAP_DISMISS, GAP_CLOSED_BADGE, GAP_COVERAGE_BEFORE,
   GAP_COVERAGE_AFTER,
@@ -614,7 +710,9 @@ const ALL = {
   STORAGE_PANEL, STORAGE_QUOTA_USED, STORAGE_QUOTA_TOTAL, STORAGE_BREAKDOWN_ROW,
   STORAGE_POLICY_TIER, STORAGE_EVICT_DERIVATIVES, STORAGE_PERSISTED_FLAG,
   DATA_HEALTH_PANEL, DATA_HEALTH_ROW, DATA_HEALTH_COUNTS, REINDEX_QUEUE_DEPTH,
-  AI_RUN_ROW, EXPORT_SNAPSHOT, IMPORT_SNAPSHOT, RESET_DEMO_PROFILE,
+  AI_RUN_ROW, RESET_DEMO_PROFILE,
+  STORAGE_VERDICT, EXPORT_SNAPSHOT, IMPORT_SNAPSHOT,
+  EXPORT_SNAPSHOT_RECEIPT, IMPORT_SNAPSHOT_RECEIPT,
   SEED_VERSION_LABEL,
 }
 

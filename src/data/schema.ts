@@ -20,7 +20,7 @@
  *    profiles, and it is the correct one.
  */
 
-export const SCHEMA_VERSION = 1
+export const SCHEMA_VERSION = 2
 
 export type StoreName =
   // durable record
@@ -58,6 +58,7 @@ export type StoreName =
   | 'reindex_queue'
   | 'outbox'
   | 'sync_state'
+  | 'sync_conflict'
   | 'meta'
 
 interface IndexSpec {
@@ -74,6 +75,15 @@ interface StoreSpec {
   indexes: IndexSpec[]
   /** Local-only stores are never drained to the outbox and never sync. */
   localOnly?: boolean
+  /**
+   * The schema version that introduced this store. Defaults to 1.
+   *
+   * It exists so migration 1 stays a truthful record of what version 1 was,
+   * rather than quietly growing every time a store is added. A migration that
+   * rewrites its own history is a migration nobody can reason about on a
+   * database that already ran it.
+   */
+  since?: number
 }
 
 /**
@@ -363,6 +373,22 @@ export const STORES: StoreSpec[] = [
     ],
   },
   { name: 'sync_state', keyPath: 'store', localOnly: true, indexes: [] },
+  {
+    // A merge the policy refused, kept as a row.
+    //
+    // C.3 is explicit that a conflict is a record and never a toast: a
+    // notification gets dismissed and the disagreement is then discovered three
+    // weeks later inside a campaign. Local only, because it describes what this
+    // device tried to do and what the merge did instead.
+    name: 'sync_conflict',
+    keyPath: 'id',
+    localOnly: true,
+    since: 2,
+    indexes: [
+      { name: 'by_store_row', keyPath: ['store', 'row_id'] },
+      { name: 'by_detected', keyPath: 'detected_at' },
+    ],
+  },
   { name: 'meta', keyPath: 'key', localOnly: true, indexes: [] },
 ]
 
@@ -384,10 +410,46 @@ export const INDEXED_BOOLEANS: Record<string, string> = {
   is_shared: 'is_shared_i',
 }
 
+/**
+ * Fields that are true only of THIS device and must never be pushed anywhere.
+ *
+ * They are stripped at the outbox append in `src/data/repo.ts`, and ignored
+ * again when a row arrives from the far side, which is the `localOnly` merge
+ * primitive from the architecture review C.3.
+ *
+ * The reason this is a declared list rather than a rule in the sync code: an
+ * upload half finished on a phone is not a fact about the clip, it is a fact
+ * about the phone. Syncing `upload_state` would make a laptop believe it has a
+ * partial upload it never started, and syncing `media_state` would make it
+ * believe the bytes are on disk when the disk in question is somebody else's.
+ * `local_file_key` is worse still: it is a handle into another device's OPFS.
+ */
+export const LOCAL_ONLY_FIELDS: Partial<Record<StoreName, readonly string[]>> = {
+  asset: ['upload_state', 'upload_offset_bytes', 'media_state', 'local_file_key'],
+}
+
 export interface Migration {
   version: number
   description: string
   up: (db: IDBDatabase, tx: IDBTransaction) => void
+}
+
+function createStore(db: IDBDatabase, spec: StoreSpec): void {
+  const store = db.createObjectStore(spec.name, {
+    keyPath: spec.keyPath,
+    autoIncrement: spec.autoIncrement ?? false,
+  })
+  for (const index of spec.indexes) {
+    store.createIndex(index.name, index.keyPath, {
+      unique: index.unique ?? false,
+      multiEntry: index.multiEntry ?? false,
+    })
+  }
+}
+
+/** Stores introduced at a given schema version, so a migration cannot drift. */
+function storesIntroducedAt(version: number): StoreSpec[] {
+  return STORES.filter((spec) => (spec.since ?? 1) === version)
 }
 
 export const MIGRATIONS: Migration[] = [
@@ -395,18 +457,14 @@ export const MIGRATIONS: Migration[] = [
     version: 1,
     description: 'initial stores and indexes',
     up(db) {
-      for (const spec of STORES) {
-        const store = db.createObjectStore(spec.name, {
-          keyPath: spec.keyPath,
-          autoIncrement: spec.autoIncrement ?? false,
-        })
-        for (const index of spec.indexes) {
-          store.createIndex(index.name, index.keyPath, {
-            unique: index.unique ?? false,
-            multiEntry: index.multiEntry ?? false,
-          })
-        }
-      }
+      for (const spec of storesIntroducedAt(1)) createStore(db, spec)
+    },
+  },
+  {
+    version: 2,
+    description: 'sync_conflict: a refused merge is a row, never a toast',
+    up(db) {
+      for (const spec of storesIntroducedAt(2)) createStore(db, spec)
     },
   },
 ]

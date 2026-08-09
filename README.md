@@ -8,7 +8,7 @@ Built for the Astolia / Willow Glow AI Builder challenge.
 
 > **Status: the loop runs.** All three role surfaces are built, the media pipeline derives real contact sheets in the browser, the simulated AI seam is exercised by the app itself, and the closed loop is proved end to end by an automated run that asserts the id chain from a failed search to a closed gap.
 >
-> Gates at the last commit: 742 unit and integration tests, clean typecheck, clean lint, 16 committed fixtures verified against their manifest, and 564 end to end assertions across seven browser runs with nothing pending.
+> Gates at the last commit: 819 unit and integration tests, clean typecheck, clean lint, 16 committed fixtures verified against their manifest, and 625 end to end assertions across eight browser runs with nothing pending.
 >
 > What is deliberately not built is listed under [Not built, on purpose](#not-built-on-purpose) rather than left for you to discover.
 
@@ -27,12 +27,14 @@ Then open the printed local URL. No API key is needed, and none is included in t
 
 The demo strip at the top right switches role. It is labelled `demo` and styled as a demo control on purpose: this build has no authentication, and a control that looked like an account menu would imply access control that does not exist.
 
-1. **Editor.** Switch to `editor`. Search `hands warm light`: the chips under the box show what those words were understood as, `hands` and `warm_light`. Now search `lounge macro`. Nothing matches, and instead of an empty state you get the ladder: the term that was dropped to find near matches, the near matches themselves, and one button that turns the failure into a tracked request. Press it.
+1. **Editor.** Switch to `editor`. Search `hands warm light`: the chips under the box show what those words were understood as, `hands` and `warm_light`. Now search `golden hour window`. Nothing is understood, because "golden hour" is not in the taxonomy and never should be, so a button appears offering to ask a model what the words might mean. Press it: an amber chip says `golden hour` became `warm_light` and how sure it was, `window` stays unmapped because neither could place it, and one click undoes the whole interpretation. Now search `lounge macro`. Nothing matches, and instead of an empty state you get the ladder: the term that was dropped to find near matches, the near matches themselves, and one button that turns the failure into a tracked request. Press it.
 2. **Manager.** Switch to `manager`, open **Gaps**. Your request is there with its evidence. Open **Briefs**, press **Generate from gaps**, and the new brief's first item carries the note `from gap`. Press **Lock**, then **Create invite link**, and copy the link.
 3. **Creator.** Open that link in the same browser. There is no account and no install. Agree to the usage terms, then choose a vertical clip from your phone or desktop. Everything is checked locally before anything is stored: orientation, duration, resolution, capture date, distance from the studio, whether it duplicates an earlier clip, and whether this browser can decode it at all. Say which shot it is, then send.
 4. **Manager again.** Open **Triage**. The delivery is in `needs review`. Open it to see promise versus delivered, including the extras bucket. Press **Review**, then **Analyse the contact sheet**: the amber block is the simulated model's output, labelled `simulated` because the record says so, not because the app is in demo mode. Confirm which brief item it covers, approve, and publish.
 5. **Editor again.** The clip is now in the library. Add it to the bin and press **Confirm use**: the receipt records the rank the clip held at that moment, which is the one relevance signal that cannot be reconstructed later.
 6. **Manager, last step.** Back in **Gaps**, press **Detect closures**. Your gap is closed and names the clip that closed it.
+
+Two more panels are worth thirty seconds each. **Creators** puts the vetting guess and the measured scorecard in the same row: the score is amber when a model proposed it and green when a person overrode it, and a rate with nothing behind it reads `unknown` rather than 0%. **Sync** drains the outbox into a second local database that plays the part of a server, showing the real patch payloads and the cursor, and says `Adapter: loopback` because that is what it is.
 
 That is the whole thesis: an unanswered search became a shot list, became footage, became a measurably closed gap.
 
@@ -47,7 +49,7 @@ If you would rather watch it happen without clicking, `npm run test:e2e` drives 
 | `npm run typecheck` | `vue-tsc --noEmit` |
 | `npm run fixtures` | regenerate the engineered media fixtures, no network needed |
 | `npm run fixtures:verify` | re-verify committed fixtures against their manifest |
-| `npm run test:e2e` | every end to end run in a real Chromium: boot, editor, manager, decode, AI, creator, loop |
+| `npm run test:e2e` | every end to end run in a real Chromium: boot, editor, manager, sync, decode, AI, creator, loop |
 | `npm run test:e2e:boot` | just the boot smoke run |
 | `node scripts/build-seed-media.mjs` | re-fetch and rebuild the seeded library media, needs network |
 
@@ -86,11 +88,12 @@ Three roles share one dataset, each fully capable on desktop and mobile:
 
 Stated here rather than left to be discovered, because a proof of concept that hides its edges is not proving much.
 
-- **No server.** Nothing is deployed. The Supabase schema, its row level security policies and the `security definer` RPC for creator tokens are fully written in the architecture review; the local scoped repository implements the same allowlists so the two cannot drift.
+- **No server.** Nothing is deployed. The Supabase schema, its row level security policies and the `security definer` RPC for creator tokens are fully written in the architecture review; the local scoped repository implements the same allowlists so the two cannot drift. The merge policy and the conflict rules are exercised for real by a loopback adapter that drains the outbox into a second local database with its own server clock, so what is missing is an HTTP client rather than the thinking. The sync panel says `Adapter: loopback` in plain text, and a test asserts that nothing on that screen claims otherwise.
 - **No live model call.** The `live` adapter is written and ships constructed disabled. `replay` is written and unexercised. `mock` is the only mode that runs, and it is exercised by the app rather than only by tests.
 - **The WebCodecs decode path declines.** The `<video>` plus canvas path is built and produces real sheets. WebCodecs asks `isConfigSupported` and then declines out loud, because sample feeding buys frame accuracy and a half written decoder that lands on the wrong frame is worse than one that refuses.
 - **The desktop shell and mobile native are configured and never built.** Written blind, documented as untested.
-- **Search is deterministic, not yet indexed.** Term to taxonomy mapping, facets and ranking are real and tested; the persistent index and the AI query parser are the next track.
+- **Search is not indexed.** Term to taxonomy mapping, facets, ranking and the AI query parser on top of them are real and tested; the persistent index is not built, because an in-memory scan is correct over a library that fits in memory and an index whose invalidation is untested is slower to trust.
+- **Records are evictable, so eviction is made visible rather than prevented.** Everything lives in IndexedDB by constraint and a browser under storage pressure can clear it. A sentinel in localStorage separates that from a first visit, the verdict is decided before hydration could re-seed over it, and the storage panel offers a snapshot export and restore. The snapshot carries records only and its manifest says so, because a backup whose gaps are undocumented is discovered during a restore.
 - **HEVC from an iPhone on a machine without a decoder gets no sheet, no AI and no invented tags.** It degrades to a labelled state with a stated reason. This is the one hole left visible on purpose.
 
 ## Layout
@@ -104,7 +107,7 @@ src/media/        atom parsing, frame extraction, contact sheets, hashes, the fo
                   src/media/browser/ holds the decode adapters that need a real browser
 src/ai/           the provider interface, seven JSON schemas, the authored mock fixtures, replay, live, the ai_run writer
 src/app/          the shell, the store, the router, and one directory per role surface
-e2e/              seven browser runs, including the flagship loop run that asserts the id chain
+e2e/              eight browser runs, including the flagship loop run that asserts the id chain
 public/fixtures/  engineered clips, one per container or codec gotcha, with a manifest of expected pre-flight results
 public/seed/      the seeded library: real stock stills, frame-extracted contact sheets, three playable clips
 scripts/          the fixture and seed media generators, plus their verifiers

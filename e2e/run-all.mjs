@@ -33,6 +33,9 @@ const SPECS = [
   // Role surfaces over the seeded data.
   'editor.e2e.mjs',
   'manager.e2e.mjs',
+  // The outbox and the loopback round trip. Cheap, and it depends on the
+  // manager surface it edits through, so it sits after it.
+  'sync.e2e.mjs',
   // Then the runs that decode media and generate clips.
   'decode.e2e.mjs',
   'ai.e2e.mjs',

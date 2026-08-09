@@ -9,7 +9,7 @@ Implemented by: `qa-runner`, except cases marked `manual-only`, which move to `q
 Every case here is about **where code runs and how it fails there**, never about whether a derived fact is correct.
 A case that asserts a duration, a rotation or a hash belongs in `qa/cases/media.md`.
 
-Each case names the finding it closes, `P-n`, from the "Defects and gaps" section of `docs/platform-matrix.md`.
+Each case names the finding it closes, `P-n`, from the "Defects and gaps" section of `docs/platform-matrix.md`, or from section 5 of `docs/09-shell-notes.md` for P-13 and above.
 A case with no `P-n` is a regression guard for behaviour that is already correct and easy to break.
 
 Reuse the existing harness rather than adding another one:
@@ -140,14 +140,15 @@ Reuse the existing harness rather than adding another one:
 - When: `detectShell()` runs
 - Then: it returns `'electron'`
 - Layer: unit
-- Blocked-by: probe change (the bridge read does not exist yet; this is P-3's fix)
+- Blocked-by: none (implemented 2026-08-09: `detectShell()` reads `globalThis.__shell__.id` first, validated against the four `ShellId` values. The contract for the preload side is `docs/09-shell-notes.md` 5.1)
 
 ### QC-PLAT-016 A default secure Electron renderer is not mistaken for a browser
-- Given: a `globalThis` with no `process` and no bridge object, which is what a renderer looks like today under `contextIsolation: true`
-- When: `detectShell()` runs
-- Then: it returns `'browser'`, and a warning records that no shell identity was found. The warning is what makes P-3 observable on first launch rather than silent
+- Given: a `ProbeEnvironment` with `shell: 'browser'` and `loadScheme: 'capacitor-electron:'`, which is what a renderer looks like under `contextIsolation: true` with no preload edit
+- When: `probeCapabilities()` runs
+- Then: `report.shell` is `'browser'`, and a warning says the origin scheme claims a shell while no shell identified itself, naming the scheme. The warning is what makes P-3 observable on first launch rather than silent
 - Layer: unit
-- Blocked-by: probe change
+- Blocked-by: none
+- Amended 2026-08-09: originally written as a `detectShell()` case asserting a warning. `detectShell()` returns a `ShellId` and emits nothing, and a bare "no shell identity" warning would fire in every ordinary browser tab, which is noise rather than signal. The detector that carries information is the contradiction between the scheme and the identity, so the assertion moved to `probeCapabilities()` and is implemented in `warnOnOrigin()`
 
 ### QC-PLAT-017 Capacitor is identified without a user agent
 - Given: a `globalThis` carrying a `Capacitor` object whose `getPlatform()` returns `'ios'` and `isNativePlatform()` returns `true`
@@ -157,11 +158,11 @@ Reuse the existing harness rather than adding another one:
 - Blocked-by: none (regression guard)
 
 ### QC-PLAT-018 A non http origin is warned about by name
-- Given: `ProbeEnvironment` variants with `loadScheme` of `capacitor:`, `capacitor-electron:`, `file:` and `https:`
+- Given: `ProbeEnvironment` variants with `loadScheme` of `capacitor:`, `capacitor-electron:`, `file:`, `unknown` and `https:`
 - When: `probeCapabilities()` runs on each
-- Then: the first three each produce a warning naming the scheme and saying that storage in this origin is separate and that a snapshot import is how records come across. `https:` produces none
+- Then: the first two each produce a warning naming the scheme and saying that storage in this origin is separate and that a snapshot import is how records come across, `file:` keeps its existing opaque origin warning, `unknown` says the origin could not be read, and `https:` produces none
 - Layer: unit
-- Blocked-by: none (closes P-5)
+- Blocked-by: none (closes P-5, implemented in `warnOnOrigin()`, `src/platform/capability.ts`)
 
 ---
 
@@ -384,7 +385,7 @@ They belong in `qa/manual-checklist.md` with these steps, so the gap is written 
 - When: a human installs it after using the browser build on the same device
 - Then: the library is empty and the app says why, naming the separate storage origin and offering to import a snapshot. A silent empty library fails this case
 - Layer: manual-only
-- Blocked-by: no native build exists. Human steps: use the browser build first and add one clip, then install the shell, launch it, and record whether the empty state explains itself
+- Blocked-by: no native build exists. Human steps: use the browser build first and add one clip, then install the shell, launch it, and record whether the empty state explains itself. Expect the Android half to fail until P-16 is closed, because that shell's scheme is `https:` and the current warning is scheme shaped
 
 ### QC-PLAT-047 A Capacitor iOS build against the fifteen percent allowance
 - Given: a Capacitor iOS build on a device with a small amount of free disk
@@ -399,3 +400,73 @@ They belong in `qa/manual-checklist.md` with these steps, so the gap is written 
 - Then: the tier reported in the storage panel matches the device class, the interface stays responsive enough to show per file progress, and the recorded per file timings are present in the diagnostics blob
 - Layer: manual-only
 - Blocked-by: needs a real Android device. Human steps: record the device model, the Android System WebView version from the Play Store listing, and the reported tier, then run the batch and copy the diagnostics
+
+---
+
+## Group 10: the shell configuration (P-13 to P-16)
+
+Added 2026-08-09 with `capacitor.config.ts` and `docs/09-shell-notes.md`.
+The first four are runnable today and are about our own files rather than about a device, which is the only part of a shell that can be tested from here.
+
+### QC-PLAT-049 The Android WebView floor is never below the floor our own bundle needs
+- Given: `capacitor.config.ts` and `vite.config.ts`, plus the Vite major in `package.json`
+- When: a test reads `android.minWebViewVersion` from the config and compares it against the Chromium version implied by the effective Vite `build.target`, which is `baseline-widely-available` (Chrome 107 on Vite 6, Chrome 111 on Vite 7) unless `vite.config.ts` sets `build.target` explicitly
+- Then: `minWebViewVersion` is greater than or equal to that Chromium version. Capacitor's own default of 60 fails this, which is the point: below the bundle's floor the app is a white screen rather than a refusal
+- Layer: unit
+- Blocked-by: none. **Read both files as text, never `import` them.** `capacitor.config.ts` imports a type from `@capacitor/cli`, which is deliberately not installed, so importing it from a test inside `tests/` would pull an unresolvable module into the typecheck program and break a gate that must stay honest about shells
+
+### QC-PLAT-050 The configured error page exists in the build output
+- Given: `server.errorPath` in `capacitor.config.ts`
+- When: a test resolves that path against `public/` and against `dist/` after a build
+- Then: the file exists in both. An `errorPath` pointing at nothing turns the one visible failure state the Android shell has back into a blank view
+- Layer: unit
+- Blocked-by: none for the `public/` half. The `dist/` half needs a build to have run, so assert `public/` and leave a comment naming the build dependency
+
+### QC-PLAT-051 The error page depends on nothing that could also be broken
+- Given: `public/unsupported-webview.html`
+- When: it is parsed as text
+- Then: it contains no `<script>`, no `src=` or `href=` pointing outside itself, and no reference to a hashed asset. It is reached precisely when the WebView cannot run our bundle, and Capacitor documents that it has no plugin access on Android, so anything it loads is a second thing that can fail
+- Layer: unit
+- Blocked-by: none
+
+### QC-PLAT-052 A shell scheme with no shell identity is reported as a contradiction
+- Given: `ProbeEnvironment` pairs: (`capacitor-electron:`, `shell: 'browser'`), (`capacitor-electron:`, `shell: 'electron'`), (`https:`, `shell: 'browser'`)
+- When: `probeCapabilities()` runs on each
+- Then: only the first produces the contradiction warning, and it names the scheme. The second gets the separate origin warning alone, and the third gets nothing
+- Layer: unit
+- Blocked-by: none (this is the first launch observable for P-3, implemented in `warnOnOrigin()`)
+
+### QC-PLAT-053 An origin change is detected by origin, not by scheme
+- Given: a profile whose sentinel record was written under `https://example.netlify.app` and a runtime whose origin is `https://localhost`
+- When: `boot()` runs
+- Then: the mismatch is reported and the empty library is explained as a separate storage origin with a snapshot import offered. Asserting on the scheme alone cannot catch this, because both are `https:`
+- Layer: integration
+- Blocked-by: sentinel record (closes P-16, and it lands with P-6's sentinel rather than as its own mechanism)
+
+### QC-PLAT-054 The desktop shell's scheme is a secure context
+- Given: a built Electron shell, which has never been built
+- When: a human launches it and reads `storage.opfs` in the storage panel
+- Then: it is true. False means the custom scheme was not registered as standard and secure, so the one target with a real filesystem becomes the only target that cannot keep an original
+- Layer: manual-only
+- Blocked-by: no shell has been built, and the scheme privileges live in generated code (`electron/src/setup.ts`) that this repository does not contain. Human steps: launch, read the storage panel, and if `storage.opfs` is false open `electron/src/setup.ts` and look for `registerSchemesAsPrivileged` with `standard: true` and `secure: true`
+
+### QC-PLAT-055 Capacitor iOS storage survives, or says that it did not
+- Given: a Capacitor iOS build on a device driven close to full
+- When: the OS reclaims WebView storage, then a human reopens the app
+- Then: either the library is intact, or the app detects that its data went away and says so. Silent, total loss with a healthy looking app fails this case
+- Layer: manual-only
+- Blocked-by: no native build exists, and the trigger is an OS behaviour that cannot be invoked on demand. This is P-13, and Capacitor's own storage guide predicts the failure, so the honest expectation today is that this case fails until the sentinel and export exist. Human steps: fill the device, use the app, leave it a day, reopen, record exactly what the app says
+
+### QC-PLAT-056 An old Android System WebView is refused visibly
+- Given: an Android device or emulator whose System WebView is below the configured `minWebViewVersion`
+- When: a human installs and launches the shell
+- Then: the unsupported WebView page is displayed, naming Android System WebView and offering the browser as the alternative. A white screen or a Logcat only message fails this case
+- Layer: manual-only
+- Blocked-by: no native build exists. That `server.errorPath` is shown for this specific refusal comes from a secondary source, so this reading is what promotes it to a fact. Human steps: record the WebView version before launching, launch, screenshot, then update the WebView and launch again
+
+### QC-PLAT-057 Android 15 edge to edge is handled once, not twice
+- Given: an Android 15 device and the shell with `android.adjustMarginsForEdgeToEdge: 'auto'`
+- When: a human opens a scrolling view and looks at the bottom of the screen
+- Then: content clears the gesture bar. After the CSS safe area insets land (P-9) the same check must show no doubled empty space, and if it does the option moves to `disable`
+- Layer: manual-only
+- Blocked-by: no native build exists, and the second half also blocks on P-9. Human steps: screenshot the bottom of a scrolling view now, keep the screenshot, and compare after the CSS lands

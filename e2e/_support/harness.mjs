@@ -455,7 +455,10 @@ export function forgetWatchers() {
 
 export async function openPage(browser, deviceProfile, { ignore = [] } = {}) {
   const { name, ...contextOptions } = deviceProfile
-  const context = await browser.newContext(contextOptions)
+  // Downloads are accepted everywhere rather than opted into per run: the
+  // snapshot export is a real file, and a run that could only assert "the
+  // button exists" would be asserting the wrong thing.
+  const context = await browser.newContext({ acceptDownloads: true, ...contextOptions })
   const page = await context.newPage()
   const watcher = watchPage(page, { ignore, label: name || 'page' })
   return { context, page, watcher }

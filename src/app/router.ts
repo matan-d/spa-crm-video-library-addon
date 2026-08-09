@@ -25,7 +25,8 @@ import { useAppStore, type ActiveRole } from './store'
 import type { StaffRole } from './session'
 import LibraryView from './views/LibraryView.vue'
 import CreatorInviteView from './views/CreatorInviteView.vue'
-import SurfacePlaceholderView from './views/SurfacePlaceholderView.vue'
+import CreatorsView from './views/CreatorsView.vue'
+import SyncView from './views/SyncView.vue'
 import TriageView from './views/TriageView.vue'
 import DealsView from './views/DealsView.vue'
 import ReviewQueueView from './views/ReviewQueueView.vue'
@@ -54,18 +55,6 @@ interface SurfaceMeta {
   title: string
   note?: string
 }
-
-const placeholder = (
-  path: string,
-  roles: StaffRole[],
-  title: string,
-  note: string,
-): RouteRecordRaw => ({
-  path,
-  component: SurfacePlaceholderView,
-  props: { title, note },
-  meta: { roles, title } satisfies SurfaceMeta,
-})
 
 export const routes: RouteRecordRaw[] = [
   {
@@ -105,12 +94,11 @@ export const routes: RouteRecordRaw[] = [
     component: GapsView,
     meta: { roles: ['manager'], title: 'Gaps' } satisfies SurfaceMeta,
   },
-  placeholder(
-    '/creators',
-    ['manager'],
-    'Creators',
-    'Vetting and the scorecard. Lands with the manager surface.',
-  ),
+  {
+    path: '/creators',
+    component: CreatorsView,
+    meta: { roles: ['manager'], title: 'Creators' } satisfies SurfaceMeta,
+  },
   {
     path: '/data-health',
     component: DataHealthView,
@@ -121,7 +109,11 @@ export const routes: RouteRecordRaw[] = [
     component: StorageView,
     meta: { roles: ['manager'], title: 'Storage' } satisfies SurfaceMeta,
   },
-  placeholder('/sync', ['manager'], 'Sync', 'The outbox and the loopback adapter.'),
+  {
+    path: '/sync',
+    component: SyncView,
+    meta: { roles: ['manager'], title: 'Sync' } satisfies SurfaceMeta,
+  },
   {
     path: '/c/:token',
     component: CreatorInviteView,

@@ -13,12 +13,19 @@
  */
 
 import { fromRequest, fromTransaction, readTx, writeTx } from './db'
-import { INDEXED_BOOLEANS, LOCAL_ONLY_STORES, type StoreName } from './schema'
+import {
+  INDEXED_BOOLEANS,
+  LOCAL_ONLY_FIELDS,
+  LOCAL_ONLY_STORES,
+  type StoreName,
+} from './schema'
 import {
   assertReadable,
   assertWritable,
   project,
   visible,
+  writable,
+  ScopeError,
   type Session,
 } from './scope'
 import type { Envelope, OutboxEntry } from './types'
@@ -135,6 +142,11 @@ export function createScopedRepo(deps: RepoDeps): ScopedRepo {
         origin_device: deviceId,
       }
       writeBooleanMirrors(row)
+      if (!writable(session, store, row)) {
+        // The allowlist said "this role touches this table"; the predicate says
+        // which rows. Refuse loudly, because there is no legitimate caller.
+        throw new ScopeError(session.kind, store, 'write')
+      }
 
       const tx = writeTx(db, storesFor(store))
       tx.objectStore(store).put(row)
@@ -169,6 +181,7 @@ export function createScopedRepo(deps: RepoDeps): ScopedRepo {
         origin_device: deviceId,
       }
       writeBooleanMirrors(merged)
+      if (!writable(session, store, merged)) throw new ScopeError(session.kind, store, 'write')
       objectStore.put(merged)
 
       // Only the changed fields go to the outbox, plus the mirrors those fields
@@ -262,11 +275,42 @@ function appendOutbox(
   entry: Omit<OutboxEntry, 'state' | 'attempts' | 'last_error' | 'seq'>,
 ): void {
   if (!tx.objectStoreNames.contains('outbox')) return
+
+  // Field-level local-only stripping, here rather than in the sync adapter.
+  //
+  // The outbox is the device boundary: anything that reaches it is, by
+  // definition, something we intend to send. Stripping at the adapter instead
+  // would mean a per-device upload offset sat in a queue labelled "pending
+  // sync" and appeared in the sync panel as work waiting to leave, which is a
+  // lie about what this device is doing even if nothing ever transmitted it.
+  const patch = stripLocalOnlyFields(entry.store, entry.patch)
+
+  // A patch of nothing but local state has nothing to say to anybody. Queuing
+  // it would inflate the outbox depth with entries whose drain is a no-op, and
+  // outbox depth is a number a human reads to decide whether it is safe to
+  // close the tab. A create still queues: the row itself must exist remotely.
+  if (entry.op === 'patch' && Object.keys(patch).every((field) => field === 'updated_at')) return
+
   const full: Omit<OutboxEntry, 'seq'> = {
     ...entry,
+    patch,
     state: 'pending',
     attempts: 0,
     last_error: null,
   }
   tx.objectStore('outbox').add(full)
+}
+
+/** Removes the fields declared local-only for this store. Never mutates the input. */
+export function stripLocalOnlyFields(
+  store: string,
+  patch: Record<string, unknown>,
+): Record<string, unknown> {
+  const local = LOCAL_ONLY_FIELDS[store as StoreName]
+  if (!local || local.length === 0) return { ...patch }
+  const out: Record<string, unknown> = {}
+  for (const [field, value] of Object.entries(patch)) {
+    if (!local.includes(field)) out[field] = value
+  }
+  return out
 }

@@ -147,7 +147,10 @@ const ALLOWLIST: Record<SessionKind, Partial<Record<StoreName, Access>>> = {
     asset_frame: 'r',
     tag_vocabulary: 'rw',
     tag: 'rw',
-    ai_run: 'r',
+    // Read is narrowed to `vision_tag` and `search_parse` by the predicate below,
+    // and write is narrowed to `search_parse` alone by `writable`: the editor's
+    // own query parse must leave a run row, and nothing else here may.
+    ai_run: 'rw',
     search_query_log: 'rw',
     saved_collection: 'rw',
     collection_item: 'rw',
@@ -273,6 +276,33 @@ export function visible(session: Session, store: StoreName, row: Record<string, 
   if (store === 'branch') return true
 
   return false
+}
+
+// ---------------------------------------------------------------------------
+// write predicates
+// ---------------------------------------------------------------------------
+
+/**
+ * Applied to every write, after the allowlist. The read side has `visible`; this
+ * is its `WITH CHECK` twin, and it exists for the same reason: an allowlist can
+ * only say "this role touches this table", and sometimes the truth is "this role
+ * writes exactly one kind of row into this table".
+ *
+ * Kept deliberately small. A predicate per table is a policy surface, and the
+ * whole point of putting visibility in one layer is that there is not much of it.
+ */
+export function writable(session: Session, store: StoreName, row: Record<string, unknown>): boolean {
+  if (session.kind === 'editor' && store === 'ai_run') {
+    // The editor's search box parses a query through the AI seam, and that call
+    // has to leave a run row or the provenance chip points at nothing and Data
+    // Health undercounts. It is the only run an editor's action can produce.
+    //
+    // A `vet` run IS the creator's score and a `vision_tag` run is the manager's
+    // curation record. Writing either from the editor surface would be a bug
+    // with no legitimate caller, so it fails loudly rather than being filtered.
+    return row.kind === 'search_parse'
+  }
+  return true
 }
 
 /**

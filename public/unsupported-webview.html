@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>Astolia Collabs could not start here</title>
+    <!--
+      The page Capacitor shows when the WebView cannot load the app
+      (`server.errorPath` in capacitor.config.ts).
+
+      Three rules govern what may be in this file:
+
+      1. No script. Capacitor documents that this page has no access to
+         Capacitor plugins on Android, and it is reached precisely when the
+         WebView is too old to run our bundle, so any JavaScript here could be
+         the second thing that fails to parse.
+      2. No external stylesheet or font. The app's CSS ships under hashed
+         filenames inside the bundle that just failed to load, so every style
+         here is inline and every value is a literal copy of the light tokens in
+         src/styles/tokens.css.
+      3. It must name a cause and give one action. A blank white view with a
+         spinner is the failure this page exists to replace.
+
+      This page has never been displayed by a real shell, because no shell has
+      ever been built. See docs/09-shell-notes.md and qa/manual-checklist.md 2.3.
+    -->
+    <style>
+      :root {
+        color-scheme: light;
+      }
+      body {
+        margin: 0;
+        padding: max(24px, env(safe-area-inset-top)) max(20px, env(safe-area-inset-right))
+          max(24px, env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-left));
+        background: #eef1eb;
+        color: #1d2621;
+        font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+        /* 16px floor: iOS zooms the viewport for anything smaller. */
+        font-size: 16px;
+        line-height: 1.5;
+      }
+      main {
+        max-width: 34rem;
+        margin: 0 auto;
+      }
+      h1 {
+        font-size: 1.35rem;
+        line-height: 1.3;
+        margin: 0 0 0.75rem;
+      }
+      p {
+        margin: 0 0 1rem;
+      }
+      ul {
+        margin: 0 0 1rem;
+        padding-left: 1.25rem;
+      }
+      .card {
+        background: #ffffff;
+        border: 1px solid #d3dbd2;
+        border-radius: 10px;
+        padding: 1.25rem;
+      }
+      .quiet {
+        color: #5b6660;
+        font-size: 0.95rem;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="card">
+      <h1>Astolia Collabs could not start in this app window</h1>
+
+      <p>
+        The app itself is fine. The web engine inside this app window is either too old to run it or
+        refused to load it.
+      </p>
+
+      <p>On Android this is almost always one thing: Android System WebView is out of date.</p>
+
+      <ul>
+        <li>Open the Play Store and update <strong>Android System WebView</strong>, then reopen this app.</li>
+        <li>
+          If Google Chrome is providing the web view on this device, update Chrome instead. Updating
+          either one is enough.
+        </li>
+      </ul>
+
+      <p>
+        <strong>You do not have to wait for that.</strong> Astolia Collabs is a website as well as an
+        app, and the website has every feature this app window has. Open the same link in Chrome,
+        Safari, Firefox or Edge on this device and carry on there.
+      </p>
+
+      <p class="quiet">
+        One thing to know: the app window and the browser keep separate copies of your data, because
+        the operating system treats them as different sites. Nothing has been lost. If work was saved
+        in this app window, it is still here once the app window starts, and moving it across is an
+        export from one and an import into the other.
+      </p>
+    </main>
+  </body>
+</html>

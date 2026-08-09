@@ -1,11 +1,16 @@
 <script setup lang="ts">
 // Data health: the standing audit. Invariant rows computed from what is on
 // disk, ai_run counts by provider (the direct answer to "is any of this
-// real"), the reindex queue depth, and the snapshot export and import.
+// real"), and the reindex queue depth.
+//
+// Snapshot export and import used to live here too, in a second format that
+// wrote through `repo.create` and skipped rows it had already seen. It is gone:
+// two snapshot formats in one application is a restore that silently loses
+// whichever half it did not write, and durability belongs on the storage panel
+// next to the eviction verdict it exists to answer. See `src/data/snapshot.ts`.
 import { onMounted, ref, shallowRef } from 'vue'
 import type { AiRun, Asset } from '@/data/types'
-import { SEED_VERSION } from '@/data/hydrate'
-import { STORES } from '@/data/schema'
+import { clearSeedMarker, SEED_VERSION } from '@/data/hydrate'
 import { useAppStore } from '../store'
 import { computeHealth, type HealthRow, type ProviderCount } from '../manager/health'
 
@@ -17,7 +22,6 @@ const aiRuns = shallowRef<AiRun[]>([])
 const counts = shallowRef<Record<string, number>>({})
 const reindexDepth = ref(0)
 const loaded = ref(false)
-const importReport = ref<string | null>(null)
 
 async function reload() {
   const repo = store.repo
@@ -48,60 +52,7 @@ async function reload() {
 
 onMounted(reload)
 
-/**
- * Exports every synced store as one JSON snapshot. The manager session may
- * read everything, so this is a plain repository read, not a bypass.
- */
-async function exportSnapshot() {
-  const repo = store.repo
-  if (!repo) return
-  const snapshot: Record<string, unknown[]> = {}
-  for (const storeDef of STORES) {
-    snapshot[storeDef.name] = await repo.list(storeDef.name).catch(() => [])
-  }
-  const blob = new Blob([JSON.stringify({ seed_version: SEED_VERSION, stores: snapshot }, null, 2)], {
-    type: 'application/json',
-  })
-  const url = URL.createObjectURL(blob)
-  const anchor = document.createElement('a')
-  anchor.href = url
-  anchor.download = 'astolia-snapshot.json'
-  anchor.click()
-  URL.revokeObjectURL(url)
-}
-
-async function importSnapshot(event: Event) {
-  const input = event.target as HTMLInputElement
-  const file = input.files?.[0]
-  const repo = store.repo
-  if (!file || !repo) return
-  try {
-    const parsed = JSON.parse(await file.text()) as { stores?: Record<string, Record<string, unknown>[]> }
-    if (!parsed.stores) throw new Error('not a snapshot: no stores key')
-    let written = 0
-    for (const [name, list] of Object.entries(parsed.stores)) {
-      for (const row of list) {
-        // Through the repository, so scope and mirrors still apply. An import
-        // is new work, not history, and it goes through the front door.
-        if (typeof row.id === 'string') {
-          const existing = await repo.get(name as never, row.id)
-          if (existing) continue
-        }
-        await repo.create(name as never, row).catch(() => undefined)
-        written += 1
-      }
-    }
-    importReport.value = `Imported ${written} new row(s).`
-    await reload()
-  } catch (error) {
-    importReport.value = `Import failed: ${error instanceof Error ? error.message : String(error)}`
-  } finally {
-    input.value = ''
-  }
-}
-
 async function resetDemo() {
-  const { clearSeedMarker } = await import('@/data/hydrate')
   if (store.ctx) {
     await clearSeedMarker(store.ctx.db)
     window.location.reload()
@@ -204,36 +155,16 @@ async function resetDemo() {
     <section class="actions">
       <button
         type="button"
-        data-testid="export-snapshot"
-        class="action"
-        @click="exportSnapshot"
-      >
-        Export snapshot
-      </button>
-      <label
-        data-testid="import-snapshot"
-        class="action file"
-      >
-        Import snapshot
-        <input
-          type="file"
-          accept="application/json"
-          class="sr-only"
-          @change="importSnapshot"
-        >
-      </label>
-      <button
-        type="button"
         data-testid="reset-demo-profile"
         class="action danger"
         @click="resetDemo"
       >
         Reset demo data
       </button>
-      <span
-        v-if="importReport"
-        class="muted"
-      >{{ importReport }}</span>
+      <span class="muted">
+        Snapshot export and restore live on the storage panel, beside the
+        eviction verdict they answer.
+      </span>
     </section>
   </div>
 </template>
